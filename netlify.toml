@@ -1,0 +1,87 @@
+[build]
+  command = "bun run build"
+  publish = "dist"
+
+[dev]
+  command = "bun run dev"
+  port = 3000
+  targetPort = 3000
+
+# Environment variables for dashboard
+[build.environment]
+  VITE_API_URL = "https://api.lanonasis.com"
+  VITE_AUTH_GATEWAY_URL = "https://api.lanonasis.com"
+  VITE_API_BASE_URL = "https://api.lanonasis.com"
+  VITE_CORE_API_BASE_URL = "https://api.lanonasis.com"
+  VITE_DASHBOARD_URL = "https://dashboard.lanonasis.com"
+  VITE_DOCS_URL = "https://docs.lanonasis.com"
+  VITE_MCP_URL = "https://mcp.lanonasis.com"
+  VITE_USE_CENTRAL_AUTH = "true"
+  VITE_USE_FALLBACK_AUTH = "true"
+  VITE_PROJECT_SCOPE = "dashboard"
+
+# API proxy to backend - fixed to include /api prefix
+[[redirects]]
+  from = "/api/*"
+  to = "https://api.lanonasis.com/api/:splat"
+  status = 200
+  force = true
+  headers = {X-From = "dashboard"}
+
+# Health check proxy
+[[redirects]]
+  from = "/health"
+  to = "https://api.lanonasis.com/health"
+  status = 200
+
+# MCP SSE endpoint proxy for direct transport
+[[redirects]]
+  from = "/sse"
+  to = "https://mcp.lanonasis.com/sse"
+  status = 200
+  force = true
+  headers = {
+    X-From = "dashboard",
+    X-MCP-Auth = "required"
+  }
+
+# API SSE endpoint proxy 
+[[redirects]]
+  from = "/api/sse"
+  to = "https://api.lanonasis.com/sse"
+  status = 200
+  force = true
+  headers = {
+    X-From = "dashboard",
+    X-MCP-Auth = "required"
+  }
+
+# MCP proxy
+[[redirects]]
+  from = "/mcp/*"
+  to = "https://mcp.lanonasis.com/:splat"
+  status = 200
+  force = true
+
+# OAuth callback handling
+[[redirects]]
+  from = "/auth/callback"
+  to = "/index.html"
+  status = 200
+
+# SPA redirect rules - CRITICAL for React Router
+# This MUST come after API redirects to prevent overriding them
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.lanonasis.com https://mcp.lanonasis.com https://*.supabase.co wss://*.supabase.co"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
