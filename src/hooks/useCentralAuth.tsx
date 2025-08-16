@@ -1,0 +1,384 @@
+// Central Authentication Hook with Supabase Fallback
+// This hook provides a unified interface for authentication that can use either
+// the central auth gateway or fallback to Supabase
+
+import { useState, useEffect, createContext, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { centralAuth, type AuthSession as CentralAuthSession } from "@/lib/central-auth";
+import { supabase } from "@/integrations/supabase/client";
+import { Session, User } from '@supabase/supabase-js';
+
+type Profile = {
+  id: string;
+  full_name: string | null;
+  company_name: string | null;
+  email: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  role: string;
+};
+
+interface CentralAuthContextType {
+  user: User | null;
+  profile: Profile | null;
+  session: Session | CentralAuthSession | null;
+  isLoading: boolean;
+  isUsingCentralAuth: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  isProcessingCallback: boolean;
+  handleAuthCallback: () => Promise<void>;
+}
+
+const CentralAuthContext = createContext<CentralAuthContextType | undefined>(undefined);
+
+const USE_CENTRAL_AUTH = import.meta.env.VITE_USE_CENTRAL_AUTH === 'true';
+const USE_FALLBACK_AUTH = import.meta.env.VITE_USE_FALLBACK_AUTH === 'true';
+
+export const CentralAuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [session, setSession] = useState<Session | CentralAuthSession | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUsingCentralAuth, setIsUsingCentralAuth] = useState(false);
+  const [isProcessingCallback, setIsProcessingCallback] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    initializeAuth();
+  }, []);
+
+  const initializeAuth = async () => {
+    setIsLoading(true);
+    
+    // Try central auth first if enabled
+    if (USE_CENTRAL_AUTH) {
+      try {
+        const isHealthy = await centralAuth.healthCheck();
+        if (isHealthy) {
+          const centralSession = await centralAuth.getCurrentSession();
+          if (centralSession) {
+            setSession(centralSession);
+            setUser(centralSession.user as User);
+            setIsUsingCentralAuth(true);
+            await fetchProfile(centralSession.user.id);
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('Central auth not available, falling back to Supabase:', error);
+      }
+    }
+
+    // Fallback to Supabase
+    if (USE_FALLBACK_AUTH) {
+      try {
+        const { data: { session: supabaseSession }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error fetching Supabase session:', error);
+        } else if (supabaseSession) {
+          setSession(supabaseSession);
+          setUser(supabaseSession.user);
+          setIsUsingCentralAuth(false);
+          await fetchProfile(supabaseSession.user.id);
+        }
+
+        // Set up Supabase auth state listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, supabaseSession) => {
+            console.log('Supabase auth state change:', event, supabaseSession?.user?.email);
+            setSession(supabaseSession);
+            setUser(supabaseSession?.user || null);
+            
+            if (supabaseSession?.user) {
+              await fetchProfile(supabaseSession.user.id);
+              
+              // Handle OAuth callback
+              if (event === 'SIGNED_IN' && supabaseSession.user.app_metadata.provider !== 'email') {
+                await handleOAuthUser(supabaseSession.user);
+              }
+            } else {
+              setProfile(null);
+            }
+          }
+        );
+
+        // Cleanup subscription on unmount
+        return () => subscription.unsubscribe();
+      } catch (error) {
+        console.error('Error initializing Supabase auth:', error);
+      }
+    }
+
+    setIsLoading(false);
+  };
+
+  const handleOAuthUser = async (oauthUser: User) => {
+    try {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', oauthUser.id)
+        .single();
+      
+      if (!existingProfile) {
+        const { error } = await supabase
+          .from('profiles')
+          .insert({
+            id: oauthUser.id,
+            email: oauthUser.email,
+            full_name: oauthUser.user_metadata.full_name || oauthUser.user_metadata.name || null,
+            avatar_url: oauthUser.user_metadata.avatar_url || oauthUser.user_metadata.picture || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        
+        if (!error) {
+          await fetchProfile(oauthUser.id);
+        }
+      }
+      
+      toast({
+        title: "Welcome!",
+        description: "Successfully signed in. Redirecting to dashboard...",
+      });
+      
+      setTimeout(() => {
+        const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+        localStorage.removeItem('redirectAfterLogin');
+        navigate(redirectPath);
+      }, 100);
+    } catch (error) {
+      console.error('Error handling OAuth user:', error);
+    }
+  };
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      setProfile(data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      // Try central auth first if enabled
+      if (USE_CENTRAL_AUTH && isUsingCentralAuth) {
+        try {
+          const centralSession = await centralAuth.login(email, password);
+          setSession(centralSession);
+          setUser(centralSession.user as User);
+          await fetchProfile(centralSession.user.id);
+          
+          toast({
+            title: "Successfully signed in",
+            description: "Welcome back!",
+          });
+          
+          const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+          localStorage.removeItem('redirectAfterLogin');
+          navigate(redirectPath);
+          return;
+        } catch (centralError) {
+          console.warn('Central auth login failed, falling back to Supabase:', centralError);
+        }
+      }
+
+      // Fallback to Supabase
+      if (USE_FALLBACK_AUTH) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+        
+        toast({
+          title: "Successfully signed in",
+          description: "Welcome back!",
+        });
+        
+        const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+        localStorage.removeItem('redirectAfterLogin');
+        navigate(redirectPath);
+      } else {
+        throw new Error('No authentication method available');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error signing in",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signUp = async (email: string, password: string, name: string) => {
+    setIsLoading(true);
+    try {
+      // Try central auth first if enabled
+      if (USE_CENTRAL_AUTH) {
+        try {
+          const centralSession = await centralAuth.signup(email, password, name);
+          setSession(centralSession);
+          setUser(centralSession.user as User);
+          setIsUsingCentralAuth(true);
+          await fetchProfile(centralSession.user.id);
+          
+          toast({
+            title: "Account created successfully",
+            description: "Welcome! Redirecting to dashboard...",
+          });
+          
+          const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+          localStorage.removeItem('redirectAfterLogin');
+          navigate(redirectPath);
+          return;
+        } catch (centralError) {
+          console.warn('Central auth signup failed, falling back to Supabase:', centralError);
+        }
+      }
+
+      // Fallback to Supabase
+      if (USE_FALLBACK_AUTH) {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: name,
+            },
+          },
+        });
+
+        if (error) throw error;
+        
+        toast({
+          title: "Account created successfully",
+          description: "Please check your email to verify your account.",
+        });
+        
+        navigate('/auth/login');
+      } else {
+        throw new Error('No authentication method available');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error creating account",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      if (isUsingCentralAuth) {
+        await centralAuth.logout();
+      } else {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+      }
+      
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: "Error signing out",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAuthCallback = async () => {
+    setIsProcessingCallback(true);
+    try {
+      // This is primarily for OAuth callbacks which go through Supabase
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Error handling auth callback:', error);
+        toast({
+          title: "Authentication Error",
+          description: "Failed to complete authentication",
+          variant: "destructive",
+        });
+        navigate('/auth');
+        return;
+      }
+
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+        await fetchProfile(session.user.id);
+        
+        toast({
+          title: "Authentication Successful",
+          description: "Welcome! Redirecting to dashboard...",
+        });
+        
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      } else {
+        navigate('/auth');
+      }
+    } catch (error) {
+      console.error('Error in auth callback:', error);
+      navigate('/auth');
+    } finally {
+      setIsProcessingCallback(false);
+    }
+  };
+
+  return (
+    <CentralAuthContext.Provider
+      value={{
+        user,
+        profile,
+        session,
+        isLoading,
+        isUsingCentralAuth,
+        signIn,
+        signUp,
+        signOut,
+        isProcessingCallback,
+        handleAuthCallback,
+      }}
+    >
+      {children}
+    </CentralAuthContext.Provider>
+  );
+};
+
+export const useCentralAuth = () => {
+  const context = useContext(CentralAuthContext);
+  if (context === undefined) {
+    throw new Error("useCentralAuth must be used within a CentralAuthProvider");
+  }
+  return context;
+};
