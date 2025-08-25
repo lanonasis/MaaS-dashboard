@@ -20,66 +20,13 @@
   VITE_USE_FALLBACK_AUTH = "true"
   VITE_PROJECT_SCOPE = "dashboard"
 
-# CRITICAL: API redirects MUST come BEFORE SPA fallback
-# API proxy to backend - fixed to include /api prefix
-[[redirects]]
-  from = "/api/*"
-  to = "https://api.lanonasis.com/api/:splat"
-  status = 200
-  force = true
-  [redirects.headers]
-    X-From = "dashboard"
-
-# Health check proxy
-[[redirects]]
-  from = "/health"
-  to = "https://api.lanonasis.com/health"
-  status = 200
-
-# Dashboard-specific health check that returns JSON
-[[redirects]]
-  from = "/dashboard/health"
-  to = "https://api.lanonasis.com/health"
-  status = 200
-  [redirects.headers]
-    X-From = "dashboard"
-    Content-Type = "application/json"
-
-# MCP SSE endpoint proxy for direct transport
-[[redirects]]
-  from = "/sse"
-  to = "https://mcp.lanonasis.com/sse"
-  status = 200
-  force = true
-  [redirects.headers]
-    X-From = "dashboard"
-    X-MCP-Auth = "required"
-
-# API SSE endpoint proxy 
-[[redirects]]
-  from = "/api/sse"
-  to = "https://api.lanonasis.com/sse"
-  status = 200
-  force = true
-  [redirects.headers]
-    X-From = "dashboard"
-    X-MCP-Auth = "required"
-
-# MCP proxy
-[[redirects]]
-  from = "/mcp/*"
-  to = "https://mcp.lanonasis.com/:splat"
-  status = 200
-  force = true
-
-# OAuth callback handling
+# OAuth callback handling - must come before SPA fallback
 [[redirects]]
   from = "/auth/callback"
   to = "/index.html"
   status = 200
 
-# SPA redirect rules - MUST come AFTER API redirects
-# This prevents API calls from being caught by the SPA fallback
+# SPA redirect rules - all routes go to index.html for React Router
 [[redirects]]
   from = "/*"
   to = "/index.html"
