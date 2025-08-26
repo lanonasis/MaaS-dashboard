@@ -10,11 +10,21 @@ const Index = () => {
   const { user, isLoading } = useCentralAuth();
   const navigate = useNavigate();
 
-  // Redirect authenticated users to dashboard
+  // Add this BEFORE the existing useEffect that redirects authenticated users
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasOAuthCallback = urlParams.get('code') || urlParams.get('access_token') || urlParams.get('error');
+    
+    if (hasOAuthCallback) {
+      console.log('Index page: OAuth callback detected, redirecting to callback handler');
+      // Redirect to proper callback handler with all parameters
+      navigate(`/auth/callback${window.location.search}`, { replace: true });
+      return;
+    }
+
+    // Redirect authenticated users to dashboard
     if (!isLoading && user) {
       console.log('Index page: Authenticated user detected, redirecting to dashboard');
-      // Use replace to avoid back button issues
       navigate('/dashboard', { replace: true });
     }
   }, [user, isLoading, navigate]);
