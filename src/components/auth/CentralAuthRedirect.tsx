@@ -30,6 +30,15 @@ const CentralAuthRedirect = () => {
     const authError = searchParams.get('error');
     const code = searchParams.get('code');
 
+    // Handle OAuth callback on root path (redirect to proper callback handler)
+    // This ensures OAuth callbacks to /?code=xxx are properly routed to /auth/callback
+    if (window.location.pathname === '/' && (code || accessToken || authError)) {
+      console.log('CentralAuthRedirect: OAuth callback detected on root path, redirecting to callback handler');
+      // Redirect to proper callback handler with all parameters
+      window.location.href = `/auth/callback${window.location.search}`;
+      return;
+    }
+
     // Handle authentication errors
     if (authError) {
       setError(`Authentication failed: ${authError.replace(/_/g, ' ')}`);
@@ -109,7 +118,7 @@ const CentralAuthRedirect = () => {
     const currentUrl = window.location.origin;
     const authUrl = new URL('https://api.lanonasis.com/auth/login');
     authUrl.searchParams.set('platform', 'dashboard');
-    authUrl.searchParams.set('redirect_url', `${currentUrl}/?return=auth`);
+    authUrl.searchParams.set('redirect_url', `${currentUrl}/auth/callback`);
     
     console.log('Redirecting to onasis-core auth:', authUrl.toString());
     window.location.href = authUrl.toString();
