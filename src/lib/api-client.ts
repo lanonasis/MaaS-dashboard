@@ -107,7 +107,7 @@ class ApiClient {
         localStorage.removeItem('user_data');
         
         // Redirect to onasis-core auth
-        const redirectUrl = `${window.location.origin}/?return=auth`;
+        const redirectUrl = `${window.location.origin}/auth/callback`;
         const authUrl = new URL(`${API_BASE_URL}/auth/login`);
         authUrl.searchParams.set('platform', 'dashboard');
         authUrl.searchParams.set('redirect_url', redirectUrl);
