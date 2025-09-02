@@ -19,6 +19,7 @@
   VITE_USE_CENTRAL_AUTH = "true"
   VITE_USE_FALLBACK_AUTH = "true"
   VITE_PROJECT_SCOPE = "dashboard"
+  VITE_OAUTH_REDIRECT_BASE = "https://dashboard.lanonasis.com"
 
 # OAuth callback handling - must come before SPA fallback
 [[redirects]]
@@ -26,7 +27,25 @@
   to = "/index.html"
   status = 200
 
-# SPA redirect rules - all routes go to index.html for React Router
+# Auth routes (login/register) - allow access
+[[redirects]]
+  from = "/auth/*"
+  to = "/index.html"
+  status = 200
+
+# API routes - allow access
+[[redirects]]
+  from = "/api/*"
+  to = "/index.html"
+  status = 200
+
+# Public routes
+[[redirects]]
+  from = "/public/*"
+  to = "/index.html"
+  status = 200
+
+# SPA redirect rules - all other routes go to index.html for React Router
 [[redirects]]
   from = "/*"
   to = "/index.html"

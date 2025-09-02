@@ -118,11 +118,12 @@ class CentralAuthClient {
 
   // OAuth redirect methods - redirect to onasis-core for authentication
   async loginWithProvider(provider: string): Promise<void> {
-    const redirectUrl = `${window.location.origin}/?return=auth`;
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     const authUrl = new URL(`${API_BASE_URL}/auth/login`);
     authUrl.searchParams.set('platform', PLATFORM);
     authUrl.searchParams.set('provider', provider);
     authUrl.searchParams.set('redirect_url', redirectUrl);
+    authUrl.searchParams.set('return_to', 'dashboard');
     
     // Store current path for post-auth redirect
     const currentPath = window.location.pathname;
@@ -136,10 +137,11 @@ class CentralAuthClient {
   // Legacy login method - redirects to onasis-core login page
   async login(email?: string, password?: string): Promise<never> {
     console.warn('Traditional login deprecated. Redirecting to centralized auth...');
-    const redirectUrl = `${window.location.origin}/?return=auth`;
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     const authUrl = new URL(`${API_BASE_URL}/auth/login`);
     authUrl.searchParams.set('platform', PLATFORM);
     authUrl.searchParams.set('redirect_url', redirectUrl);
+    authUrl.searchParams.set('return_to', 'dashboard');
     
     window.location.href = authUrl.toString();
     throw new Error('Redirecting to centralized authentication');
@@ -148,10 +150,11 @@ class CentralAuthClient {
   // Legacy signup method - redirects to onasis-core login page
   async signup(email?: string, password?: string, name?: string): Promise<never> {
     console.warn('Traditional signup deprecated. Redirecting to centralized auth...');
-    const redirectUrl = `${window.location.origin}/?return=auth`;
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     const authUrl = new URL(`${API_BASE_URL}/auth/login`);
     authUrl.searchParams.set('platform', PLATFORM);
     authUrl.searchParams.set('redirect_url', redirectUrl);
+    authUrl.searchParams.set('return_to', 'dashboard');
     
     window.location.href = authUrl.toString();
     throw new Error('Redirecting to centralized authentication');
