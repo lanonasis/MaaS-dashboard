@@ -109,7 +109,8 @@ const CentralAuthRedirect = () => {
     const currentUrl = window.location.origin;
     const authUrl = new URL('https://api.lanonasis.com/auth/login');
     authUrl.searchParams.set('platform', 'dashboard');
-    authUrl.searchParams.set('redirect_url', `${currentUrl}/?return=auth`);
+    authUrl.searchParams.set('redirect_url', `${currentUrl}/auth/callback`);
+    authUrl.searchParams.set('return_to', 'dashboard');
     
     console.log('Redirecting to onasis-core auth:', authUrl.toString());
     window.location.href = authUrl.toString();

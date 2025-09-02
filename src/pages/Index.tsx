@@ -10,7 +10,7 @@ const Index = () => {
   const { user, isLoading } = useCentralAuth();
   const navigate = useNavigate();
 
-  // Add this BEFORE the existing useEffect that redirects authenticated users
+  // Handle OAuth callbacks - should not land on Index page  
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const hasOAuthCallback = urlParams.get('code') || urlParams.get('access_token') || urlParams.get('error');
