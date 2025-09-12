@@ -24,11 +24,18 @@ const CentralAuthRedirect = () => {
   }, [searchParams]);
 
   const handleAuthFlow = async () => {
+    // Log the current state for debugging
+    console.log('CentralAuthRedirect: handleAuthFlow called');
+    console.log('Current URL:', window.location.href);
+    console.log('Search params:', Object.fromEntries(searchParams.entries()));
+    
     // Check for OAuth tokens in URL (returned from onasis-core)
     const accessToken = searchParams.get('access_token');
     const refreshToken = searchParams.get('refresh_token');
     const authError = searchParams.get('error');
     const code = searchParams.get('code');
+    
+    console.log('Parsed tokens - access_token:', !!accessToken, 'refresh_token:', !!refreshToken, 'error:', authError, 'code:', code);
 
     // Handle authentication errors
     if (authError) {
@@ -40,11 +47,13 @@ const CentralAuthRedirect = () => {
     if (accessToken) {
       setIsValidating(true);
       try {
+        console.log('CentralAuthRedirect: Processing access token');
         // Use central auth to handle tokens
         await centralAuth.handleAuthTokens(accessToken, refreshToken || undefined);
         
         // Redirect to dashboard
         const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+        console.log('CentralAuthRedirect: Redirecting to', redirectPath);
         localStorage.removeItem('redirectAfterLogin');
         
         window.location.href = redirectPath;
@@ -66,17 +75,22 @@ const CentralAuthRedirect = () => {
 
     // Check if user is already authenticated
     const existingToken = localStorage.getItem('access_token');
+    console.log('CentralAuthRedirect: Checking existing token', !!existingToken);
     if (existingToken) {
       setIsValidating(true);
       try {
+        console.log('CentralAuthRedirect: Validating existing session');
         const session = await centralAuth.getCurrentSession();
+        console.log('CentralAuthRedirect: Session validation result', session);
         
         if (session && session.user) {
           // Token is valid, redirect to dashboard
+          console.log('CentralAuthRedirect: Token valid, redirecting to dashboard');
           window.location.href = '/dashboard';
           return;
         } else {
           // Token invalid, clear and redirect to auth
+          console.log('CentralAuthRedirect: Token invalid, clearing and redirecting to auth');
           clearAuthTokens();
           redirectToOnasisAuth();
         }
@@ -88,6 +102,7 @@ const CentralAuthRedirect = () => {
       }
     } else {
       // No existing token, redirect to onasis-core auth
+      console.log('CentralAuthRedirect: No existing token, redirecting to onasis-core auth');
       redirectToOnasisAuth();
     }
   };
@@ -101,10 +116,18 @@ const CentralAuthRedirect = () => {
   const redirectToOnasisAuth = () => {
     // Store current path for redirect after auth
     const currentPath = window.location.pathname;
+    console.log('CentralAuthRedirect: Current path', currentPath);
     if (currentPath !== '/' && currentPath !== '/auth' && currentPath !== '/login') {
       localStorage.setItem('redirectAfterLogin', currentPath);
     }
 
+    // For development, redirect to dashboard directly
+    if (process.env.NODE_ENV === 'development') {
+      console.log('CentralAuthRedirect: Development mode, redirecting to dashboard');
+      window.location.href = '/dashboard';
+      return;
+    }
+    
     // Redirect to onasis-core auth with platform identification
     const currentUrl = window.location.origin;
     const authUrl = new URL('https://api.lanonasis.com/auth/login');

@@ -9,12 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "i18n:validate": "node scripts/validate-translations.js",
-    "i18n:translate": "npx lingo.dev@latest i18n",
-    "i18n:coverage": "cd ../.. && bun run i18n:coverage",
-    "i18n:quality": "cd ../.. && bun run i18n:quality",
-    "i18n": "npx lingo.dev@latest i18n",
-    "i18n:check": "test -f locales/es.json && echo '✅ Translations exist' || echo '❌ Missing translations'"
+    "i18n:extract": "i18next-parser --config i18next-parser.config.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -63,9 +58,9 @@
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "postcss-selector-parser": "^7.1.0",
-    "react": "^18.3.1",
+    "react": "18.3.1",
     "react-day-picker": "^8.10.1",
-    "react-dom": "^18.3.1",
+    "react-dom": "18.3.1",
     "react-hook-form": "^7.60.0",
     "react-i18next": "^15.6.1",
     "react-resizable-panels": "^2.1.9",
@@ -78,6 +73,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "i18next-parser": "^9.2.0",
     "@eslint/js": "^9.31.0",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",

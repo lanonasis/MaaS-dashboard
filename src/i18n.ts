@@ -2,31 +2,21 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-// Import translation files
-import en from '../locales/en.json';
-import es from '../locales/es.json';
-import fr from '../locales/fr.json';
-import de from '../locales/de.json';
-import ja from '../locales/ja.json';
-import zh from '../locales/zh.json';
-import pt from '../locales/pt.json';
-import ar from '../locales/ar.json';
-import ko from '../locales/ko.json';
-import it from '../locales/it.json';
-import ru from '../locales/ru.json';
+// Importing translation files
+import translationEN from './locales/en/translation.json';
+import translationES from './locales/es/translation.json';
+import sharedTranslationEN from '../../../packages/shared-i18n/locales/en.json';
+import sharedTranslationES from '../../../packages/shared-i18n/locales/es.json';
 
 const resources = {
-  en: { translation: en },
-  es: { translation: es },
-  fr: { translation: fr },
-  de: { translation: de },
-  ja: { translation: ja },
-  zh: { translation: zh },
-  pt: { translation: pt },
-  ar: { translation: ar },
-  ko: { translation: ko },
-  it: { translation: it },
-  ru: { translation: ru },
+  en: {
+    translation: translationEN,
+    shared: sharedTranslationEN
+  },
+  es: {
+    translation: translationES,
+    shared: sharedTranslationES
+  }
 };
 
 i18n
@@ -35,16 +25,12 @@ i18n
   .init({
     resources,
     fallbackLng: 'en',
-    debug: false,
-    
+    debug: true,
     interpolation: {
-      escapeValue: false, // React already escapes values
+      escapeValue: false, // not needed for react as it escapes by default
     },
-    
-    detection: {
-      order: ['localStorage', 'navigator', 'htmlTag'],
-      caches: ['localStorage'],
-    },
+    ns: ['translation', 'shared'],
+    defaultNS: 'translation'
   });
 
 export default i18n;

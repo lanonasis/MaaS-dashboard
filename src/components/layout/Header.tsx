@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AnimatedButton } from "../ui/AnimatedButton";
 import { cn } from "@/lib/utils";
 import { Menu, X, Sun, Moon, Laptop } from "lucide-react";
@@ -9,14 +10,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { LanguageSwitcher } from "../LanguageSwitcher";
 
 const navItems = [
-  { name: "Home", path: "/" },
-  { name: "Features", path: "/#features" },
-  { name: "Pricing", path: "/#pricing" },
-  { name: "About", path: "/#about" },
-  { name: "Contact", path: "/#contact" },
+  { name: "header.nav.home", path: "/" },
+  { name: "header.nav.features", path: "/#features" },
+  { name: "header.nav.pricing", path: "/#pricing" },
+  { name: "header.nav.about", path: "/#about" },
+  { name: "header.nav.contact", path: "/#contact" },
 ];
 
 export const Header = () => {
+  const { t } = useTranslation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -72,7 +74,7 @@ export const Header = () => {
                     location.pathname === item.path && "text-primary after:scale-x-100"
                   )}
                 >
-                  {item.name}
+                  {t(item.name)}
                 </Link>
               </li>
             ))}
@@ -96,27 +98,27 @@ export const Header = () => {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setTheme("light")}>
                   <Sun className="h-4 w-4 mr-2" />
-                  Light
+                  {t('header.theme.light')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setTheme("dark")}>
                   <Moon className="h-4 w-4 mr-2" />
-                  Dark
+                  {t('header.theme.dark')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setTheme("system")}>
                   <Laptop className="h-4 w-4 mr-2" />
-                  System
+                  {t('header.theme.system')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             
             <Link to="/auth/login">
               <AnimatedButton variant="ghost" size="sm">
-                Log in
+                {t('header.login')}
               </AnimatedButton>
             </Link>
             <Link to="/auth/register">
               <AnimatedButton variant="default" size="sm">
-                Sign up
+                {t('header.signup')}
               </AnimatedButton>
             </Link>
           </div>
@@ -141,15 +143,15 @@ export const Header = () => {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setTheme("light")}>
                 <Sun className="h-4 w-4 mr-2" />
-                Light
+                {t('header.theme.light')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("dark")}>
                 <Moon className="h-4 w-4 mr-2" />
-                Dark
+                {t('header.theme.dark')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("system")}>
                 <Laptop className="h-4 w-4 mr-2" />
-                System
+                {t('header.theme.system')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -181,7 +183,7 @@ export const Header = () => {
                         location.pathname === item.path && "text-primary"
                       )}
                     >
-                      {item.name}
+                      {t(item.name)}
                     </Link>
                   </li>
                 ))}
@@ -190,12 +192,12 @@ export const Header = () => {
               <div className="flex flex-col space-y-3">
                 <Link to="/auth/login" className="w-full">
                   <AnimatedButton variant="ghost" size="md" fullWidth>
-                    Log in
+                    {t('header.login')}
                   </AnimatedButton>
                 </Link>
                 <Link to="/auth/register" className="w-full">
                   <AnimatedButton variant="default" size="md" fullWidth>
-                    Sign up
+                    {t('header.signup')}
                   </AnimatedButton>
                 </Link>
               </div>

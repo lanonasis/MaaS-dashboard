@@ -13,9 +13,12 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const location = useLocation();
 
   useEffect(() => {
+    console.log('ProtectedRoute: Checking authentication status', { isLoading, user: !!user });
     if (!isLoading && !user) {
+      console.log('ProtectedRoute: User not authenticated, redirecting to auth');
       // Store the attempted route for redirect after login
       const redirectPath = location.pathname + location.search;
+      console.log('ProtectedRoute: Storing redirect path', redirectPath);
       if (redirectPath !== '/dashboard') {
         localStorage.setItem('redirectAfterLogin', redirectPath);
       }
@@ -23,6 +26,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       // Redirect to central auth system instead of local auth routes
       const currentUrl = window.location.origin;
       const authUrl = `https://api.lanonasis.com/auth/login?platform=dashboard&redirect_url=${encodeURIComponent(currentUrl + (redirectPath || '/dashboard'))}`;
+      console.log('ProtectedRoute: Redirecting to auth URL', authUrl);
       window.location.href = authUrl;
     }
   }, [user, isLoading, navigate, location]);
