@@ -50,6 +50,7 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
   useEffect(() => {
     console.log('CentralAuthProvider: Initializing auth');
     initializeAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initializeAuth = async () => {
@@ -128,16 +129,21 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .eq('id', oauthUser.id as any)
-        .single();
+        .maybeSingle();
       
       if (!existingProfile) {
         const { error } = await supabase
           .from('profiles')
           .insert({
-            email: oauthUser.email,
-            full_name: oauthUser.user_metadata.full_name || oauthUser.user_metadata.name || null,
-            avatar_url: oauthUser.user_metadata.avatar_url || oauthUser.user_metadata.picture || null
+            email: oauthUser.email || null,
+            full_name: oauthUser.user_metadata?.full_name || oauthUser.user_metadata?.name || null,
+            avatar_url: oauthUser.user_metadata?.avatar_url || oauthUser.user_metadata?.picture || null,
+            company_name: null,
+            phone: null,
+            role: 'user'
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any);
         
         if (!error) {
@@ -165,8 +171,9 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .eq('id', userId as any)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching profile:', error);
@@ -174,7 +181,7 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       }
 
       if (data) {
-        setProfile(data as Profile);
+        setProfile(data as unknown as Profile);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -189,8 +196,8 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
         try {
           const centralSession = await centralAuth.login(email, password);
           setSession(centralSession);
-          setUser((centralSession as any).user as User);
-          await fetchProfile((centralSession as any).user.id);
+          setUser((centralSession as CentralAuthSession & { user: User }).user);
+          await fetchProfile((centralSession as CentralAuthSession & { user: User }).user.id);
           
           toast({
             title: "Successfully signed in",
@@ -226,10 +233,10 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       } else {
         throw new Error('No authentication method available');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error signing in",
-        description: error.message || "An unexpected error occurred",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -247,7 +254,7 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
           setSession(centralSession);
           setUser(centralSession.user as User);
           setIsUsingCentralAuth(true);
-          await fetchProfile(centralSession.user.id);
+          await fetchProfile(centralSession.user?.id);
           
           toast({
             title: "Account created successfully",
@@ -286,10 +293,10 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       } else {
         throw new Error('No authentication method available');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error creating account",
-        description: error.message || "An unexpected error occurred",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -310,10 +317,10 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       setUser(null);
       setProfile(null);
       navigate('/');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error signing out",
-        description: error.message || "An unexpected error occurred",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       });
     }

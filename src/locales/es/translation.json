@@ -1,0 +1,45 @@
+{
+  "dashboard": {
+    "title": "Panel de Control",
+    "welcome": "Bienvenido a LanOnasis",
+    "overview": "Resumen",
+    "analytics": "Analíticas",
+    "settings": "Configuración"
+  },
+  "memory": {
+    "create": "Crear Memoria",
+    "search": "Buscar Memorias",
+    "title": "Título",
+    "content": "Contenido",
+    "tags": "Etiquetas",
+    "created": "Creado",
+    "updated": "Actualizado"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión",
+    "signup": "Registrarse",
+    "email": "Correo Electrónico",
+    "password": "Contraseña"
+  },
+  "navigation": {
+    "home": "Inicio",
+    "memories": "Memorias",
+    "profile": "Perfil",
+    "help": "Ayuda"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "update": "Actualizar"
+  },
+  "status": {
+    "loading": "Cargando...",
+    "success": "Éxito",
+    "error": "Error",
+    "noData": "No hay datos disponibles"
+  }
+}

@@ -275,6 +275,7 @@ class CentralAuthClient {
 
   // Handle auth tokens from URL parameters (from onasis-core OAuth flow)
   async handleAuthTokens(accessToken: string, refreshToken?: string): Promise<AuthSession> {
+    console.log('CentralAuth: handleAuthTokens called', { accessToken: !!accessToken, refreshToken: !!refreshToken });
     // Store tokens
     this.setStoredToken(accessToken);
     if (refreshToken) {
@@ -282,6 +283,7 @@ class CentralAuthClient {
     }
 
     // Verify token with onasis-core
+    console.log('CentralAuth: Verifying token with onasis-core');
     const response = await fetch(`${API_BASE_URL}/v1/auth/verify`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -291,23 +293,28 @@ class CentralAuthClient {
       }
     });
 
+    console.log('CentralAuth: Token verification response', response.status);
     if (!response.ok) {
+      console.error('CentralAuth: Token validation failed', response.status, response.statusText);
       this.removeStoredToken();
       throw new Error('Token validation failed');
     }
 
     const userData = await response.json();
+    console.log('CentralAuth: User data received', userData);
     
     // Store user data
     localStorage.setItem('user_data', JSON.stringify(userData.user || userData));
     
     // Return session format
-    return {
+    const session = {
       access_token: accessToken,
       refresh_token: refreshToken || '',
       expires_in: 3600,
       user: userData.user || userData
     };
+    console.log('CentralAuth: Session created', session);
+    return session;
   }
 
   // Health check to verify central auth is available
