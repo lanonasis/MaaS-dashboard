@@ -34,8 +34,8 @@ interface CentralAuthContextType {
 
 const CentralAuthContext = createContext<CentralAuthContextType | undefined>(undefined);
 
-const USE_CENTRAL_AUTH = import.meta.env.VITE_USE_CENTRAL_AUTH === 'true';
-const USE_FALLBACK_AUTH = import.meta.env.VITE_USE_FALLBACK_AUTH === 'true';
+const USE_CENTRAL_AUTH = import.meta.env.VITE_USE_CENTRAL_AUTH === 'true' || false;
+const USE_FALLBACK_AUTH = import.meta.env.VITE_USE_FALLBACK_AUTH === 'true' || true;
 
 export const CentralAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -48,18 +48,24 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('CentralAuthProvider: Initializing auth');
     initializeAuth();
   }, []);
 
   const initializeAuth = async () => {
+    console.log('CentralAuthProvider: initializeAuth called', { USE_CENTRAL_AUTH, USE_FALLBACK_AUTH });
     setIsLoading(true);
     
     // Try central auth first if enabled
     if (USE_CENTRAL_AUTH) {
       try {
+        console.log('CentralAuthProvider: Checking central auth health');
         const isHealthy = await centralAuth.healthCheck();
+        console.log('CentralAuthProvider: Central auth health status', isHealthy);
         if (isHealthy) {
+          console.log('CentralAuthProvider: Getting current session');
           const centralSession = await centralAuth.getCurrentSession();
+          console.log('CentralAuthProvider: Current session result', centralSession);
           if (centralSession) {
             setSession(centralSession);
             setUser(centralSession.user as User);
@@ -122,20 +128,17 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', oauthUser.id)
+        .eq('id', oauthUser.id as any)
         .single();
       
       if (!existingProfile) {
         const { error } = await supabase
           .from('profiles')
           .insert({
-            id: oauthUser.id,
             email: oauthUser.email,
             full_name: oauthUser.user_metadata.full_name || oauthUser.user_metadata.name || null,
-            avatar_url: oauthUser.user_metadata.avatar_url || oauthUser.user_metadata.picture || null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
+            avatar_url: oauthUser.user_metadata.avatar_url || oauthUser.user_metadata.picture || null
+          } as any);
         
         if (!error) {
           await fetchProfile(oauthUser.id);
@@ -162,7 +165,7 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', userId as any)
         .single();
 
       if (error) {
@@ -170,7 +173,9 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
         return;
       }
 
-      setProfile(data);
+      if (data) {
+        setProfile(data as Profile);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
@@ -184,8 +189,8 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
         try {
           const centralSession = await centralAuth.login(email, password);
           setSession(centralSession);
-          setUser(centralSession.user as User);
-          await fetchProfile(centralSession.user.id);
+          setUser((centralSession as any).user as User);
+          await fetchProfile((centralSession as any).user.id);
           
           toast({
             title: "Successfully signed in",
