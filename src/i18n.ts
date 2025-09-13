@@ -5,8 +5,8 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 // Importing translation files
 import translationEN from './locales/en/translation.json';
 import translationES from './locales/es/translation.json';
-import sharedTranslationEN from '../../../packages/shared-i18n/locales/en.json';
-import sharedTranslationES from '../../../packages/shared-i18n/locales/es.json';
+import sharedTranslationEN from './locales/shared/en.json';
+import sharedTranslationES from './locales/shared/es.json';
 
 const resources = {
   en: {
