@@ -1,4 +1,20 @@
 {
+  "header": {
+    "nav": {
+      "home": "Inicio",
+      "features": "Características",
+      "pricing": "Precios",
+      "about": "Acerca de",
+      "contact": "Contacto"
+    },
+    "login": "Iniciar Sesión",
+    "signup": "Registrarse",
+    "theme": {
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    }
+  },
   "dashboard": {
     "title": "Panel de Control",
     "welcome": "Bienvenido a LanOnasis",

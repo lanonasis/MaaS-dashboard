@@ -1,4 +1,20 @@
 {
+  "header": {
+    "nav": {
+      "home": "Home",
+      "features": "Features",
+      "pricing": "Pricing",
+      "about": "About",
+      "contact": "Contact"
+    },
+    "login": "Login",
+    "signup": "Sign Up",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "welcome": "Welcome to LanOnasis",
