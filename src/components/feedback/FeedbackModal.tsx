@@ -96,7 +96,7 @@ export const FeedbackModal = ({ isOpen, onClose }: FeedbackModalProps) => {
 ${formData.description}
 
 ---
-*Submitted via Lanonasis MaaS Dashboard*
+*Submitted via LanOnasis MaaS Dashboard*
 *Timestamp: ${new Date().toISOString()}*
       `.trim();
 
@@ -142,7 +142,7 @@ ${formData.description}
             Feedback & Feature Requests
           </DialogTitle>
           <DialogDescription>
-            Help us improve Lanonasis MaaS by sharing your feedback, feature requests, or bug reports.
+            Help us improve LanOnasis MaaS by sharing your feedback, feature requests, or bug reports.
           </DialogDescription>
         </DialogHeader>
 
@@ -259,7 +259,7 @@ ${formData.description}
 
         {/* Footer info */}
         <div className="text-xs text-gray-500 pt-2 border-t">
-          <p>💡 <strong>Tip:</strong> For urgent issues, contact support directly at support@lanonasis.com</p>
+          <p>💡 <strong>Tip:</strong> For urgent issues, contact support directly at support@LanOnasis.com</p>
           <p>🔒 Your feedback is valuable and helps us improve the platform for everyone.</p>
         </div>
       </DialogContent>
