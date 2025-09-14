@@ -130,7 +130,7 @@ const CentralAuthRedirect = () => {
     
     // Redirect to onasis-core auth with platform identification
     const currentUrl = window.location.origin;
-    const authUrl = new URL('https://api.lanonasis.com/auth/login');
+    const authUrl = new URL('https://api.LanOnasis.com/auth/login');
     authUrl.searchParams.set('platform', 'dashboard');
     authUrl.searchParams.set('redirect_url', `${currentUrl}/auth/callback`);
     authUrl.searchParams.set('return_to', 'dashboard');
