@@ -19,7 +19,7 @@ class ApiHealthChecker {
   private endpoints: ServiceEndpoints;
   
   constructor() {
-    const baseUrl = import.meta.env.VITE_API_URL?.replace('/v1', '') || 'https://api.lanonasis.com';
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/v1', '') || 'https://api.LanOnasis.com';
     this.endpoints = {
       core: baseUrl,
       auth: `${baseUrl}/auth`,
@@ -107,7 +107,7 @@ class ApiHealthChecker {
   }> {
     try {
       // Check if all components point to same backend
-      const expectedBackend = 'api.lanonasis.com';
+      const expectedBackend = 'api.LanOnasis.com';
       
       const dashboardBackend = this.endpoints.core.includes(expectedBackend);
       
