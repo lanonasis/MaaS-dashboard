@@ -47,7 +47,7 @@ interface ApiKeyResponse {
   name?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.lanonasis.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.LanOnasis.com';
 const PROJECT_SCOPE = import.meta.env.VITE_PROJECT_SCOPE || 'dashboard';
 const PLATFORM = 'dashboard';
 
