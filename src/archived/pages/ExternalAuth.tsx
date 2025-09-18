@@ -174,7 +174,7 @@ const ExternalAuth = () => {
             <div className="mt-8 text-center text-xs text-muted-foreground">
               <div>
                 Secured by{" "}
-                <span className="font-medium text-primary">Lanonasis Platform</span>
+                <span className="font-medium text-primary">LanOnasis Platform</span>
               </div>
             </div>
           </div>
