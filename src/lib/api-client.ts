@@ -4,7 +4,7 @@
  * Replaces direct Supabase usage with Core API calls
  */
 
-const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || 'https://api.lanonasis.com';
+const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || 'https://api.LanOnasis.com';
 const MAAS_API_PREFIX = '/api/v1/maas';
 
 interface ApiResponse<T = any> {
