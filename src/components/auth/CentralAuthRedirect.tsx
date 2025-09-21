@@ -29,6 +29,9 @@ const CentralAuthRedirect = () => {
     console.log('Current URL:', window.location.href);
     console.log('Search params:', Object.fromEntries(searchParams.entries()));
     
+    const currentPath = window.location.pathname;
+    const isCallbackPath = currentPath === '/auth/callback';
+    
     // Check for OAuth tokens in URL (returned from onasis-core)
     let accessToken = searchParams.get('access_token');
     let refreshToken = searchParams.get('refresh_token');
@@ -42,6 +45,7 @@ const CentralAuthRedirect = () => {
     }
     
     console.log('Parsed tokens - access_token:', !!accessToken, 'refresh_token:', !!refreshToken, 'error:', authError, 'code:', code);
+    console.log('Is callback path:', isCallbackPath);
 
     // Handle authentication errors
     if (authError) {
@@ -150,6 +154,14 @@ const CentralAuthRedirect = () => {
         redirectToOnasisAuth();
       }
     } else {
+      // No existing token - check if this is a direct callback access
+      if (isCallbackPath && !code && !authError && !accessToken) {
+        // Direct access to callback without any auth parameters - show error
+        console.log('CentralAuthRedirect: Direct access to callback without auth parameters');
+        setError('No authentication data found. Please sign in again.');
+        return;
+      }
+      
       // No existing token, redirect to onasis-core auth
       console.log('CentralAuthRedirect: No existing token, redirecting to onasis-core auth');
       redirectToOnasisAuth();
