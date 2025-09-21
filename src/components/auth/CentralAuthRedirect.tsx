@@ -38,10 +38,32 @@ const CentralAuthRedirect = () => {
     const authError = searchParams.get('error');
     const code = searchParams.get('code');
     
-    // Also check localStorage for tokens (set by auth gateway)
+    // Also check localStorage for tokens (set by auth gateway) with retry for timing issues
     if (!accessToken) {
+      // First immediate check
       accessToken = localStorage.getItem('lanonasis_token');
-      console.log('CentralAuthRedirect: Found token in localStorage:', !!accessToken);
+      console.log('CentralAuthRedirect: Found token in localStorage (immediate):', !!accessToken);
+      
+      // If no token found and this is a callback from auth, wait a bit and retry
+      if (!accessToken && isCallbackPath) {
+        const referrer = document.referrer;
+        const isFromAuth = referrer && (referrer.includes('api.lanonasis.com') || referrer.includes('auth'));
+        
+        if (isFromAuth) {
+          console.log('CentralAuthRedirect: Callback from auth but no immediate token, retrying in 500ms...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          accessToken = localStorage.getItem('lanonasis_token');
+          console.log('CentralAuthRedirect: Found token in localStorage (retry):', !!accessToken);
+          
+          // One more retry if still not found
+          if (!accessToken) {
+            console.log('CentralAuthRedirect: Still no token, retrying in 1000ms...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            accessToken = localStorage.getItem('lanonasis_token');
+            console.log('CentralAuthRedirect: Found token in localStorage (final retry):', !!accessToken);
+          }
+        }
+      }
     }
     
     console.log('Parsed tokens - access_token:', !!accessToken, 'refresh_token:', !!refreshToken, 'error:', authError, 'code:', code);
