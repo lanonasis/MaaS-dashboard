@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { centralAuth } from '../../lib/central-auth';
 
 /**
@@ -16,6 +16,7 @@ import { centralAuth } from '../../lib/central-auth';
  */
 const CentralAuthRedirect = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
 
@@ -130,9 +131,10 @@ const CentralAuthRedirect = () => {
         console.log('CentralAuthRedirect: Redirecting authenticated user', userId, 'to', redirectPath);
         localStorage.removeItem('redirectAfterLogin');
         
-        // Create clean URL without auth parameters
-        const cleanUrl = `${window.location.origin}${redirectPath}`;
-        window.location.href = cleanUrl;
+        // Use React Router navigation instead of direct browser navigation
+        // This keeps us in the SPA context and avoids race conditions with token processing
+        console.log('CentralAuthRedirect: Using React Router navigate() for SPA navigation');
+        navigate(redirectPath);
         return;
       } catch (e) {
         console.error('Token validation error:', e);
