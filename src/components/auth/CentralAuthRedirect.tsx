@@ -154,12 +154,24 @@ const CentralAuthRedirect = () => {
         redirectToOnasisAuth();
       }
     } else {
-      // No existing token - check if this is a direct callback access
+      // No existing token - handle callback appropriately
       if (isCallbackPath && !code && !authError && !accessToken) {
-        // Direct access to callback without any auth parameters - show error
-        console.log('CentralAuthRedirect: Direct access to callback without auth parameters');
-        setError('No authentication data found. Please sign in again.');
-        return;
+        // Check if this came from auth gateway (legitimate redirect)
+        const referrer = document.referrer;
+        const isFromAuth = referrer && (referrer.includes('api.lanonasis.com') || referrer.includes('auth'));
+        
+        if (isFromAuth) {
+          // Legitimate redirect from auth but no tokens - auth gateway issue
+          console.log('CentralAuthRedirect: Callback from auth gateway but no session data found, redirecting to login');
+          // Don't show error, just redirect to login cleanly
+          redirectToOnasisAuth();
+          return;
+        } else {
+          // True direct access to callback - show minimal error
+          console.log('CentralAuthRedirect: Direct access to callback');
+          setError('Please sign in to continue.');
+          return;
+        }
       }
       
       // No existing token, redirect to onasis-core auth
