@@ -38,30 +38,39 @@ const CentralAuthRedirect = () => {
     const authError = searchParams.get('error');
     const code = searchParams.get('code');
     
+    // Check for user-specific callback parameters
+    const sessionId = searchParams.get('session');
+    const userId = searchParams.get('user_id');
+    const urlToken = searchParams.get('token');
+    const timestamp = searchParams.get('timestamp');
+    
+    console.log('User-specific parameters:', { sessionId, userId, urlToken: !!urlToken, timestamp });
+    
+    // Prioritize URL token if available (more immediate)
+    if (!accessToken && urlToken) {
+      accessToken = urlToken;
+      console.log('CentralAuthRedirect: Using token from URL parameters');
+    }
+    
     // Also check localStorage for tokens (set by auth gateway) with retry for timing issues
     if (!accessToken) {
       // First immediate check
       accessToken = localStorage.getItem('lanonasis_token');
       console.log('CentralAuthRedirect: Found token in localStorage (immediate):', !!accessToken);
       
-      // If no token found and this is a callback from auth, wait a bit and retry
-      if (!accessToken && isCallbackPath) {
-        const referrer = document.referrer;
-        const isFromAuth = referrer && (referrer.includes('api.lanonasis.com') || referrer.includes('auth'));
+      // If no token found and this is a callback with session info, wait a bit and retry
+      if (!accessToken && isCallbackPath && (sessionId || userId)) {
+        console.log('CentralAuthRedirect: User-specific callback but no immediate token, retrying in 500ms...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        accessToken = localStorage.getItem('lanonasis_token');
+        console.log('CentralAuthRedirect: Found token in localStorage (retry):', !!accessToken);
         
-        if (isFromAuth) {
-          console.log('CentralAuthRedirect: Callback from auth but no immediate token, retrying in 500ms...');
-          await new Promise(resolve => setTimeout(resolve, 500));
+        // One more retry if still not found
+        if (!accessToken) {
+          console.log('CentralAuthRedirect: Still no token, retrying in 1000ms...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
           accessToken = localStorage.getItem('lanonasis_token');
-          console.log('CentralAuthRedirect: Found token in localStorage (retry):', !!accessToken);
-          
-          // One more retry if still not found
-          if (!accessToken) {
-            console.log('CentralAuthRedirect: Still no token, retrying in 1000ms...');
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            accessToken = localStorage.getItem('lanonasis_token');
-            console.log('CentralAuthRedirect: Found token in localStorage (final retry):', !!accessToken);
-          }
+          console.log('CentralAuthRedirect: Found token in localStorage (final retry):', !!accessToken);
         }
       }
     }
@@ -79,7 +88,8 @@ const CentralAuthRedirect = () => {
     if (accessToken) {
       setIsValidating(true);
       try {
-        console.log('CentralAuthRedirect: Processing access token');
+        console.log('CentralAuthRedirect: Processing access token for user:', userId || 'unknown');
+        console.log('CentralAuthRedirect: Session ID:', sessionId);
         
         // If token came from localStorage, also get user data
         if (!refreshToken && localStorage.getItem('lanonasis_user')) {
@@ -100,16 +110,29 @@ const CentralAuthRedirect = () => {
         // Use central auth to handle tokens
         await centralAuth.handleAuthTokens(accessToken, refreshToken || undefined);
         
+        // Store session info for user identification
+        if (sessionId) {
+          localStorage.setItem('lanonasis_current_session', sessionId);
+        }
+        if (userId) {
+          localStorage.setItem('lanonasis_current_user_id', userId);
+        }
+        if (timestamp) {
+          localStorage.setItem('lanonasis_auth_timestamp', timestamp);
+        }
+        
         // Clean up old localStorage tokens
         localStorage.removeItem('lanonasis_token');
         localStorage.removeItem('lanonasis_user');
         
-        // Redirect to dashboard
+        // Redirect to personalized dashboard
         const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
-        console.log('CentralAuthRedirect: Redirecting to', redirectPath);
+        console.log('CentralAuthRedirect: Redirecting authenticated user', userId, 'to', redirectPath);
         localStorage.removeItem('redirectAfterLogin');
         
-        window.location.href = redirectPath;
+        // Create clean URL without auth parameters
+        const cleanUrl = `${window.location.origin}${redirectPath}`;
+        window.location.href = cleanUrl;
         return;
       } catch (e) {
         console.error('Token validation error:', e);
