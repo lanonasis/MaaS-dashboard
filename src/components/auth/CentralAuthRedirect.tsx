@@ -30,10 +30,16 @@ const CentralAuthRedirect = () => {
     console.log('Search params:', Object.fromEntries(searchParams.entries()));
     
     // Check for OAuth tokens in URL (returned from onasis-core)
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
+    let accessToken = searchParams.get('access_token');
+    let refreshToken = searchParams.get('refresh_token');
     const authError = searchParams.get('error');
     const code = searchParams.get('code');
+    
+    // Also check localStorage for tokens (set by auth gateway)
+    if (!accessToken) {
+      accessToken = localStorage.getItem('lanonasis_token');
+      console.log('CentralAuthRedirect: Found token in localStorage:', !!accessToken);
+    }
     
     console.log('Parsed tokens - access_token:', !!accessToken, 'refresh_token:', !!refreshToken, 'error:', authError, 'code:', code);
 
@@ -48,8 +54,29 @@ const CentralAuthRedirect = () => {
       setIsValidating(true);
       try {
         console.log('CentralAuthRedirect: Processing access token');
+        
+        // If token came from localStorage, also get user data
+        if (!refreshToken && localStorage.getItem('lanonasis_user')) {
+          const userData = localStorage.getItem('lanonasis_user');
+          console.log('CentralAuthRedirect: Found user data in localStorage');
+          
+          // Store user data using the expected format
+          if (userData) {
+            try {
+              const user = JSON.parse(userData);
+              localStorage.setItem('user_data', JSON.stringify(user));
+            } catch (e) {
+              console.error('Error parsing user data from localStorage:', e);
+            }
+          }
+        }
+        
         // Use central auth to handle tokens
         await centralAuth.handleAuthTokens(accessToken, refreshToken || undefined);
+        
+        // Clean up old localStorage tokens
+        localStorage.removeItem('lanonasis_token');
+        localStorage.removeItem('lanonasis_user');
         
         // Redirect to dashboard
         const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
@@ -62,6 +89,8 @@ const CentralAuthRedirect = () => {
         console.error('Token validation error:', e);
         setError('Failed to validate authentication. Please try again.');
         return;
+      } finally {
+        setIsValidating(false);
       }
     }
 
@@ -73,12 +102,32 @@ const CentralAuthRedirect = () => {
       return;
     }
 
-    // Check if user is already authenticated
-    const existingToken = localStorage.getItem('access_token');
+    // Check if user is already authenticated (either new or old token format)
+    const existingToken = localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
     console.log('CentralAuthRedirect: Checking existing token', !!existingToken);
     if (existingToken) {
       setIsValidating(true);
       try {
+        // If we have the old format token, migrate it first
+        if (localStorage.getItem('lanonasis_token') && !localStorage.getItem('access_token')) {
+          console.log('CentralAuthRedirect: Migrating old token format');
+          localStorage.setItem('access_token', existingToken);
+          
+          const oldUserData = localStorage.getItem('lanonasis_user');
+          if (oldUserData) {
+            try {
+              const user = JSON.parse(oldUserData);
+              localStorage.setItem('user_data', JSON.stringify(user));
+            } catch (e) {
+              console.error('Error migrating user data:', e);
+            }
+          }
+          
+          // Clean up old tokens
+          localStorage.removeItem('lanonasis_token');
+          localStorage.removeItem('lanonasis_user');
+        }
+        
         console.log('CentralAuthRedirect: Validating existing session');
         const session = await centralAuth.getCurrentSession();
         console.log('CentralAuthRedirect: Session validation result', session);
