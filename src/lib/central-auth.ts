@@ -53,17 +53,25 @@ const PLATFORM = 'dashboard';
 
 class CentralAuthClient {
   private getStoredToken(): string | null {
-    return localStorage.getItem('access_token');
+    // Check both token formats for compatibility
+    return localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
   }
 
   private setStoredToken(token: string): void {
+    // Store in new format and maintain backward compatibility
     localStorage.setItem('access_token', token);
+    localStorage.setItem('lanonasis_token', token);
   }
 
   private removeStoredToken(): void {
+    // Remove both token formats
     localStorage.removeItem('access_token');
+    localStorage.removeItem('lanonasis_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_data');
+    localStorage.removeItem('lanonasis_user');
+    localStorage.removeItem('lanonasis_current_session');
+    localStorage.removeItem('lanonasis_current_user_id');
   }
 
   private async makeAuthenticatedRequest(
