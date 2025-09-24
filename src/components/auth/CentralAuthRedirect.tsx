@@ -55,22 +55,22 @@ const CentralAuthRedirect = () => {
     
     // Also check localStorage for tokens (set by auth gateway) with retry for timing issues
     if (!accessToken) {
-      // First immediate check
-      accessToken = localStorage.getItem('lanonasis_token');
+      // Check both token formats for compatibility
+      accessToken = localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
       console.log('CentralAuthRedirect: Found token in localStorage (immediate):', !!accessToken);
       
       // If no token found and this is a callback with session info, wait a bit and retry
       if (!accessToken && isCallbackPath && (sessionId || userId)) {
         console.log('CentralAuthRedirect: User-specific callback but no immediate token, retrying in 500ms...');
         await new Promise(resolve => setTimeout(resolve, 500));
-        accessToken = localStorage.getItem('lanonasis_token');
+        accessToken = localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
         console.log('CentralAuthRedirect: Found token in localStorage (retry):', !!accessToken);
         
         // One more retry if still not found
         if (!accessToken) {
           console.log('CentralAuthRedirect: Still no token, retrying in 1000ms...');
           await new Promise(resolve => setTimeout(resolve, 1000));
-          accessToken = localStorage.getItem('lanonasis_token');
+          accessToken = localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
           console.log('CentralAuthRedirect: Found token in localStorage (final retry):', !!accessToken);
         }
       }
@@ -228,9 +228,14 @@ const CentralAuthRedirect = () => {
   };
 
   const clearAuthTokens = () => {
+    // Remove both token formats and all user data
     localStorage.removeItem('access_token');
+    localStorage.removeItem('lanonasis_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_data');
+    localStorage.removeItem('lanonasis_user');
+    localStorage.removeItem('lanonasis_current_session');
+    localStorage.removeItem('lanonasis_current_user_id');
   };
 
   const redirectToOnasisAuth = () => {
@@ -241,13 +246,6 @@ const CentralAuthRedirect = () => {
       localStorage.setItem('redirectAfterLogin', currentPath);
     }
 
-    // For development, redirect to dashboard directly
-    if (process.env.NODE_ENV === 'development') {
-      console.log('CentralAuthRedirect: Development mode, redirecting to dashboard');
-      window.location.href = '/dashboard';
-      return;
-    }
-    
     // Redirect to onasis-core auth with platform identification
     const currentUrl = window.location.origin;
     const authUrl = new URL('https://api.LanOnasis.com/auth/login');

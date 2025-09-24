@@ -25,9 +25,12 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       
       // Redirect to central auth system instead of local auth routes
       const currentUrl = window.location.origin;
-      const authUrl = `https://api.LanOnasis.com/auth/login?platform=dashboard&redirect_url=${encodeURIComponent(currentUrl + (redirectPath || '/dashboard'))}`;
-      console.log('ProtectedRoute: Redirecting to auth URL', authUrl);
-      window.location.href = authUrl;
+      const authUrl = new URL('https://api.LanOnasis.com/auth/login');
+      authUrl.searchParams.set('platform', 'dashboard');
+      authUrl.searchParams.set('redirect_url', `${currentUrl}/auth/callback`);
+      authUrl.searchParams.set('return_to', 'dashboard');
+      console.log('ProtectedRoute: Redirecting to auth URL', authUrl.toString());
+      window.location.href = authUrl.toString();
     }
   }, [user, isLoading, navigate, location]);
 
