@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle, Shield, Zap, Clock, CreditCard, UserCheck, FileText, Code } from "lucide-react";
 import { useCentralAuth } from "@/hooks/useCentralAuth";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import AuthForm from "@/components/auth/AuthForm";
 
 const Index = () => {
   const { user, isLoading } = useCentralAuth();
@@ -28,9 +29,15 @@ const Index = () => {
       navigate('/dashboard', { replace: true });
     }
   }, [user, isLoading, navigate]);
+  const [showAuthForm, setShowAuthForm] = useState(false);
+  
   return (
     <Layout>
-      {/* Hero Section */}
+      {showAuthForm ? (
+        <AuthForm />
+      ) : (
+        <>
+          {/* Hero Section */}
       <section className="relative overflow-hidden py-20 md:py-32">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 pointer-events-none" />
         <div className="absolute inset-0 overflow-hidden">
@@ -339,28 +346,30 @@ async function useMemoryService() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link to="/auth/register">
+                <button onClick={() => setShowAuthForm(true)}>
                   <AnimatedButton 
                     size="lg" 
                     className="bg-white text-primary hover:bg-white/90 min-w-[160px]"
                   >
                     Sign up free
                   </AnimatedButton>
-                </Link>
-                <Link to="/auth/login">
+                </button>
+                <button onClick={() => setShowAuthForm(true)}>
                   <AnimatedButton 
                     variant="outline" 
                     size="lg" 
                     className="border-white text-white hover:bg-white/10 min-w-[160px]"
                   >
-                    Learn more
+                    Sign in
                   </AnimatedButton>
-                </Link>
+                </button>
               </div>
             </div>
           </div>
         </div>
       </section>
+        </>
+      )}
     </Layout>
   );
 };
