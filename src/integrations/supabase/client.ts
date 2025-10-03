@@ -12,9 +12,11 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "your
 export const getRedirectUrl = () => {
   if (typeof window === 'undefined') return 'https://dashboard.LanOnasis.com/';
 
-  const isLocalhost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+  const isLocalDevelopment = window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname.match(/^192\.168\./);
 
-  if (isLocalhost) {
+  if (isLocalDevelopment) {
     return `${window.location.origin}/`;
   }
 
@@ -26,9 +28,11 @@ export const getRedirectUrl = () => {
 export const getOAuthCallbackUrl = () => {
   if (typeof window === 'undefined') return 'https://dashboard.LanOnasis.com/auth/callback';
 
-  const isLocalhost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+  const isLocalDevelopment = window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname.match(/^192\.168\./);
 
-  if (isLocalhost) {
+  if (isLocalDevelopment) {
     return `${window.location.origin}/auth/callback`;
   }
 

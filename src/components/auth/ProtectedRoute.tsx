@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useCentralAuth } from "@/hooks/useCentralAuth";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 
@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, isLoading } = useCentralAuth();
+  const { user, isLoading } = useSupabaseAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -23,14 +23,8 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         localStorage.setItem('redirectAfterLogin', redirectPath);
       }
       
-      // Redirect to central auth system instead of local auth routes
-      const currentUrl = window.location.origin;
-      const authUrl = new URL('https://api.LanOnasis.com/auth/login');
-      authUrl.searchParams.set('platform', 'dashboard');
-      authUrl.searchParams.set('redirect_url', `${currentUrl}/auth/callback`);
-      authUrl.searchParams.set('return_to', 'dashboard');
-      console.log('ProtectedRoute: Redirecting to auth URL', authUrl.toString());
-      window.location.href = authUrl.toString();
+      // Redirect to the index page with auth form
+      navigate('/?showAuth=true');
     }
   }, [user, isLoading, navigate, location]);
 
