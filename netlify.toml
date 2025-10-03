@@ -1,14 +1,18 @@
 [build]
-  command = "bun run build"
+  command = "curl -fsSL https://bun.sh/install | bash && ~/.bun/bin/bun install && ~/.bun/bin/bun run build"
   publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
 
 [dev]
   command = "bun run dev"
   port = 3000
   targetPort = 8080
 
-# Environment variables for dashboard
 [build.environment]
+  NODE_VERSION = "20"
+  BUN_VERSION = "1.2.22"
   VITE_API_URL = "https://api.lanonasis.com/v1"
   VITE_AUTH_GATEWAY_URL = "https://api.lanonasis.com"
   VITE_API_BASE_URL = "https://api.lanonasis.com/v1"
