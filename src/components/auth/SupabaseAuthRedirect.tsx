@@ -43,7 +43,7 @@ const SupabaseAuthRedirect = () => {
     // For login/register paths, show the Supabase auth UI
     // Since we're directly handling auth, we'll redirect to the index page
     // which should have a login/register UI based on Supabase
-    navigate('/');
+    navigate('/?showAuth=true');
   };
 
   return (

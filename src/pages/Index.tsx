@@ -1,20 +1,26 @@
 import { Layout } from "@/components/layout/Layout";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, CheckCircle, Shield, Zap, Clock, CreditCard, UserCheck, FileText, Code } from "lucide-react";
-import { useCentralAuth } from "@/hooks/useCentralAuth";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useEffect, useState } from "react";
 import AuthForm from "@/components/auth/AuthForm";
 
 const Index = () => {
-  const { user, isLoading } = useCentralAuth();
+  const { user, isLoading } = useSupabaseAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
+  // Get showAuth from URL parameters
+  const [showAuthForm, setShowAuthForm] = useState(() => {
+    const showAuthParam = searchParams.get('showAuth');
+    return showAuthParam === 'true';
+  });
+  
   // Handle OAuth callbacks - should not land on Index page  
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasOAuthCallback = urlParams.get('code') || urlParams.get('access_token') || urlParams.get('error');
+    const hasOAuthCallback = searchParams.get('code') || searchParams.get('access_token') || searchParams.get('error');
     
     if (hasOAuthCallback) {
       console.log('Index page: OAuth callback detected, redirecting to callback handler');
@@ -28,8 +34,7 @@ const Index = () => {
       console.log('Index page: Authenticated user detected, redirecting to dashboard');
       navigate('/dashboard', { replace: true });
     }
-  }, [user, isLoading, navigate]);
-  const [showAuthForm, setShowAuthForm] = useState(false);
+  }, [user, isLoading, navigate, searchParams]);
   
   return (
     <Layout>
