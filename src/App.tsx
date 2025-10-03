@@ -13,7 +13,7 @@ import NotFound from "./pages/NotFound";
 import ApiDocs from "./pages/ApiDocs";
 import ApiAnalytics from "./pages/ApiAnalytics";
 import OAuthAuthorize from "./pages/OAuthAuthorize";
-import CentralAuthRedirect from "./components/auth/CentralAuthRedirect";
+import SupabaseAuthRedirect from "./components/auth/SupabaseAuthRedirect";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,11 +34,11 @@ const App = () => (
             <Sonner />
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/auth/*" element={<CentralAuthRedirect />} />
-              <Route path="/login" element={<CentralAuthRedirect />} />
-              <Route path="/register" element={<CentralAuthRedirect />} />
-              <Route path="/signin" element={<CentralAuthRedirect />} />
-              <Route path="/signup" element={<CentralAuthRedirect />} />
+              <Route path="/auth/*" element={<SupabaseAuthRedirect />} />
+              <Route path="/login" element={<SupabaseAuthRedirect />} />
+              <Route path="/register" element={<SupabaseAuthRedirect />} />
+              <Route path="/signin" element={<SupabaseAuthRedirect />} />
+              <Route path="/signup" element={<SupabaseAuthRedirect />} />
               <Route path="/landing" element={<Index />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/memory-visualizer" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
