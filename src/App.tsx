@@ -33,7 +33,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Index />} />
               <Route path="/auth/*" element={<CentralAuthRedirect />} />
               <Route path="/login" element={<CentralAuthRedirect />} />
               <Route path="/register" element={<CentralAuthRedirect />} />
