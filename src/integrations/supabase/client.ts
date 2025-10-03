@@ -11,13 +11,13 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY=REDACTED
 // Determine correct redirect URL based on environment
 export const getRedirectUrl = () => {
   if (typeof window === 'undefined') return 'https://dashboard.LanOnasis.com/';
-  
+
   const isLocalhost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
-  
+
   if (isLocalhost) {
     return `${window.location.origin}/`;
   }
-  
+
   // Always redirect to dashboard.LanOnasis.com root for OAuth (auth component will handle dashboard redirect)
   return 'https://dashboard.LanOnasis.com/';
 };
@@ -25,24 +25,39 @@ export const getRedirectUrl = () => {
 // OAuth callback URL for provider configurations
 export const getOAuthCallbackUrl = () => {
   if (typeof window === 'undefined') return 'https://dashboard.LanOnasis.com/auth/callback';
-  
+
   const isLocalhost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
-  
+
   if (isLocalhost) {
     return `${window.location.origin}/auth/callback`;
   }
-  
+
   // Always use dashboard.LanOnasis.com for OAuth callbacks
   return 'https://dashboard.LanOnasis.com/auth/callback';
 };
 
-export const supabase = createClient<Database>(
-  SUPABASE_URL=https://<project-ref>.supabase.co
-  SUPABASE_PUBLISHABLE_KEY,
-  {
-    auth: {
-      redirectTo: getRedirectUrl(),
-      flowType: 'pkce',
-    },
-  }
-);
+// Create Supabase client with error handling
+let supabaseClient;
+try {
+  supabaseClient = createClient<Database>(
+    SUPABASE_URL=https://<project-ref>.supabase.co
+    SUPABASE_PUBLISHABLE_KEY,
+    {
+      auth: {
+        flowType: 'pkce',
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    }
+  );
+} catch (error) {
+  console.error('Failed to initialize Supabase client:', error);
+  // Create a dummy client that won't crash the app
+  supabaseClient = createClient<Database>(
+    'https://placeholder.supabase.co',
+    'placeholder-key'
+  );
+}
+
+export const supabase = supabaseClient;

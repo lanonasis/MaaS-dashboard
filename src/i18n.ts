@@ -25,12 +25,18 @@ i18n
   .init({
     resources,
     fallbackLng: 'en',
-    debug: true,
+    debug: false, // Disable debug to reduce console noise
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default
     },
     ns: ['translation', 'shared'],
-    defaultNS: 'translation'
+    defaultNS: 'translation',
+    react: {
+      useSuspense: false // Disable suspense to prevent loading issues
+    }
+  })
+  .catch((error) => {
+    console.error('i18n initialization error:', error);
   });
 
 export default i18n;
