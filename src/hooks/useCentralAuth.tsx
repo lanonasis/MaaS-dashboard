@@ -194,19 +194,10 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       // Try central auth first if enabled
       if (USE_CENTRAL_AUTH && isUsingCentralAuth) {
         try {
-          const centralSession = await centralAuth.login(email, password);
-          setSession(centralSession);
-          setUser((centralSession as CentralAuthSession & { user: User }).user);
-          await fetchProfile((centralSession as CentralAuthSession & { user: User }).user.id);
-          
-          toast({
-            title: "Successfully signed in",
-            description: "Welcome back!",
-          });
-          
-          const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
-          localStorage.removeItem('redirectAfterLogin');
-          navigate(redirectPath);
+          // centralAuth.login() redirects and never returns
+          // The auth callback handler will complete the flow
+          await centralAuth.login(email, password);
+          // Code after this will never execute due to redirect
           return;
         } catch (centralError) {
           console.warn('Central auth login failed, falling back to Supabase:', centralError);
@@ -250,20 +241,10 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
       // Try central auth first if enabled
       if (USE_CENTRAL_AUTH) {
         try {
-          const centralSession = await centralAuth.signup(email, password, name);
-          setSession(centralSession);
-          setUser(centralSession.user as User);
-          setIsUsingCentralAuth(true);
-          await fetchProfile(centralSession.user?.id);
-          
-          toast({
-            title: "Account created successfully",
-            description: "Welcome! Redirecting to dashboard...",
-          });
-          
-          const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
-          localStorage.removeItem('redirectAfterLogin');
-          navigate(redirectPath);
+          // centralAuth.signup() redirects and never returns
+          // The auth callback handler will complete the flow
+          await centralAuth.signup(email, password, name);
+          // Code after this will never execute due to redirect
           return;
         } catch (centralError) {
           console.warn('Central auth signup failed, falling back to Supabase:', centralError);
@@ -387,6 +368,9 @@ export const CentralAuthProvider = ({ children }: { children: React.ReactNode })
   );
 };
 
+// This file intentionally exports both a Provider component and a hook
+// This is a standard React context pattern and the warning can be safely ignored
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCentralAuth = () => {
   const context = useContext(CentralAuthContext);
   if (context === undefined) {

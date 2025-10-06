@@ -24,8 +24,15 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import mcpServers from "@/config/mcp-servers.json";
 
+// Types for MCP Server Configuration
+interface MCPServerConfig {
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+}
+
 // Icon mapping for different MCP servers
-const serverIcons: Record<string, React.ComponentType<any>> = {
+const serverIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   'hostinger-api': Server,
   'Context7': Database,
   '@21st-dev/magic': Code,
@@ -78,7 +85,7 @@ const MCPServerManager: React.FC = () => {
     copyToClipboard(configStr, "Full MCP configuration");
   };
 
-  const copyServerConfig = (serverName: string, config: any) => {
+  const copyServerConfig = (serverName: string, config: MCPServerConfig) => {
     const serverConfig = { [serverName]: config };
     const configStr = JSON.stringify(serverConfig, null, 2);
     copyToClipboard(configStr, `${serverName} configuration`);
@@ -178,7 +185,7 @@ const MCPServerManager: React.FC = () => {
                       )}
                     </div>
                     
-                    {config.env && Object.keys(config.env).length > 0 && (
+                    {'env' in config && config.env && Object.keys(config.env).length > 0 && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Settings className="h-4 w-4" />
                         <span>{Object.keys(config.env).length} env vars</span>
