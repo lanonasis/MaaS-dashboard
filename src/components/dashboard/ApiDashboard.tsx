@@ -29,7 +29,7 @@ const apiUsageData = [
 
 export const ApiDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
-  const { user: profile } = useCentralAuth();
+  const { profile } = useCentralAuth();
 
   return (
     <div className="space-y-6">

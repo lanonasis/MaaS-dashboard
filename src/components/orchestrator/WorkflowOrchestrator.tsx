@@ -18,12 +18,15 @@ import {
   Network
 } from 'lucide-react';
 
+// Result type for workflow steps and workflows
+type WorkflowResult = Record<string, unknown> | string | number | boolean | null;
+
 interface WorkflowStep {
   id: string;
   action: string;
   tool: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
-  result?: any;
+  result?: WorkflowResult;
   execution_time?: number;
   error?: string;
 }
@@ -37,7 +40,7 @@ interface Workflow {
   estimated_duration?: number;
   started_at?: string;
   completed_at?: string;
-  results?: any;
+  results?: WorkflowResult;
   next_actions?: string[];
 }
 
@@ -46,7 +49,7 @@ export const WorkflowOrchestrator: React.FC = () => {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [activeWorkflow, setActiveWorkflow] = useState<string | null>(null);
-  const { user } = useCentralAuth();
+  const { user, session } = useCentralAuth();
   const { toast } = useToast();
 
   const handleExecuteWorkflow = async () => {
@@ -142,11 +145,15 @@ export const WorkflowOrchestrator: React.FC = () => {
       };
 
       // Send the workflow request via POST to start orchestration
+      const accessToken = session && 'access_token' in session 
+        ? session.access_token 
+        : null;
+      
       const response = await fetch('/api/v1/orchestrate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.session?.access_token}`
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
         },
         body: JSON.stringify({
           workflow_id: workflowId,
@@ -187,11 +194,15 @@ export const WorkflowOrchestrator: React.FC = () => {
 
   const handleStopWorkflow = () => {
     if (activeWorkflow) {
+      const accessToken = session && 'access_token' in session 
+        ? session.access_token 
+        : null;
+      
       // Send stop signal to backend
       fetch(`/api/v1/orchestrate/${activeWorkflow}/stop`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user?.session?.access_token}`
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
         }
       });
       
