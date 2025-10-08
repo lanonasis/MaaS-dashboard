@@ -2,9 +2,15 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Environment variables with fallbacks
+// Environment variables - MUST be set correctly
 const SUPABASE_URL=https://<project-ref>.supabase.co
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+
+// Validate required environment variables
+if (!SUPABASE_PUBLISHABLE_KEY) {
+  console.error('VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+  throw new Error('Missing Supabase anon key - check environment configuration');
+}
 
 // Debug logging for production
 console.log('Supabase client initialization:', {
