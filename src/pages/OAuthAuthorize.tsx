@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useCentralAuth } from '@/hooks/useCentralAuth';
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, Shield, Key, Database } from 'lucide-react';
 import { AnimatedButton } from '@/components/ui/AnimatedButton';
@@ -14,7 +14,7 @@ interface ClientInfo {
 export default function OAuthAuthorize() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useCentralAuth();
+  const { user } = useSupabaseAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null);
