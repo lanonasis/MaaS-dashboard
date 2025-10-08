@@ -81,8 +81,15 @@ export const SupabaseAuthProvider = ({ children }: { children: React.ReactNode }
                 description: `You are now signed in as ${supabaseSession.user.email}`,
               });
               
-              // Redirect to dashboard on sign in
-              navigate('/dashboard');
+              // Check for stored redirect path
+              const redirectPath = localStorage.getItem('redirectAfterLogin');
+              if (redirectPath) {
+                localStorage.removeItem('redirectAfterLogin');
+                navigate(redirectPath);
+              } else {
+                // Redirect to dashboard on sign in
+                navigate('/dashboard');
+              }
             }
           } else {
             // Clear state when signed out
