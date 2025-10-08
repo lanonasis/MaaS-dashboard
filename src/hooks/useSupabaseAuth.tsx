@@ -40,6 +40,9 @@ export const SupabaseAuthProvider = ({ children }: { children: React.ReactNode }
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Add error state to track initialization issues
+  const [initError, setInitError] = useState<string | null>(null);
+
   useEffect(() => {
     console.log('SupabaseAuthProvider: Initializing auth');
     initializeAuth();
@@ -124,6 +127,7 @@ export const SupabaseAuthProvider = ({ children }: { children: React.ReactNode }
       };
     } catch (error) {
       console.error('Error initializing Supabase auth:', error);
+      setInitError(error instanceof Error ? error.message : 'Unknown initialization error');
     } finally {
       setIsLoading(false);
     }
@@ -268,6 +272,26 @@ export const SupabaseAuthProvider = ({ children }: { children: React.ReactNode }
       setIsProcessingCallback(false);
     }
   };
+
+  // If there's an initialization error, show a fallback
+  if (initError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Authentication Error</h1>
+          <p className="text-gray-600 mb-4">
+            Failed to initialize authentication system: {initError}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <SupabaseAuthContext.Provider

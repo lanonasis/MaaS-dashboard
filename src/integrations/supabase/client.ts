@@ -49,9 +49,17 @@ export const getOAuthCallbackUrl = () => {
 };
 
 // Create Supabase client with error handling
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
+
 const createSupabaseClient = () => {
+  if (supabaseInstance) {
+    return supabaseInstance;
+  }
+
   try {
-    return createClient<Database>(
+    console.log('Creating Supabase client with:', { url: SUPABASE_URL=https://<project-ref>.supabase.co
+    
+    supabaseInstance = createClient<Database>(
       SUPABASE_URL=https://<project-ref>.supabase.co
       SUPABASE_PUBLISHABLE_KEY,
       {
@@ -63,13 +71,17 @@ const createSupabaseClient = () => {
         },
       }
     );
+    
+    console.log('Supabase client created successfully');
+    return supabaseInstance;
   } catch (error) {
     console.error('Failed to initialize Supabase client:', error);
     // Create a dummy client that won't crash the app
-    return createClient<Database>(
+    supabaseInstance = createClient<Database>(
       'https://placeholder.supabase.co',
       'placeholder-key'
     );
+    return supabaseInstance;
   }
 };
 

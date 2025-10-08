@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Client Test</title>
+</head>
+<body>
+    <h1>Testing Supabase Client Initialization</h1>
+    <div id="results"></div>
+    
+    <script type="module">
+        // Test the Supabase client initialization
+        const SUPABASE_URL=https://<project-ref>.supabase.co
+        const SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+        
+        const results = document.getElementById('results');
+        
+        try {
+            // Import Supabase
+            const { createClient } = await import('https://cdn.skypack.dev/@supabase/supabase-js');
+            
+            console.log('Creating Supabase client...');
+            const supabase = createClient(SUPABASE_URL=https://<project-ref>.supabase.co
+            
+            console.log('Testing connection...');
+            const { data, error } = await supabase.auth.getSession();
+            
+            if (error) {
+                results.innerHTML = `<p style="color: orange;">Connection successful, no active session: ${error.message}</p>`;
+            } else {
+                results.innerHTML = `<p style="color: green;">✅ Supabase client initialized successfully!</p>`;
+            }
+            
+        } catch (error) {
+            console.error('Error:', error);
+            results.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+        }
+    </script>
+</body>
+</html>
