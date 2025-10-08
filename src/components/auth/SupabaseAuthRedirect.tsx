@@ -12,10 +12,17 @@ const SupabaseAuthRedirect = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    handleAuthFlow();
-  }, [handleAuthFlow]);
+    // Add a small delay to ensure all components are initialized
+    const timer = setTimeout(() => {
+      handleAuthFlow();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAuthFlow = async () => {
+    try {
     // Log the current state for debugging
     console.log('SupabaseAuthRedirect: handleAuthFlow called');
     console.log('Current URL:', window.location.href);
@@ -74,6 +81,11 @@ const SupabaseAuthRedirect = () => {
     // Since we're directly handling auth, we'll redirect to the index page
     // which should have a login/register UI based on Supabase
     navigate('/?showAuth=true');
+    } catch (error) {
+      console.error('Error in handleAuthFlow:', error);
+      // Fallback to home page with auth form
+      navigate('/?showAuth=true&error=auth_flow_error');
+    }
   };
 
   return (
