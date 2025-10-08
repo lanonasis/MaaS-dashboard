@@ -8,8 +8,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Key, Copy, Eye, EyeOff, Check, Clock, ArrowUpDown, Shield, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCentralAuth } from "@/hooks/useCentralAuth";
-import { centralAuth, type ApiKey } from "@/lib/central-auth";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+// Define ApiKey type locally since we're using Supabase directly
+interface ApiKey {
+  id: string;
+  key: string;
+  service: string;
+  user_id: string;
+  expires_at: string | null;
+  rate_limited: boolean;
+  created_at: string;
+  last_used: string | null;
+  name?: string;
+  is_active?: boolean;
+}
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -29,35 +41,33 @@ export const ApiKeyManager = () => {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const { toast } = useToast();
-  const { user, isUsingCentralAuth } = useCentralAuth();
+  const { user } = useSupabaseAuth();
 
   useEffect(() => {
     if (isOpen && activeTab === "manage") {
       fetchApiKeys();
     }
-  }, [isOpen, activeTab]);
+  }, [isOpen, activeTab, fetchApiKeys]);
 
   const fetchApiKeys = async () => {
     if (!user) return;
     
     setIsLoadingKeys(true);
     try {
-      if (isUsingCentralAuth) {
-        // Use central auth API
-        const keys = await centralAuth.listApiKeys();
-        setApiKeys(keys);
-      } else {
-        // Fallback to Supabase
-        const { data, error } = await supabase
-          .from("api_keys")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-        
-        if (error) throw error;
-        
-        setApiKeys(data || []);
-      }
+      // Use Supabase directly for API key management
+      const { data, error } = await supabase
+        .from("api_keys")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      
+      setApiKeys((data || []).map(key => ({
+        ...key,
+        rate_limited: key.rate_limited ?? true,
+        last_used: key.last_used ?? null
+      })));
     } catch (error: any) {
       toast({
         title: "Error",
@@ -88,50 +98,33 @@ export const ApiKeyManager = () => {
     setIsLoading(true);
     
     try {
-      if (isUsingCentralAuth) {
-        // Use central auth API
+      // Generate key locally and store in Supabase
+      const randomKey = Array.from(
+        { length: 32 },
+        () => Math.floor(Math.random() * 36).toString(36)
+      ).join("");
+      
+      const formattedKey = `vx_${randomKey}`;
+      setGeneratedKey(formattedKey);
+      
+      if (user) {
         const expirationDate = keyExpiration === "never" 
           ? null 
           : keyExpiration === "custom" 
             ? new Date(customExpiration).toISOString() 
             : new Date(Date.now() + parseInt(keyExpiration) * 86400000).toISOString();
-
-        const apiKeyResponse = await centralAuth.createApiKey({
+        
+        const { error } = await supabase.from("api_keys").insert({
           name: keyName,
+          key: formattedKey,
           service: keyService,
+          user_id: user.id,
           expires_at: expirationDate,
           rate_limited: rateLimit,
+          is_active: true
         });
-
-        setGeneratedKey(apiKeyResponse.key);
-      } else {
-        // Fallback to Supabase - generate key locally
-        const randomKey = Array.from(
-          { length: 32 },
-          () => Math.floor(Math.random() * 36).toString(36)
-        ).join("");
         
-        const formattedKey = `vx_${randomKey}`;
-        setGeneratedKey(formattedKey);
-        
-        if (user) {
-          const expirationDate = keyExpiration === "never" 
-            ? null 
-            : keyExpiration === "custom" 
-              ? new Date(customExpiration).toISOString() 
-              : new Date(Date.now() + parseInt(keyExpiration) * 86400000).toISOString();
-          
-          const { error } = await supabase.from("api_keys").insert({
-            name: keyName,
-            key: formattedKey,
-            service: keyService,
-            user_id: user.id,
-            expires_at: expirationDate,
-            rate_limited: rateLimit,
-          });
-          
-          if (error) throw error;
-        }
+        if (error) throw error;
       }
       
       toast({
@@ -155,19 +148,14 @@ export const ApiKeyManager = () => {
     if (!user) return;
     
     try {
-      if (isUsingCentralAuth) {
-        // Use central auth API
-        await centralAuth.revokeApiKey(keyId);
-      } else {
-        // Fallback to Supabase
-        const { error } = await supabase
-          .from("api_keys")
-          .delete()
-          .eq("id", keyId)
-          .eq("user_id", user.id);
-        
-        if (error) throw error;
-      }
+      // Use Supabase directly for API key revocation
+      const { error } = await supabase
+        .from("api_keys")
+        .delete()
+        .eq("id", keyId)
+        .eq("user_id", user.id);
+      
+      if (error) throw error;
       
       toast({
         title: "API Key Revoked",

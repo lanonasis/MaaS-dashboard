@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { useCentralAuth } from '@/hooks/useCentralAuth';
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { 
   Play, 
   Square, 
@@ -49,7 +49,7 @@ export const WorkflowOrchestrator: React.FC = () => {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [activeWorkflow, setActiveWorkflow] = useState<string | null>(null);
-  const { user, session } = useCentralAuth();
+  const { user, session } = useSupabaseAuth();
   const { toast } = useToast();
 
   const handleExecuteWorkflow = async () => {

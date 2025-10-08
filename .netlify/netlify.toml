@@ -2,18 +2,17 @@ headersOrigin = "config"
 plugins = []
 functionsDirectory = "/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/netlify/functions"
 functionsDirectoryOrigin = "config-v1"
-redirects = []
 
 [functions]
 
 [functions."*"]
 
 [build]
-publish = "/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard"
+publish = "/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/dist"
 publishOrigin = "config"
 commandOrigin = "config"
 base = "/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard"
-command = "npm install"
+command = "./netlify-build.sh"
 functions = "/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/netlify/functions"
 
 [build.environment]
@@ -37,7 +36,35 @@ SECRETS_SCAN_ENABLED = "false"
 for = "/*"
 
 [headers.values]
+X-Frame-Options = "DENY"
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "strict-origin-when-cross-origin"
+Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.lanonasis.com https://mcp.lanonasis.com https://*.supabase.co wss://*.supabase.co"
+Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+[[headers]]
+for = "/auth/callback"
+
+[headers.values]
+Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+for = "/*"
+
+[headers.values]
 Referrer-Policy = "strict-origin-when-cross-origin"
 X-Content-Type-Options = "nosniff"
 X-Frame-Options = "DENY"
 X-XSS-Protection = "1; mode=block"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200.0
+force = false
+
+[redirects.query]
+
+[redirects.conditions]
+
+[redirects.headers]

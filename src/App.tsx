@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SupabaseAuthProvider } from "@/hooks/useSupabaseAuth";
+import { CentralAuthProvider } from "@/hooks/useCentralAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
@@ -30,8 +31,9 @@ const App = () => (
       <TooltipProvider>
         <BrowserRouter>
           <SupabaseAuthProvider>
-            <Toaster />
-            <Sonner />
+            <CentralAuthProvider>
+              <Toaster />
+              <Sonner />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth/*" element={<SupabaseAuthRedirect />} />
@@ -55,6 +57,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </CentralAuthProvider>
           </SupabaseAuthProvider>
         </BrowserRouter>
       </TooltipProvider>

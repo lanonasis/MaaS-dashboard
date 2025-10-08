@@ -9,7 +9,7 @@ import { TradeFinancing } from "./api-services/TradeFinancing";
 import { BankStatements } from "./api-services/BankStatements";
 import { FraudMonitoring } from "./api-services/FraudMonitoring";
 import { ApiKeyManager } from "./ApiKeyManager";
-import { useCentralAuth } from "@/hooks/useCentralAuth";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Gauge, LineChart, BarChart, PieChart, Clock, ArrowRight, Info } from "lucide-react";
@@ -29,7 +29,7 @@ const apiUsageData = [
 
 export const ApiDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
-  const { profile } = useCentralAuth();
+  const { profile } = useSupabaseAuth();
 
   return (
     <div className="space-y-6">
