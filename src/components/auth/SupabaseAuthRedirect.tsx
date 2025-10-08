@@ -13,7 +13,7 @@ const SupabaseAuthRedirect = () => {
 
   useEffect(() => {
     handleAuthFlow();
-  }, []);
+  }, [handleAuthFlow]);
 
   const handleAuthFlow = async () => {
     // Log the current state for debugging

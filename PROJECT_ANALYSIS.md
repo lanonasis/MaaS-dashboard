@@ -197,9 +197,8 @@ npm run i18n:check
 ```
 
 ### Deployment Configuration
-- **Netlify**: Two configuration files present
-  - `netlify.toml`: Main deployment config
-  - `netlify-dashboard.toml`: Dashboard-specific config
+- **Netlify**: Single configuration file
+  - `netlify.toml`: Main deployment config with Bun support
 - **Windsurf**: `windsurf_deployment.yaml` for cloud deployment
 
 ### Environment Variables Required
