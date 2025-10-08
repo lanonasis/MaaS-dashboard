@@ -2,8 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+// Environment variables with fallbacks
 const SUPABASE_URL=https://<project-ref>.supabase.co
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+
+// Debug logging for production
+console.log('Supabase client initialization:', {
+  url: SUPABASE_URL=https://<project-ref>.supabase.co
+  hasKey: !!SUPABASE_PUBLISHABLE_KEY,
+  keyLength: SUPABASE_PUBLISHABLE_KEY?.length || 0
+});
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -41,27 +49,28 @@ export const getOAuthCallbackUrl = () => {
 };
 
 // Create Supabase client with error handling
-let supabaseClient;
-try {
-  supabaseClient = createClient<Database>(
-    SUPABASE_URL=https://<project-ref>.supabase.co
-    SUPABASE_PUBLISHABLE_KEY,
-    {
-      auth: {
-        flowType: 'pkce',
-        detectSessionInUrl: true,
-        persistSession: true,
-        autoRefreshToken: true,
-      },
-    }
-  );
-} catch (error) {
-  console.error('Failed to initialize Supabase client:', error);
-  // Create a dummy client that won't crash the app
-  supabaseClient = createClient<Database>(
-    'https://placeholder.supabase.co',
-    'placeholder-key'
-  );
-}
+const createSupabaseClient = () => {
+  try {
+    return createClient<Database>(
+      SUPABASE_URL=https://<project-ref>.supabase.co
+      SUPABASE_PUBLISHABLE_KEY,
+      {
+        auth: {
+          flowType: 'pkce',
+          detectSessionInUrl: true,
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Failed to initialize Supabase client:', error);
+    // Create a dummy client that won't crash the app
+    return createClient<Database>(
+      'https://placeholder.supabase.co',
+      'placeholder-key'
+    );
+  }
+};
 
-export const supabase = supabaseClient;
+export const supabase = createSupabaseClient();

@@ -51,6 +51,13 @@ export const SupabaseAuthProvider = ({ children }: { children: React.ReactNode }
     setIsLoading(true);
     
     try {
+      // Check if supabase client is available
+      if (!supabase) {
+        console.error('Supabase client not initialized');
+        setIsLoading(false);
+        return;
+      }
+
       // Get the current session from Supabase
       const { data: { session: supabaseSession }, error } = await supabase.auth.getSession();
       

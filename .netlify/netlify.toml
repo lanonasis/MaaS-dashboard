@@ -1,0 +1,43 @@
+headersOrigin = "config"
+plugins = []
+functionsDirectory = "/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/netlify/functions"
+functionsDirectoryOrigin = "config-v1"
+redirects = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard"
+publishOrigin = "config"
+commandOrigin = "config"
+base = "/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard"
+command = "npm install"
+functions = "/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/netlify/functions"
+
+[build.environment]
+NODE_VERSION = "18"
+NODE_ENV = "production"
+SECRETS_SCAN_ENABLED = "false"
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[[headers]]
+for = "/*"
+
+[headers.values]
+Referrer-Policy = "strict-origin-when-cross-origin"
+X-Content-Type-Options = "nosniff"
+X-Frame-Options = "DENY"
+X-XSS-Protection = "1; mode=block"
