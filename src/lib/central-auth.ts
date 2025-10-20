@@ -47,9 +47,9 @@ interface ApiKeyResponse {
   name?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.LanOnasis.com';
-const PROJECT_SCOPE = import.meta.env.VITE_PROJECT_SCOPE || 'dashboard';
-const PLATFORM = 'dashboard';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const PROJECT_SCOPE = import.meta.env.VITE_PROJECT_SCOPE || 'app_maas_dashboard';
+const PLATFORM = 'web';
 
 class CentralAuthClient {
   private getStoredToken(): string | null {
