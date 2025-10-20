@@ -246,14 +246,24 @@ const CentralAuthRedirect = () => {
       localStorage.setItem('redirectAfterLogin', currentPath);
     }
 
-    // Redirect to onasis-core auth with platform identification
-    const currentUrl = window.location.origin;
-    const authUrl = new URL('https://api.LanOnasis.com/auth/login');
-    authUrl.searchParams.set('platform', 'dashboard');
-    authUrl.searchParams.set('redirect_url', `${currentUrl}/auth/callback`);
-    authUrl.searchParams.set('return_to', 'dashboard');
+    // Get auth gateway URL from environment
+    const authGatewayUrl = import.meta.env.VITE_AUTH_GATEWAY_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    const clientId = import.meta.env.VITE_OAUTH_CLIENT_ID;
+    const redirectUri = import.meta.env.VITE_OAUTH_REDIRECT_URI || `${window.location.origin}/auth/callback`;
     
-    console.log('Redirecting to onasis-core auth:', authUrl.toString());
+    // Redirect to local auth gateway with OAuth flow
+    const currentUrl = window.location.origin;
+    const authUrl = new URL(`${authGatewayUrl}/v1/auth/login`);
+    authUrl.searchParams.set('platform', 'web');
+    authUrl.searchParams.set('project_scope', 'app_maas_dashboard');
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    
+    // Add OAuth client ID if available
+    if (clientId) {
+      authUrl.searchParams.set('client_id', clientId);
+    }
+    
+    console.log('Redirecting to auth gateway:', authUrl.toString());
     window.location.href = authUrl.toString();
   };
 
