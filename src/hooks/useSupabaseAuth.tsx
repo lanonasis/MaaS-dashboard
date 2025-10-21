@@ -149,29 +149,38 @@ export const SupabaseAuthProvider = ({ children }: { children: React.ReactNode }
       if (data) {
         setProfile(data as Profile);
       } else {
-        // If no profile exists yet, create a basic one
+        // If no profile exists yet, create a basic one with only existing columns
         if (user) {
-          const newProfile = {
+          const basicProfile = {
             id: userId,
-            full_name: user.user_metadata.full_name || null,
-            company_name: null,
             email: user.email,
-            phone: null,
-            avatar_url: null,
-            role: 'user',
+            full_name: user.user_metadata.full_name || user.email || 'User',
           };
           
-          // Insert the new profile
-          const { error: insertError } = await supabase
+          // Insert the basic profile
+          const { data: insertData, error: insertError } = await supabase
             .from('profiles')
-            .insert([newProfile]);
+            .insert([basicProfile])
+            .select();
           
           if (insertError) {
             console.error('Error creating user profile:', insertError);
+            // Fall back to a profile object for the UI
+            setProfile({
+              ...basicProfile,
+              company_name: null,
+              phone: null,
+              avatar_url: null,
+              role: 'user',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
             return;
           }
           
-          setProfile(newProfile);
+          if (insertData && insertData[0]) {
+            setProfile(insertData[0] as Profile);
+          }
         }
       }
     } catch (error) {
