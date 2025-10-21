@@ -2,68 +2,62 @@
   command = "./netlify-build.sh"
   publish = "dist"
 
-[dev]
-  command = "bun run dev"
-  port = 3000
-  targetPort = 8080
-
+# Optional: pin Node version to match local
 [build.environment]
   NODE_VERSION = "20"
-  BUN_VERSION = "1.2.22"
-  # Direct Supabase Authentication
-  VITE_SUPABASE_URL = "https://mxtsdgkwzjzlttpotole.supabase.co"
-  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14dHNkZ2t3emp6bHR0cG90b2xlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcxMDUyNTksImV4cCI6MjA2MjY4MTI1OX0.2KM8JxBEsqQidSvjhuLs8HCX-7g-q6YNswedQ5ZYq3g"
-  VITE_USE_DIRECT_AUTH = "true"
-  VITE_USE_CENTRAL_AUTH = "false"
-  VITE_USE_FALLBACK_AUTH = "false"
-  # Service URLs
-  VITE_DASHBOARD_URL = "https://dashboard.lanonasis.com"
-  VITE_DOCS_URL = "https://docs.lanonasis.com"
-  VITE_MCP_URL = "https://mcp.lanonasis.com"
-  VITE_PROJECT_SCOPE = "dashboard"
-  VITE_OAUTH_REDIRECT_BASE = "https://dashboard.lanonasis.com"
-  # Legacy API URLs (not used with direct auth)
-  VITE_API_URL = "https://api.lanonasis.com/v1"
-  VITE_AUTH_GATEWAY_URL = "https://api.lanonasis.com"
-  VITE_API_BASE_URL = "https://api.lanonasis.com/v1"
-  VITE_CORE_API_BASE_URL = "https://api.lanonasis.com"
 
-# OAuth callback handling - must come before SPA fallback
+# SPA routing: explicit rewrites for known entry points and catch-all
+[[redirects]]
+  from = "/login"
+  to = "/?showAuth=login"
+  status = 200
+
+[[redirects]]
+  from = "/register"
+  to = "/?showAuth=register"
+  status = 200
+
+# OAuth / magic link callback handled by the SPA
 [[redirects]]
   from = "/auth/callback"
   to = "/index.html"
   status = 200
 
-# Auth routes (login/register) - allow access
+# Protected app routes still render SPA (client enforces auth)
 [[redirects]]
-  from = "/auth/*"
+  from = "/dashboard"
   to = "/index.html"
   status = 200
 
-# API routes - allow access
 [[redirects]]
-  from = "/api/*"
+  from = "/dashboard/*"
   to = "/index.html"
   status = 200
 
-# Public routes
-[[redirects]]
-  from = "/public/*"
-  to = "/index.html"
-  status = 200
-
-# SPA redirect rules - all other routes go to index.html for React Router
+# Fallback for any deep-link to the SPA
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  
-# Headers for security
+
+# Security headers and CSP (adjust as needed)
 [[headers]]
   for = "/*"
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.lanonasis.com https://auth.lanonasis.com https://mcp.lanonasis.com https://*.supabase.co wss://*.supabase.co"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    # CSP: allow Supabase APIs and websockets
+    Content-Security-Policy = """
+      default-src 'self';
+      connect-src 'self' https://*.supabase.co wss://*.supabase.co;
+      img-src 'self' data: blob:;
+      style-src 'self' 'unsafe-inline';
+      script-src 'self' 'unsafe-inline';
+      font-src 'self' data:;
+      frame-ancestors 'none';
+      base-uri 'self';
+      form-action 'self';
+    """

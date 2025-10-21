@@ -152,6 +152,7 @@ const AuthForm = () => {
               <Input
                 id="email"
                 type="email"
+                autoComplete="email"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -171,6 +172,7 @@ const AuthForm = () => {
               <Input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
