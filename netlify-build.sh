@@ -1,27 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Netlify Build Script for Bun Projects
-# This ensures Bun is properly installed and used for the build
+echo "Node: $(node -v)"
+echo "NPM: $(npm -v)"
 
-set -e
+# Clean potentially stale caches
+rm -rf dist node_modules/.vite .vite 2>/dev/null || true
 
-echo "🔧 Setting up Bun for Netlify build..."
+# Install and build
+npm ci
+npm run build
 
-# Check if bun is available
-if ! command -v bun &> /dev/null; then
-    echo "📦 Installing Bun..."
-    curl -fsSL https://bun.sh/install | bash
-    export PATH="$HOME/.bun/bin:$PATH"
-fi
-
-echo "📋 Bun version: $(bun --version)"
-
-# Install dependencies with Bun
-echo "📦 Installing dependencies with Bun..."
-bun install
-
-# Build the project with Bun
-echo "🏗️ Building project with Bun..."
-bun run build
-
-echo "✅ Build completed successfully!"
+# Print build artifacts for audit
+echo "Built files in dist/:"
+find dist -maxdepth 2 -type f | sed 's/^/- /'
