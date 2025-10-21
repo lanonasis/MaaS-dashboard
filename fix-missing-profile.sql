@@ -1,24 +1,35 @@
--- Fix missing profile for admin@example.com
+-- Fix missing profile for any authenticated users
 -- Run this in Supabase SQL Editor
 
--- First, disable RLS temporarily to allow profile creation
+-- First, check what columns exist in profiles table
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_schema = 'public' AND table_name = 'profiles'
+ORDER BY ordinal_position;
+
+-- Disable RLS temporarily to allow profile creation
 ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
 
--- Create/update profile for admin user
-INSERT INTO public.profiles (id, email, full_name, role, updated_at)
+-- Create/update profiles for all users (using only existing columns)
+-- Note: Adjust columns based on what actually exists in your profiles table
+INSERT INTO public.profiles (id, email, full_name, updated_at)
 SELECT 
   id,
   email,
-  COALESCE(raw_user_meta_data->>'full_name', 'Admin User'),
-  'admin',
+  COALESCE(raw_user_meta_data->>'full_name', email),
   now()
 FROM auth.users
-WHERE email = 'admin@example.com'
+WHERE id NOT IN (SELECT id FROM public.profiles)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email,
   full_name = EXCLUDED.full_name,
-  role = 'admin',
   updated_at = now();
+
+-- If you have different columns, adjust this query. For example:
+-- If only id and email exist:
+-- INSERT INTO public.profiles (id, email) 
+-- SELECT id, email FROM auth.users 
+-- WHERE id NOT IN (SELECT id FROM public.profiles);
 
 -- Re-enable RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
