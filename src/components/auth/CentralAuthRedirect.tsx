@@ -20,10 +20,6 @@ const CentralAuthRedirect = () => {
   const [error, setError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
 
-  useEffect(() => {
-    handleAuthFlow();
-  }, [searchParams]);
-
   const handleAuthFlow = async () => {
     // Log the current state for debugging
     console.log('CentralAuthRedirect: handleAuthFlow called');
@@ -35,7 +31,7 @@ const CentralAuthRedirect = () => {
     
     // Check for OAuth tokens in URL (returned from onasis-core)
     let accessToken = searchParams.get('access_token');
-    let refreshToken = searchParams.get('refresh_token');
+    const refreshToken = searchParams.get('refresh_token');
     const authError = searchParams.get('error');
     const code = searchParams.get('code');
     
@@ -235,6 +231,11 @@ const CentralAuthRedirect = () => {
       redirectToOnasisAuth();
     }
   };
+
+  useEffect(() => {
+    handleAuthFlow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const clearAuthTokens = () => {
     // Remove both token formats and all user data
