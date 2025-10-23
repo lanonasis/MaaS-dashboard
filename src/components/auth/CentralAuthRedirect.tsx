@@ -79,6 +79,15 @@ const CentralAuthRedirect = () => {
     console.log('Parsed tokens - access_token:', !!accessToken, 'refresh_token:', !!refreshToken, 'error:', authError, 'code:', code);
     console.log('Is callback path:', isCallbackPath);
 
+    // Handle OAuth callback on root path (redirect to proper callback handler)
+    // This ensures OAuth callbacks to /?code=xxx are properly routed to /auth/callback
+    if (window.location.pathname === '/' && (code || accessToken || authError)) {
+      console.log('CentralAuthRedirect: OAuth callback detected on root path, redirecting to callback handler');
+      // Redirect to proper callback handler with all parameters
+      window.location.href = `/auth/callback${window.location.search}`;
+      return;
+    }
+
     // Handle authentication errors
     if (authError) {
       setError(`Authentication failed: ${authError.replace(/_/g, ' ')}`);
