@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import styles from './ErrorBoundary.module.css';
 
 interface Props {
   children: ReactNode;
@@ -26,43 +27,23 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div style={{ 
-          padding: '2rem', 
-          margin: '2rem', 
-          border: '2px solid red',
-          borderRadius: '8px',
-          backgroundColor: '#fee',
-          fontFamily: 'system-ui, sans-serif'
-        }}>
-          <h1 style={{ color: 'red', marginBottom: '1rem' }}>Something went wrong</h1>
-          <details style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>
-            <summary style={{ cursor: 'pointer', marginBottom: '1rem', fontWeight: 'bold' }}>
+        <div className={styles.errorContainer}>
+          <h1 className={styles.errorTitle}>Something went wrong</h1>
+          <details className={styles.errorDetails}>
+            <summary className={styles.errorSummary}>
               Click for error details
             </summary>
             <p><strong>Error:</strong></p>
-            <pre style={{ 
-              backgroundColor: '#fff', 
-              padding: '1rem', 
-              borderRadius: '4px',
-              overflow: 'auto'
-            }}>
+            <pre className={styles.errorPre}>
               {this.state.error?.toString()}
               {'\n\n'}
               {this.state.error?.stack}
             </pre>
           </details>
           <button
+            type="button"
             onClick={() => window.location.reload()}
-            style={{
-              marginTop: '1rem',
-              padding: '0.5rem 1rem',
-              backgroundColor: '#0066cc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
+            className={styles.reloadButton}
           >
             Reload Page
           </button>

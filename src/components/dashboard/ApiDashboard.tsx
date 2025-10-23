@@ -221,7 +221,7 @@ export const ApiDashboard = () => {
                       <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-primary progress-bar" 
-                          style={{ '--progress-width': `${service.percentage}%` } as React.CSSProperties}
+                          style={{ width: `${service.percentage}%` }}
                         />
                       </div>
                     </div>
