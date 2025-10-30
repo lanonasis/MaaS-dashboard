@@ -8,5 +8,3 @@ dist/
 # Local Netlify folder
 .netlify/
 .turbo/turbo-lint.log
-.turbo/turbo-lint.log
-.turbo/turbo-lint.log
