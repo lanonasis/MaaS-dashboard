@@ -1,1 +1,79 @@
-$ eslint .
+
+[0m[2m[35m$[0m [2m[1meslint .[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/dashboard/ApiKeyManager.tsx[24m[0m
+[0m   [2m52:9[22m   [33mwarning[39m  The 'fetchApiKeys' function makes the dependencies of useEffect Hook (at line 50) change on every render. To fix this, wrap the definition of 'fetchApiKeys' in its own useCallback() Hook  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m   [2m71:21[22m  [33mwarning[39m  Unexpected any. Specify a different type                                                                                                                                                    [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m136:21[22m  [33mwarning[39m  Unexpected any. Specify a different type                                                                                                                                                    [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m166:21[22m  [33mwarning[39m  Unexpected any. Specify a different type                                                                                                                                                    [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/dashboard/Chart.tsx[24m[0m
+[0m  [2m24:9[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/ui/badge.tsx[24m[0m
+[0m  [2m36:17[22m  [33mwarning[39m  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  [2mreact-refresh/only-export-components[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/ui/button.tsx[24m[0m
+[0m  [2m56:18[22m  [33mwarning[39m  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  [2mreact-refresh/only-export-components[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/ui/command.tsx[24m[0m
+[0m  [2m24:11[22m  [33mwarning[39m  An interface declaring no members is equivalent to its supertype  [2m@typescript-eslint/no-empty-object-type[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/ui/form.tsx[24m[0m
+[0m  [2m168:3[22m  [33mwarning[39m  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  [2mreact-refresh/only-export-components[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/ui/navigation-menu.tsx[24m[0m
+[0m  [2m119:3[22m  [33mwarning[39m  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  [2mreact-refresh/only-export-components[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/ui/sidebar.tsx[24m[0m
+[0m  [2m760:3[22m  [33mwarning[39m  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  [2mreact-refresh/only-export-components[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/ui/textarea.tsx[24m[0m
+[0m  [2m5:18[22m  [33mwarning[39m  An interface declaring no members is equivalent to its supertype  [2m@typescript-eslint/no-empty-object-type[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/components/ui/toggle.tsx[24m[0m
+[0m  [2m43:18[22m  [33mwarning[39m  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  [2mreact-refresh/only-export-components[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/hooks/useSupabaseAuth.tsx[24m[0m
+[0m  [2m324:14[22m  [33mwarning[39m  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  [2mreact-refresh/only-export-components[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/hooks/useTheme.tsx[24m[0m
+[0m  [2m79:17[22m  [33mwarning[39m  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  [2mreact-refresh/only-export-components[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/lib/api-client.ts[24m[0m
+[0m   [2m10:27[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m   [2m28:28[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m159:31[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m176:31[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m239:29[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m244:58[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m256:29[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m288:29[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/lib/central-auth.ts[24m[0m
+[0m  [2m273:48[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/lib/direct-auth.ts[24m[0m
+[0m  [2m112:21[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m153:21[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m185:21[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m283:21[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m306:21[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/pages/OAuthAuthorize.tsx[24m[0m
+[0m   [2m49:6[22m   [33mwarning[39m  React Hook useEffect has a missing dependency: 'loadClientInfo'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m125:19[22m  [33mwarning[39m  Unexpected any. Specify a different type                                                                           [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m147:51[22m  [33mwarning[39m  Unexpected any. Specify a different type                                                                           [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/test/setup.ts[24m[0m
+[0m  [2m32:19[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m33:12[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/src/utils/auth-diagnostic.ts[24m[0m
+[0m  [2m103:14[22m  [33mwarning[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/onasis/dev-hub/lan-onasis-monorepo/apps/dashboard/tailwind.config.ts[24m[0m
+[0m  [2m149:12[22m  [33mwarning[39m  A `require()` style import is forbidden  [2m@typescript-eslint/no-require-imports[22m[0m
+[0m[0m
+[0m[33m[1m✖ 36 problems (0 errors, 36 warnings)[22m[39m[0m
+[0m[33m[1m[22m[39m[0m

@@ -9,3 +9,4 @@ dist/
 .netlify/
 .turbo/turbo-lint.log
 .turbo/turbo-lint.log
+.turbo/turbo-lint.log
