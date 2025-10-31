@@ -189,8 +189,6 @@ export const SupabaseAuthProvider = ({
               phone: null,
               avatar_url: null,
               role: "user",
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
             });
             return;
           }

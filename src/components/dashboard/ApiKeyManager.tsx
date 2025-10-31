@@ -38,12 +38,10 @@ interface ApiKey {
   key: string;
   service: string;
   user_id: string;
+  name: string;
   expires_at: string | null;
-  rate_limited: boolean;
+  is_active: boolean | null;
   created_at: string;
-  last_used: string | null;
-  name?: string;
-  is_active?: boolean;
 }
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
@@ -56,7 +54,6 @@ export const ApiKeyManager = () => {
   const [keyService, setKeyService] = useState("all");
   const [keyExpiration, setKeyExpiration] = useState("never");
   const [customExpiration, setCustomExpiration] = useState("");
-  const [rateLimit, setRateLimit] = useState(true);
   const [generatedKey, setGeneratedKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -87,13 +84,7 @@ export const ApiKeyManager = () => {
 
       // Defensive: ensure data is array before mapping
       const keys = Array.isArray(data) ? data : [];
-      setApiKeys(
-        keys.map((key) => ({
-          ...key,
-          rate_limited: key.rate_limited ?? true,
-          last_used: key.last_used ?? null,
-        }))
-      );
+      setApiKeys(keys);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to fetch API keys";
@@ -179,7 +170,6 @@ export const ApiKeyManager = () => {
         service: keyService,
         user_id: user.id,
         expires_at: expirationDate,
-        rate_limited: rateLimit,
         is_active: true,
       });
 
@@ -352,18 +342,8 @@ export const ApiKeyManager = () => {
                   </div>
                 )}
 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="rate-limit"
-                    checked={rateLimit}
-                    onCheckedChange={setRateLimit}
-                  />
-                  <Label htmlFor="rate-limit">Enable rate limiting</Label>
-                </div>
-
                 <div className="text-xs text-muted-foreground">
                   <p>This API key will have access to the selected services.</p>
-                  <p>Rate limits help prevent abuse of your API key.</p>
                 </div>
               </div>
             ) : (
@@ -439,12 +419,6 @@ export const ApiKeyManager = () => {
                             Date.now() + parseInt(keyExpiration) * 86400000
                           ).toLocaleDateString()}
                     </p>
-                    <p>
-                      <span className="text-muted-foreground">
-                        Rate Limiting:
-                      </span>{" "}
-                      {rateLimit ? "Enabled" : "Disabled"}
-                    </p>
                   </div>
                 </div>
               </div>
@@ -471,7 +445,6 @@ export const ApiKeyManager = () => {
                       setKeyService("all");
                       setKeyExpiration("never");
                       setCustomExpiration("");
-                      setRateLimit(true);
                       setShowKey(false);
                     }}
                   >
@@ -566,21 +539,9 @@ export const ApiKeyManager = () => {
                             <Clock className="h-3 w-3" />
                             <span>Expires: {formatDate(key.expires_at)}</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <ArrowUpDown className="h-3 w-3" />
-                            <span>
-                              Rate Limited: {key.rate_limited ? "Yes" : "No"}
-                            </span>
-                          </div>
                         </div>
 
-                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                          <div className="text-xs">
-                            Last used:{" "}
-                            {key.last_used
-                              ? formatDate(key.last_used)
-                              : "Never"}
-                          </div>
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center">
                           <Button
                             variant="outline"
                             size="sm"
