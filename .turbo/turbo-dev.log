@@ -1,6 +1,40 @@
-$ vite
 
-  VITE v7.1.9  ready in 2830 ms
+[0m[2m[35m$[0m [2m[1mvite[0m
 
-  ➜  Local:   http://localhost:8080/
-  ➜  Network: http://192.168.8.100:8080/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1;1H[0J
+  [32m[1mVITE[22m v7.1.9[39m  [2mready in [0m[1m3905[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m8080[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.1.3:[1m8080[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
