@@ -4,15 +4,13 @@
   "version": "1.2.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch server/main.ts",
+    "dev": "vite",
     "build": "vite build",
-    "start": "NODE_ENV=production tsx server/main.ts",
-    "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio",
+    "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "i18n:extract": "i18next-parser --config i18next-parser.config.cjs"
+    "i18n:extract": "i18next-parser --config i18next-parser.config.cjs",
+    "auth:diagnostic": "node tools/authDiagnostic.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
