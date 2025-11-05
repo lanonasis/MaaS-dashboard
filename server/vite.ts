@@ -17,20 +17,21 @@ export async function setupVite(app: express.Application, server: any) {
 
   app.use(vite.middlewares);
 
-  app.use("*", async (req, res, next) => {
+  app.use((req, res, next) => {
     const url = req.originalUrl;
 
-    try {
-      const clientPath = path.resolve(__dirname, "..", "client");
-      const template = await vite.transformIndexHtml(
-        url,
-        fs.readFileSync(path.resolve(clientPath, "index.html"), "utf-8")
-      );
-      res.status(200).set({ "Content-Type": "text/html" }).end(template);
-    } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
+    if (url.startsWith('/api')) {
+      return next();
     }
+
+    vite.transformIndexHtml(url, fs.readFileSync(path.resolve(__dirname, "..", "index.html"), "utf-8"))
+      .then((template) => {
+        res.status(200).set({ "Content-Type": "text/html" }).end(template);
+      })
+      .catch((e) => {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      });
   });
 }
 
@@ -45,7 +46,10 @@ export function serveStatic(app: express.Application) {
 
   app.use(express.static(distPath));
 
-  app.use("*", (_req, res) => {
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
