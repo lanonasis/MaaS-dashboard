@@ -8,9 +8,10 @@ export default defineConfig(({ mode }) => ({
   base: '/', // Since we're deploying to dashboard.LanOnasis.com root
   server: {
     host: "0.0.0.0",
-    port: 5173,
+    port: 5000,
+    allowedHosts: true,
     hmr: {
-      clientPort: 5173
+      clientPort: 5000
     }
   },
   plugins: [
