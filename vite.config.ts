@@ -7,8 +7,11 @@ export default defineConfig(({ mode }) => ({
   // Set base path for proper asset resolution
   base: '/', // Since we're deploying to dashboard.LanOnasis.com root
   server: {
-    host: "::",
-    port: 8080,
+    host: "0.0.0.0",
+    port: 5173,
+    hmr: {
+      clientPort: 5173
+    }
   },
   plugins: [
     react(),
@@ -16,6 +19,8 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@shared": path.resolve(__dirname, "./shared"),
+      "@assets": path.resolve(__dirname, "./attached_assets"),
     },
   },
   build: {
