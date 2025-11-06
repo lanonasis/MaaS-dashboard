@@ -4,6 +4,7 @@ import { ApiDashboard } from "@/components/dashboard/ApiDashboard";
 import MCPServerManager from "@/components/mcp/MCPServerManager";
 import { UserProfile } from "@/components/dashboard/UserProfile";
 import { WorkflowOrchestrator } from "@/components/orchestrator/WorkflowOrchestrator";
+import { MemoryVisualizer } from "@/components/dashboard/MemoryVisualizer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -160,18 +161,7 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="memory-visualizer">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center space-y-4">
-                  <Database className="h-12 w-12 mx-auto text-blue-500" />
-                  <h3 className="text-lg font-semibold">Memory Visualizer</h3>
-                  <p className="text-gray-600">
-                    Visualize and explore your organizational memory and knowledge base.
-                  </p>
-                  <Badge variant="outline">Coming Soon</Badge>
-                </div>
-              </CardContent>
-            </Card>
+            <MemoryVisualizer />
           </TabsContent>
 
           <TabsContent value="extensions">
