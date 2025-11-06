@@ -98,31 +98,31 @@ const Dashboard = () => {
         </div>
         
         <Tabs value={getActiveTab()} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Overview
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            <TabsTrigger value="overview" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <User className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Overview</span>
             </TabsTrigger>
-            <TabsTrigger value="api-keys" className="flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              API Keys
+            <TabsTrigger value="api-keys" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <Key className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">API</span><span className="sm:hidden">Keys</span><span className="hidden sm:inline"> Keys</span>
             </TabsTrigger>
-            <TabsTrigger value="orchestrator" className="flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              Orchestrator
-              <Badge variant="secondary" className="text-xs">New</Badge>
+            <TabsTrigger value="orchestrator" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <Zap className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden md:inline">Orchestrator</span><span className="md:hidden">Orch</span>
+              <Badge variant="secondary" className="text-[10px] md:text-xs hidden md:inline">New</Badge>
             </TabsTrigger>
-            <TabsTrigger value="memory-visualizer" className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              Memory
+            <TabsTrigger value="memory-visualizer" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <Eye className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Memory</span><span className="sm:hidden">Mem</span>
             </TabsTrigger>
-            <TabsTrigger value="extensions" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
+            <TabsTrigger value="extensions" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <Settings className="h-3 w-3 md:h-4 md:w-4" />
               MCP
             </TabsTrigger>
-            <TabsTrigger value="upload" className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              Upload
+            <TabsTrigger value="upload" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <Upload className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Upload</span><span className="sm:hidden">Up</span>
             </TabsTrigger>
           </TabsList>
 
