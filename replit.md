@@ -2,6 +2,33 @@
 
 LanOnasis Dashboard is a React-based web application that serves as the management interface for the LanOnasis Memory as a Service (MaaS) platform. It provides administrators and users with tools for monitoring services, managing API keys, visualizing memory data, orchestrating workflows, and administering system settings. The dashboard integrates with Supabase for authentication and data storage, and communicates with the LanOnasis backend API ecosystem.
 
+## Recent Changes (November 6, 2025)
+
+**Memory Visualizer Implementation**
+- Created comprehensive Memory Visualizer component (`src/components/dashboard/MemoryVisualizer.tsx`) that fetches user-specific data from both Supabase and the LanOnasis API
+- Displays memories with semantic search, filtering by type, and tag-based organization
+- Shows API keys from the user's Supabase database
+- Includes stats dashboard showing total memories, unique tags, total access count, and active API keys
+- Supports semantic search through the LanOnasis API backend
+- Replaced "Coming Soon" placeholder with fully functional component
+
+**Profile Management Enhancements**
+- Updated UserProfile component to fetch profile data from Supabase profiles table
+- Added loading state during profile fetch
+- Implemented graceful handling for empty profiles using `.maybeSingle()` and `upsert` operations
+- Added company name and phone fields to profile editing
+- Made profile display responsive with grid layout (1 column mobile, 2 columns desktop)
+
+**Mobile Responsiveness**
+- Implemented fully adaptive dashboard tabs (2 cols mobile, 3 tablet, 6 desktop)
+- Added icon size variations (3x3 mobile, 4x4 desktop)
+- Abbreviated labels on mobile devices ("Keys", "Mem", "Orch") with full labels on larger screens
+- Fixed chart rendering issues by setting explicit container dimensions
+
+**Chart Rendering Fixes**
+- Added explicit pixel heights and minHeights to chart containers to prevent dimension calculation errors
+- Fixed ResponsiveContainer parent sizing issues that caused width(-1) and height(-1) warnings
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
