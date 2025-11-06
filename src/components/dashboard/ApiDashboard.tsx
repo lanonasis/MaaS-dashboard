@@ -134,7 +134,7 @@ export const ApiDashboard = () => {
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
-                <div className="h-60">
+                <div className="h-60" style={{ minHeight: '240px', height: '240px' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                       data={apiUsageData}
