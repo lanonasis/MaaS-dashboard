@@ -201,8 +201,8 @@ export const Chart = ({
       isLoading={isLoading}
       headerAction={headerAction}
     >
-      <div className={cn("w-full", isLoading ? "opacity-50" : "")}>
-        <ResponsiveContainer width="100%" height={height}>
+      <div className={cn("w-full", isLoading ? "opacity-50" : "")} style={{ height: `${height}px`, minHeight: `${height}px` }}>
+        <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>
       </div>
