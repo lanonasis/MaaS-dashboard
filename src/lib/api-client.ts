@@ -5,7 +5,7 @@
  */
 
 const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || 'https://api.LanOnasis.com';
-const MAAS_API_PREFIX = '/api/v1/maas';
+const MAAS_API_PREFIX = '/api/v1';
 
 interface ApiResponse<T = any> {
   data?: T;
@@ -61,7 +61,7 @@ interface ApiKey {
 }
 
 class ApiClient {
-  private getAuthHeaders(): Record<string, string> {
+  private getAuthHeaders(apiKey?: string): Record<string, string> {
     const token = localStorage.getItem('access_token');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -69,7 +69,16 @@ class ApiClient {
       'X-Project-Scope': 'maas'
     };
     
-    if (token) {
+    // Use API key if provided, otherwise use Bearer token
+    if (apiKey) {
+      // For API keys starting with 'vx_', use as direct authorization
+      if (apiKey.startsWith('vx_')) {
+        headers['Authorization'] = apiKey;
+        headers['X-API-Key'] = apiKey;
+      } else {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+    } else if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
     
@@ -78,13 +87,14 @@ class ApiClient {
 
   private async makeRequest<T>(
     endpoint: string, 
-    options: RequestInit = {}
+    options: RequestInit = {},
+    apiKey?: string
   ): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${MAAS_API_PREFIX}${endpoint}`;
     
     const defaultOptions: RequestInit = {
       credentials: 'include',
-      headers: this.getAuthHeaders(),
+      headers: this.getAuthHeaders(apiKey),
       ...options
     };
 
@@ -136,6 +146,7 @@ class ApiClient {
     type?: string;
     tags?: string[];
     search?: string;
+    apiKey?: string;
   } = {}): Promise<ApiResponse<Memory[]>> {
     const searchParams = new URLSearchParams();
     
@@ -146,9 +157,9 @@ class ApiClient {
     if (params.search) searchParams.set('search', params.search);
 
     const queryString = searchParams.toString();
-    const endpoint = `/memories${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/memory${queryString ? `?${queryString}` : ''}`;
     
-    return this.makeRequest<Memory[]>(endpoint);
+    return this.makeRequest<Memory[]>(endpoint, {}, params.apiKey);
   }
 
   async createMemory(memory: {
@@ -158,14 +169,14 @@ class ApiClient {
     tags?: string[];
     metadata?: Record<string, any>;
   }): Promise<ApiResponse<Memory>> {
-    return this.makeRequest<Memory>('/memories', {
+    return this.makeRequest<Memory>('/memory', {
       method: 'POST',
       body: JSON.stringify(memory)
     });
   }
 
   async getMemory(id: string): Promise<ApiResponse<Memory>> {
-    return this.makeRequest<Memory>(`/memories/${id}`);
+    return this.makeRequest<Memory>(`/memory/${id}`);
   }
 
   async updateMemory(id: string, updates: {
@@ -175,14 +186,14 @@ class ApiClient {
     tags?: string[];
     metadata?: Record<string, any>;
   }): Promise<ApiResponse<Memory>> {
-    return this.makeRequest<Memory>(`/memories/${id}`, {
+    return this.makeRequest<Memory>(`/memory/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates)
     });
   }
 
   async deleteMemory(id: string): Promise<ApiResponse<void>> {
-    return this.makeRequest<void>(`/memories/${id}`, {
+    return this.makeRequest<void>(`/memory/${id}`, {
       method: 'DELETE'
     });
   }
@@ -191,11 +202,13 @@ class ApiClient {
     query: string;
     limit?: number;
     similarity_threshold?: number;
+    apiKey?: string;
   }): Promise<ApiResponse<Memory[]>> {
-    return this.makeRequest<Memory[]>('/memories/search', {
+    const { apiKey, ...searchQuery } = query;
+    return this.makeRequest<Memory[]>('/memory/search', {
       method: 'POST',
-      body: JSON.stringify(query)
-    });
+      body: JSON.stringify(searchQuery)
+    }, apiKey);
   }
 
   // Organization Management Methods
