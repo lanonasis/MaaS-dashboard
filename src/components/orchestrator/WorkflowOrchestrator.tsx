@@ -3,54 +3,80 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Play, 
-  Square, 
   Clock, 
   CheckCircle, 
-  AlertCircle, 
-  Activity,
+  AlertCircle,
   Zap,
   Brain,
-  Network
+  ListChecks,
+  Lightbulb
 } from 'lucide-react';
-
-// Result type for workflow steps and workflows
-type WorkflowResult = Record<string, unknown> | string | number | boolean | null;
+import { formatDistanceToNow } from 'date-fns';
 
 interface WorkflowStep {
-  id: string;
   action: string;
   tool: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  result?: WorkflowResult;
-  execution_time?: number;
-  error?: string;
+  reasoning?: string;
 }
 
-interface Workflow {
+interface WorkflowRun {
   id: string;
-  request: string;
-  status: 'analyzing' | 'planning' | 'executing' | 'completed' | 'failed';
+  goal: string;
   steps: WorkflowStep[];
-  progress: number;
-  estimated_duration?: number;
-  started_at?: string;
-  completed_at?: string;
-  results?: WorkflowResult;
-  next_actions?: string[];
+  notes: string;
+  usedMemories: string[];
+  createdAt: string;
+  status?: string;
 }
 
 export const WorkflowOrchestrator: React.FC = () => {
   const [request, setRequest] = useState('');
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowRun[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [activeWorkflow, setActiveWorkflow] = useState<string | null>(null);
-  const { user, session } = useSupabaseAuth();
+  const { user } = useSupabaseAuth();
   const { toast } = useToast();
+
+  // Fetch workflow history on mount
+  useEffect(() => {
+    if (user) {
+      fetchWorkflowHistory();
+    }
+  }, [user]);
+
+  const fetchWorkflowHistory = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      const response = await fetch('/api/orchestrator/runs?limit=10', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setWorkflows(data.map((run: any) => ({
+          id: run.id,
+          goal: run.goal,
+          steps: run.steps || [],
+          notes: run.results?.notes || '',
+          usedMemories: run.used_memories || [],
+          createdAt: run.created_at,
+          status: run.status
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching workflow history:', error);
+    }
+  };
 
   const handleExecuteWorkflow = async () => {
     if (!request.trim()) {
@@ -62,188 +88,80 @@ export const WorkflowOrchestrator: React.FC = () => {
       return;
     }
 
-    setIsExecuting(true);
-    const workflowId = `workflow_${Date.now()}`;
-    
-    // Create initial workflow object
-    const newWorkflow: Workflow = {
-      id: workflowId,
-      request: request.trim(),
-      status: 'analyzing',
-      steps: [],
-      progress: 0,
-      started_at: new Date().toISOString()
-    };
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to execute workflows",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    setWorkflows(prev => [newWorkflow, ...prev]);
-    setActiveWorkflow(workflowId);
+    setIsExecuting(true);
 
     try {
-      // Connect to MCP SSE endpoint for real-time workflow execution
-      const eventSource = new EventSource(`/mcp/orchestrate`, {
-        // Headers don't work with EventSource, so we'll use query params
-      });
+      // Get the access token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
 
-      eventSource.onopen = () => {
-        console.log('🔗 Connected to MCP Orchestrator');
-        toast({
-          title: "Workflow started",
-          description: "AI is analyzing your request..."
-        });
-      };
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('📨 Workflow update:', data);
-
-          setWorkflows(prev => prev.map(workflow => {
-            if (workflow.id === workflowId) {
-              return {
-                ...workflow,
-                ...data,
-                progress: data.progress || workflow.progress
-              };
-            }
-            return workflow;
-          }));
-
-          // Update progress notifications
-          if (data.status === 'completed') {
-            toast({
-              title: "Workflow completed",
-              description: `Successfully executed ${data.steps?.length || 0} steps`
-            });
-            eventSource.close();
-            setIsExecuting(false);
-            setActiveWorkflow(null);
-          } else if (data.status === 'failed') {
-            toast({
-              title: "Workflow failed", 
-              description: data.error || "Unknown error occurred",
-              variant: "destructive"
-            });
-            eventSource.close();
-            setIsExecuting(false);
-            setActiveWorkflow(null);
-          }
-        } catch (error) {
-          console.error('Error parsing workflow update:', error);
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('SSE connection error:', error);
-        toast({
-          title: "Connection error",
-          description: "Lost connection to orchestrator",
-          variant: "destructive"
-        });
-        eventSource.close();
-        setIsExecuting(false);
-        setActiveWorkflow(null);
-      };
-
-      // Send the workflow request via POST to start orchestration
-      const accessToken = session && 'access_token' in session 
-        ? session.access_token 
-        : null;
-      
-      const response = await fetch('/api/v1/orchestrate', {
+      const response = await fetch('/api/orchestrator/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
         },
         body: JSON.stringify({
-          workflow_id: workflowId,
-          request: request.trim(),
-          user_id: user?.id,
-          real_time: true
+          goal: request.trim()
         })
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
+      const workflowResult = await response.json();
+      
+      // Add the new workflow to the list
+      const newWorkflow: WorkflowRun = {
+        id: workflowResult.id,
+        goal: request.trim(),
+        steps: workflowResult.steps || [],
+        notes: workflowResult.notes || '',
+        usedMemories: workflowResult.usedMemories || [],
+        createdAt: workflowResult.createdAt || new Date().toISOString(),
+        status: 'completed'
+      };
+
+      setWorkflows(prev => [newWorkflow, ...prev]);
+
+      toast({
+        title: "Workflow completed",
+        description: `Successfully planned ${workflowResult.steps?.length || 0} steps`
+      });
+
+      // Clear the request input
+      setRequest('');
     } catch (error) {
       console.error('Workflow execution error:', error);
       toast({
         title: "Execution failed",
-        description: error instanceof Error ? error.message : "Unknown error",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive"
       });
-      
-      // Update workflow with error status
-      setWorkflows(prev => prev.map(workflow => {
-        if (workflow.id === workflowId) {
-          return {
-            ...workflow,
-            status: 'failed',
-            completed_at: new Date().toISOString()
-          };
-        }
-        return workflow;
-      }));
-      
+    } finally {
       setIsExecuting(false);
-      setActiveWorkflow(null);
     }
   };
 
-  const handleStopWorkflow = () => {
-    if (activeWorkflow) {
-      const accessToken = session && 'access_token' in session 
-        ? session.access_token 
-        : null;
-      
-      // Send stop signal to backend
-      fetch(`/api/v1/orchestrate/${activeWorkflow}/stop`, {
-        method: 'POST',
-        headers: {
-          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
-        }
-      });
-      
-      setIsExecuting(false);
-      setActiveWorkflow(null);
-      
-      toast({
-        title: "Workflow stopped",
-        description: "Execution has been cancelled"
-      });
+  const getStatusIcon = (status?: string) => {
+    if (status === 'completed') {
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
     }
-  };
-
-  const getStatusIcon = (status: Workflow['status']) => {
-    switch (status) {
-      case 'analyzing':
-        return <Brain className="h-4 w-4 text-blue-500 animate-pulse" />;
-      case 'planning':
-        return <Network className="h-4 w-4 text-yellow-500 animate-pulse" />;
-      case 'executing':
-        return <Activity className="h-4 w-4 text-orange-500 animate-pulse" />;
-      case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'failed':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+    if (status === 'failed') {
+      return <AlertCircle className="h-4 w-4 text-red-500" />;
     }
-  };
-
-  const getStepStatusIcon = (status: WorkflowStep['status']) => {
-    switch (status) {
-      case 'running':
-        return <Activity className="h-3 w-3 text-blue-500 animate-spin" />;
-      case 'completed':
-        return <CheckCircle className="h-3 w-3 text-green-500" />;
-      case 'failed':
-        return <AlertCircle className="h-3 w-3 text-red-500" />;
-      default:
-        return <Clock className="h-3 w-3 text-gray-400" />;
-    }
+    return <Brain className="h-4 w-4 text-blue-500" />;
   };
 
   return (
@@ -256,7 +174,7 @@ export const WorkflowOrchestrator: React.FC = () => {
             AI Workflow Orchestrator
           </CardTitle>
           <CardDescription>
-            Describe what you want to accomplish, and AI will plan and execute a multi-step workflow
+            Describe what you want to accomplish, and AI will plan a multi-step workflow using your memories as context
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -266,6 +184,7 @@ export const WorkflowOrchestrator: React.FC = () => {
             onChange={(e) => setRequest(e.target.value)}
             rows={3}
             disabled={isExecuting}
+            className="resize-none"
           />
           <div className="flex gap-2">
             <Button 
@@ -273,123 +192,132 @@ export const WorkflowOrchestrator: React.FC = () => {
               disabled={isExecuting || !request.trim()}
               className="flex items-center gap-2"
             >
-              <Play className="h-4 w-4" />
-              Execute Workflow
+              {isExecuting ? (
+                <>
+                  <Brain className="h-4 w-4 animate-pulse" />
+                  Planning Workflow...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  Execute Workflow
+                </>
+              )}
             </Button>
-            {isExecuting && (
-              <Button 
-                variant="outline" 
-                onClick={handleStopWorkflow}
-                className="flex items-center gap-2"
-              >
-                <Square className="h-4 w-4" />
-                Stop
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Workflow History */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Workflow History</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <ListChecks className="h-5 w-5" />
+            Workflow History
+          </h3>
+          <Button onClick={fetchWorkflowHistory} variant="outline" size="sm">
+            Refresh
+          </Button>
+        </div>
+        
         {workflows.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
-              <p className="text-center text-gray-500">
-                No workflows executed yet. Try the orchestrator above!
-              </p>
+              <div className="text-center space-y-3 py-8">
+                <Brain className="h-12 w-12 mx-auto text-muted-foreground" />
+                <div>
+                  <h3 className="text-lg font-semibold">No workflows executed yet</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Try the orchestrator above to plan your first workflow!
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         ) : (
           workflows.map((workflow) => (
-            <Card key={workflow.id} className="relative">
+            <Card key={workflow.id} className="relative hover:shadow-md transition-shadow">
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2 flex-1">
                     <div className="flex items-center gap-2">
                       {getStatusIcon(workflow.status)}
-                      <Badge variant={
-                        workflow.status === 'completed' ? 'default' :
-                        workflow.status === 'failed' ? 'destructive' : 'secondary'
-                      }>
-                        {workflow.status}
+                      <Badge variant={workflow.status === 'completed' ? 'default' : 'secondary'}>
+                        {workflow.status || 'completed'}
                       </Badge>
-                      {workflow.estimated_duration && (
-                        <span className="text-sm text-gray-500">
-                          ~{workflow.estimated_duration}s
-                        </span>
-                      )}
                     </div>
-                    <p className="text-sm font-medium">{workflow.request}</p>
+                    <p className="text-sm font-medium leading-relaxed">{workflow.goal}</p>
                   </div>
-                  <div className="text-right text-xs text-gray-500">
-                    {workflow.started_at && (
-                      <div>Started: {new Date(workflow.started_at).toLocaleTimeString()}</div>
-                    )}
-                    {workflow.completed_at && (
-                      <div>Completed: {new Date(workflow.completed_at).toLocaleTimeString()}</div>
-                    )}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                    <Clock className="h-3 w-3" />
+                    {formatDistanceToNow(new Date(workflow.createdAt), { addSuffix: true })}
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Progress Bar */}
-                {workflow.status !== 'completed' && workflow.status !== 'failed' && (
-                  <Progress value={workflow.progress} className="w-full" />
-                )}
-
                 {/* Workflow Steps */}
-                {workflow.steps.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Execution Steps:</h4>
-                    <div className="space-y-1">
+                {workflow.steps && workflow.steps.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <ListChecks className="h-4 w-4" />
+                      Execution Plan ({workflow.steps.length} steps):
+                    </h4>
+                    <div className="space-y-2">
                       {workflow.steps.map((step, index) => (
-                        <div key={step.id} className="flex items-center gap-3 text-sm">
-                          <span className="w-6 text-gray-400">#{index + 1}</span>
-                          {getStepStatusIcon(step.status)}
-                          <span className="flex-1">{step.action}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {step.tool}
-                          </Badge>
-                          {step.execution_time && (
-                            <span className="text-xs text-gray-500">
-                              {step.execution_time}ms
-                            </span>
-                          )}
+                        <div 
+                          key={index} 
+                          className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                        >
+                          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex-shrink-0">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{step.action}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {step.tool}
+                              </Badge>
+                            </div>
+                            {step.reasoning && (
+                              <p className="text-xs text-muted-foreground">
+                                {step.reasoning}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Results */}
-                {workflow.results && (
+                {/* Strategy Notes */}
+                {workflow.notes && (
                   <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Results:</h4>
-                    <div className="bg-gray-50 p-3 rounded-md text-sm">
-                      <pre className="whitespace-pre-wrap">
-                        {typeof workflow.results === 'string' 
-                          ? workflow.results 
-                          : JSON.stringify(workflow.results, null, 2)
-                        }
-                      </pre>
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <Lightbulb className="h-4 w-4" />
+                      Strategy Notes:
+                    </h4>
+                    <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <p className="text-sm text-foreground/90 leading-relaxed">
+                        {workflow.notes}
+                      </p>
                     </div>
                   </div>
                 )}
 
-                {/* Next Actions */}
-                {workflow.next_actions && workflow.next_actions.length > 0 && (
+                {/* Used Memories */}
+                {workflow.usedMemories && workflow.usedMemories.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Suggested Next Actions:</h4>
-                    <ul className="space-y-1">
-                      {workflow.next_actions.map((action, index) => (
-                        <li key={index} className="text-sm text-gray-600 flex items-center gap-2">
-                          <span className="w-1 h-1 bg-blue-500 rounded-full"></span>
-                          {action}
-                        </li>
+                    <h4 className="font-medium text-sm">
+                      Context from {workflow.usedMemories.length} {workflow.usedMemories.length === 1 ? 'memory' : 'memories'}
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {workflow.usedMemories.map((memId, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs font-mono">
+                          {memId.substring(0, 8)}...
+                        </Badge>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
               </CardContent>
