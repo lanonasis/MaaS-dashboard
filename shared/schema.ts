@@ -118,3 +118,44 @@ export const insertVerificationDocumentSchema = createInsertSchema(verificationD
 });
 export type InsertVerificationDocument = z.infer<typeof insertVerificationDocumentSchema>;
 export type VerificationDocument = typeof verificationDocuments.$inferSelect;
+
+// Memory entries table for vector memory storage
+export const memoryEntries = pgTable("memory_entries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id").notNull(),
+  content: text("content").notNull(),
+  type: text("type"), // context, project, knowledge, etc.
+  tags: jsonb("tags"), // array of tags
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertMemoryEntrySchema = createInsertSchema(memoryEntries).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+export type InsertMemoryEntry = z.infer<typeof insertMemoryEntrySchema>;
+export type MemoryEntry = typeof memoryEntries.$inferSelect;
+
+// Workflow runs table for orchestrator history
+export const workflowRuns = pgTable("workflow_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id").notNull(),
+  goal: text("goal").notNull(),
+  status: text("status").notNull(), // analyzing, planning, executing, completed, failed
+  steps: jsonb("steps"), // array of step objects
+  results: jsonb("results"),
+  error_message: text("error_message"),
+  used_memories: jsonb("used_memories"), // array of memory IDs used as context
+  created_at: timestamp("created_at").defaultNow(),
+  completed_at: timestamp("completed_at"),
+});
+
+export const insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({
+  id: true,
+  created_at: true,
+});
+export type InsertWorkflowRun = z.infer<typeof insertWorkflowRunSchema>;
+export type WorkflowRun = typeof workflowRuns.$inferSelect;
