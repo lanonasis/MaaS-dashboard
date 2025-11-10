@@ -1,14 +1,5 @@
 {
   "mcpServers": {
-    "hostinger-api": {
-      "command": "node",
-      "args": [
-        "/Users/seyederick/DevOps/_project_folders/hostinger-api-mcp-server/server.js"
-      ],
-      "env": {
-        "APITOKEN": "YOUR_HOSTINGER_API_TOKEN_HERE"
-      }
-    },
     "Context7": {
       "command": "npx",
       "args": [
@@ -122,15 +113,6 @@
       "env": {
         "BROWSERBASE_API_KEY": "YOUR_BROWSERBASE_API_KEY_HERE",
         "BROWSERBASE_PROJECT_ID": "YOUR_BROWSERBASE_PROJECT_ID_HERE"
-      }
-    },
-    "picsart": {
-      "command": "node",
-      "args": [
-        "/Users/seyederick/DevOps/_project_folders/picsart-mcp-server/dist/index.js"
-      ],
-      "env": {
-        "PICSART_API_KEY": "YOUR_PICSART_API_KEY_HERE"
       }
     },
     "LanOnasis": {

@@ -2,10 +2,15 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Database, RefreshCw, Clock, Tag, FileText, FolderOpen, BookOpen, Briefcase, StickyNote, FileCode } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Database, Search, Tag, FileText, Activity, RefreshCw, Key, Settings, Clock, FolderOpen, BookOpen, Briefcase, StickyNote, FileCode } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { apiClient, type Memory, type ApiKey } from '@/lib/api-client';
 
 interface RecentMemory {
   id: string;
@@ -48,11 +53,18 @@ const getTypeBadgeColor = (type: string) => {
 
 export function MemoryVisualizer() {
   const [user, setUser] = useState<any>(null);
-  const [memories, setMemories] = useState<RecentMemory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(false);
+  const [customApiKey, setCustomApiKey] = useState('vx_vxz9i6hcdpnubdbzf3pl559kqg2eatfo');
+  const [useCustomApiKey, setUseCustomApiKey] = useState(true);
   const [stats, setStats] = useState({
     totalMemories: 0,
-    uniqueTags: 0
+    totalTags: 0,
+    totalAccess: 0,
+    activeKeys: 0
   });
   const { toast } = useToast();
 
@@ -65,40 +77,70 @@ export function MemoryVisualizer() {
 
   // Fetch memories from the new API endpoint
   const fetchMemories = async () => {
-    if (!user) return;
-    
     setIsLoading(true);
     try {
-      // Get the access token from Supabase
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
+      const params: any = {
+        limit: 20,
+        page: 1
+      };
 
-      const response = await fetch('/api/memories/recent?limit=20', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (selectedType !== 'all') {
+        params.type = selectedType;
       }
 
-      const data = await response.json();
-      setMemories(data);
+      // Use custom API key if enabled
+      if (useCustomApiKey && customApiKey) {
+        params.apiKey = customApiKey;
+        console.log('Using API key:', customApiKey.substring(0, 8) + '...');
+      }
+
+      console.log('Fetching memories with params:', params);
+      const response = await apiClient.getMemories(params);
+      console.log('API response:', response);
       
-      // Calculate stats
-      const uniqueTags = new Set(data.flatMap((m: RecentMemory) => m.tags || []));
-      setStats({
-        totalMemories: data.length,
-        uniqueTags: uniqueTags.size
-      });
+      if (response.data) {
+        setMemories(response.data);
+        
+        // Calculate stats
+        const uniqueTags = new Set(response.data.flatMap(m => m.tags || []));
+        const totalAccess = response.data.reduce((sum, m) => sum + (m.access_count || 0), 0);
+        
+        setStats(prev => ({
+          ...prev,
+          totalMemories: response.data.length,
+          totalTags: uniqueTags.size,
+          totalAccess
+        }));
+        
+        toast({
+          title: 'Memories loaded successfully',
+          description: `Found ${response.data.length} memory entries`,
+        });
+      } else if (response.error) {
+        toast({
+          title: 'API Error',
+          description: `${response.error} (${response.code || 'Unknown'})`,
+          variant: 'destructive'
+        });
+        setMemories([]);
+      } else {
+        setMemories([]);
+      }
     } catch (error: any) {
       console.error('Error fetching memories:', error);
+      let errorMessage = 'Could not fetch memory data';
+      
+      if (error.message.includes('fetch')) {
+        errorMessage = 'Network error - check API connectivity';
+      } else if (error.message.includes('401')) {
+        errorMessage = 'Authentication failed - check API key';
+      } else if (error.message.includes('404')) {
+        errorMessage = 'API endpoint not found';
+      }
+      
       toast({
         title: 'Failed to load memories',
-        description: error.message || 'Could not fetch memories from the server',
+        description: `${errorMessage}: ${error.message}`,
         variant: 'destructive'
       });
       setMemories([]);
@@ -107,14 +149,125 @@ export function MemoryVisualizer() {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchMemories();
+  // Fetch API keys from Supabase
+  const fetchApiKeys = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      if (data) {
+        setApiKeys(data);
+        setStats(prev => ({
+          ...prev,
+          activeKeys: data.filter(k => k.is_active).length
+        }));
+      }
+    } catch (error: any) {
+      console.error('Error fetching API keys:', error);
     }
-  }, [user]);
+  };
+
+  // Semantic search
+  const handleSemanticSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsLoading(true);
+    try {
+      const searchParams: any = {
+        query: searchQuery,
+        limit: 50,
+        similarity_threshold: 0.7
+      };
+      
+      // Use custom API key if enabled
+      if (useCustomApiKey && customApiKey) {
+        searchParams.apiKey = customApiKey;
+      }
+      
+      const response = await apiClient.searchMemories(searchParams);
+      
+      if (response.data) {
+        setMemories(response.data);
+        toast({
+          title: 'Search completed',
+          description: `Found ${response.data.length} matching memories`,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Search failed',
+        description: error.message || 'Could not perform semantic search',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMemories();
+    if (user) {
+      fetchApiKeys();
+    }
+  }, [user, selectedType, useCustomApiKey, customApiKey]);
+
+  const memoryTypes = ['all', 'context', 'project', 'knowledge', 'reference', 'personal', 'workflow', 'note', 'document'];
 
   return (
     <div className="space-y-6">
+      {/* API Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Memory API Configuration
+          </CardTitle>
+          <CardDescription>
+            Configure how to fetch memory data from the LanOnasis API
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="use-custom-api-key"
+              checked={useCustomApiKey}
+              onCheckedChange={setUseCustomApiKey}
+            />
+            <Label htmlFor="use-custom-api-key">Use Custom API Key</Label>
+          </div>
+          
+          {useCustomApiKey && (
+            <div className="space-y-2">
+              <Label htmlFor="api-key">API Key</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="api-key"
+                  type="password"
+                  placeholder="Enter your LanOnasis API key"
+                  value={customApiKey}
+                  onChange={(e) => setCustomApiKey(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={fetchMemories} disabled={isLoading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  Test & Load
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Using API key: {customApiKey ? `${customApiKey.substring(0, 8)}...` : 'None'}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
@@ -136,7 +289,7 @@ export function MemoryVisualizer() {
           <CardContent>
             <div className="flex items-center gap-2">
               <Tag className="h-4 w-4 text-green-500" />
-              <span className="text-2xl font-bold">{stats.uniqueTags}</span>
+              <span className="text-2xl font-bold">{stats.totalTags}</span>
             </div>
           </CardContent>
         </Card>
@@ -197,14 +350,14 @@ export function MemoryVisualizer() {
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           <span>
-                            {formatDistanceToNow(new Date(memory.createdAt), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(memory.created_at), { addSuffix: true })}
                           </span>
                         </div>
                       </div>
 
                       {/* Content Snippet */}
                       <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        {memory.contentSnippet}
+                        {memory.content || memory.title}
                       </p>
 
                       {/* Tags */}
