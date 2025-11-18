@@ -186,20 +186,49 @@ export function registerRoutes(app: Express, storage: IStorage) {
           messages: [
             {
               role: 'system',
-              content: `You are a personal AI orchestrator. You help users plan and execute multi-step workflows.
-              
-Given the user's recent memories and their goal, create a detailed 3-7 step workflow plan. 
-For each step, specify:
-- action: A clear description of what to do
-- tool: Which tool or service to use (e.g., "memory_search", "data_analysis", "email", "report_generation")
-- reasoning: Why this step is important
+              content: `You are the LanOnasis Orchestrator, an opinionated AI project operator.
 
-Also identify which memories are relevant to this workflow.
+You see:
+- The user's high-level goal
+- A slice of their recent memories from the LanOnasis Memory Service
 
-Return your response as JSON with this structure:
+Your job:
+1. Turn the goal into a realistic, execution-ready workflow
+2. Use existing memories whenever relevant, and say so explicitly
+3. Push back gently on bad or vague requests (e.g., "launch in 1 hour" with no assets)
+4. Always output STRICTLY in the JSON schema provided
+
+Guidelines:
+- Be concrete and practical, not fluffy
+- Prefer fewer, more impactful steps (3-7) over long task lists
+- If critical information is missing, call it out in "missingInfo"
+- If a goal is unrealistic, downgrade priority and list constraints in "risks"
+- Suggest which internal tool or area of the app should be used:
+  - "memory.search" for searching stored memories
+  - "mcp.clickup" for task management
+  - "cli" for terminal actions
+  - "dashboard" for UI actions
+
+Think like a senior operator who cares about focus, safety, and leverage.
+
+Return your response as JSON with this exact structure:
 {
-  "steps": [{ "action": "...", "tool": "...", "reasoning": "..." }],
-  "notes": "Overall strategy and notes",
+  "summary": "AI-generated interpretation of the goal (1-2 sentences)",
+  "priority": "high" | "medium" | "low",
+  "suggestedTimeframe": "e.g., Today (30-60 minutes), This week, etc.",
+  "steps": [
+    {
+      "id": "1",
+      "label": "Brief step title",
+      "detail": "Detailed explanation of what to do and how",
+      "dependsOnStepIds": ["2"],
+      "suggestedTool": "memory.search" | "mcp.clickup" | "cli" | "dashboard",
+      "expectedOutcome": "What success looks like for this step"
+    }
+  ],
+  "risks": ["Risk 1", "Risk 2"],
+  "missingInfo": ["Missing detail 1", "Missing detail 2"],
+  "notes": "Additional strategy notes or context",
   "usedMemories": ["memory_id1", "memory_id2"]
 }`
             },
@@ -219,21 +248,33 @@ Return your response as JSON with this structure:
       
       const llmData = await llmResponse.json();
       const workflowPlan = JSON.parse(llmData.choices[0].message.content);
-      
+
       // Store workflow run in database
       const workflowRun = await storage.createWorkflowRun({
         user_id: req.user.id,
         goal,
         status: 'completed',
         steps: workflowPlan.steps,
-        results: { notes: workflowPlan.notes },
+        results: {
+          summary: workflowPlan.summary,
+          priority: workflowPlan.priority,
+          suggestedTimeframe: workflowPlan.suggestedTimeframe,
+          notes: workflowPlan.notes,
+          risks: workflowPlan.risks,
+          missingInfo: workflowPlan.missingInfo
+        },
         used_memories: workflowPlan.usedMemories || [],
         completed_at: new Date()
       });
-      
+
       res.json({
         id: workflowRun.id,
+        summary: workflowPlan.summary,
+        priority: workflowPlan.priority,
+        suggestedTimeframe: workflowPlan.suggestedTimeframe,
         steps: workflowPlan.steps,
+        risks: workflowPlan.risks || [],
+        missingInfo: workflowPlan.missingInfo || [],
         notes: workflowPlan.notes,
         usedMemories: workflowPlan.usedMemories || [],
         createdAt: workflowRun.created_at
@@ -254,11 +295,27 @@ Return your response as JSON with this structure:
       if (!req.user) {
         return res.status(401).json({ message: "Unauthorized" });
       }
-      
+
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
       const runs = await storage.getWorkflowRuns(req.user.id, limit);
-      
-      res.json(runs);
+
+      // Transform runs to include all fields from results
+      const transformedRuns = runs.map(run => ({
+        id: run.id,
+        goal: run.goal,
+        summary: (run.results as any)?.summary,
+        priority: (run.results as any)?.priority,
+        suggestedTimeframe: (run.results as any)?.suggestedTimeframe,
+        steps: run.steps || [],
+        risks: (run.results as any)?.risks || [],
+        missingInfo: (run.results as any)?.missingInfo || [],
+        notes: (run.results as any)?.notes || '',
+        used_memories: run.used_memories || [],
+        created_at: run.created_at,
+        status: run.status
+      }));
+
+      res.json(transformedRuns);
     } catch (error) {
       console.error("Error fetching workflow runs:", error);
       res.status(500).json({ message: "Internal server error" });

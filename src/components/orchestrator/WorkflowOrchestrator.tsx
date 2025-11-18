@@ -19,15 +19,27 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 
 interface WorkflowStep {
-  action: string;
-  tool: string;
+  id: string;
+  label: string;
+  detail: string;
+  dependsOnStepIds: string[];
+  suggestedTool: string;
+  expectedOutcome: string;
+  // Legacy support
+  action?: string;
+  tool?: string;
   reasoning?: string;
 }
 
 interface WorkflowRun {
   id: string;
   goal: string;
+  summary?: string;
+  priority?: 'high' | 'medium' | 'low';
+  suggestedTimeframe?: string;
   steps: WorkflowStep[];
+  risks?: string[];
+  missingInfo?: string[];
   notes: string;
   usedMemories: string[];
   createdAt: string;
@@ -164,6 +176,32 @@ export const WorkflowOrchestrator: React.FC = () => {
     return <Brain className="h-4 w-4 text-blue-500" />;
   };
 
+  const getPriorityConfig = (priority?: string) => {
+    const configs = {
+      high: { icon: '🔴', color: 'text-red-500', bgColor: 'bg-red-500/10 border-red-500/20' },
+      medium: { icon: '🟡', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10 border-yellow-500/20' },
+      low: { icon: '🟢', color: 'text-green-500', bgColor: 'bg-green-500/10 border-green-500/20' }
+    };
+    return configs[priority as keyof typeof configs] || configs.medium;
+  };
+
+  const getToolConfig = (tool: string) => {
+    const toolLower = tool.toLowerCase();
+    if (toolLower.includes('memory') || toolLower.includes('search')) {
+      return { icon: '🧠', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' };
+    }
+    if (toolLower.includes('mcp') || toolLower.includes('clickup') || toolLower.includes('task')) {
+      return { icon: '📋', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' };
+    }
+    if (toolLower.includes('cli') || toolLower.includes('terminal') || toolLower.includes('shell')) {
+      return { icon: '⌨️', color: 'bg-green-500/10 text-green-500 border-green-500/20' };
+    }
+    if (toolLower.includes('dashboard') || toolLower.includes('ui')) {
+      return { icon: '📊', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' };
+    }
+    return { icon: '🔧', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
+  };
+
   return (
     <div className="space-y-6">
       {/* Workflow Request Input */}
@@ -240,13 +278,29 @@ export const WorkflowOrchestrator: React.FC = () => {
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {getStatusIcon(workflow.status)}
                       <Badge variant={workflow.status === 'completed' ? 'default' : 'secondary'}>
                         {workflow.status || 'completed'}
                       </Badge>
+                      {workflow.priority && (
+                        <Badge variant="outline" className={getPriorityConfig(workflow.priority).bgColor}>
+                          {getPriorityConfig(workflow.priority).icon} {workflow.priority.toUpperCase()}
+                        </Badge>
+                      )}
+                      {workflow.suggestedTimeframe && (
+                        <Badge variant="outline" className="text-xs">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {workflow.suggestedTimeframe}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm font-medium leading-relaxed">{workflow.goal}</p>
+                    {workflow.summary && (
+                      <p className="text-sm text-muted-foreground italic leading-relaxed">
+                        {workflow.summary}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
                     <Clock className="h-3 w-3" />
@@ -263,29 +317,49 @@ export const WorkflowOrchestrator: React.FC = () => {
                       Execution Plan ({workflow.steps.length} steps):
                     </h4>
                     <div className="space-y-2">
-                      {workflow.steps.map((step, index) => (
-                        <div 
-                          key={index} 
-                          className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex-shrink-0">
-                            {index + 1}
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">{step.action}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {step.tool}
-                              </Badge>
+                      {workflow.steps.map((step, index) => {
+                        const tool = step.suggestedTool || step.tool || 'unknown';
+                        const toolConfig = getToolConfig(tool);
+                        const label = step.label || step.action || '';
+                        const detail = step.detail || step.reasoning || '';
+
+                        return (
+                          <div
+                            key={step.id || index}
+                            className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                          >
+                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex-shrink-0">
+                              {index + 1}
                             </div>
-                            {step.reasoning && (
-                              <p className="text-xs text-muted-foreground">
-                                {step.reasoning}
-                              </p>
-                            )}
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium">{label}</span>
+                                <Badge variant="outline" className={`text-xs ${toolConfig.color}`}>
+                                  {toolConfig.icon} {tool}
+                                </Badge>
+                                {step.dependsOnStepIds && step.dependsOnStepIds.length > 0 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Depends on: {step.dependsOnStepIds.join(', ')}
+                                  </Badge>
+                                )}
+                              </div>
+                              {detail && (
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                  {detail}
+                                </p>
+                              )}
+                              {step.expectedOutcome && (
+                                <div className="flex items-start gap-1.5 text-xs">
+                                  <CheckCircle className="h-3 w-3 text-green-500 mt-0.5 flex-shrink-0" />
+                                  <span className="text-green-600 dark:text-green-400">
+                                    <strong>Expected:</strong> {step.expectedOutcome}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -301,6 +375,40 @@ export const WorkflowOrchestrator: React.FC = () => {
                       <p className="text-sm text-foreground/90 leading-relaxed">
                         {workflow.notes}
                       </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Risks */}
+                {workflow.risks && workflow.risks.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                      <AlertCircle className="h-4 w-4" />
+                      ⚠️ Risks & Constraints:
+                    </h4>
+                    <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                      <ul className="space-y-1.5 list-disc list-inside text-sm text-foreground/90">
+                        {workflow.risks.map((risk, idx) => (
+                          <li key={idx} className="leading-relaxed">{risk}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {/* Missing Info */}
+                {workflow.missingInfo && workflow.missingInfo.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                      <AlertCircle className="h-4 w-4" />
+                      ℹ️ Missing Information:
+                    </h4>
+                    <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <ul className="space-y-1.5 list-disc list-inside text-sm text-foreground/90">
+                        {workflow.missingInfo.map((info, idx) => (
+                          <li key={idx} className="leading-relaxed">{info}</li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
                 )}
