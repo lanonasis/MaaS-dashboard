@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AnimatedButton } from '@/components/ui/AnimatedButton';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { supabase, getRedirectUrl } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -190,8 +191,9 @@ const AuthForm = () => {
   const footerTargetMode: AuthMode = mode === 'login' ? 'register' : 'login';
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <TooltipProvider>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-md">
         <CardHeader className="space-y-2">
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
@@ -323,10 +325,18 @@ const AuthForm = () => {
                   <DiscordIcon />
                   <span className="ml-2">Discord</span>
                 </Button>
-                <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('apple')} disabled={isLoading}>
-                  <AppleIcon />
-                  <span className="ml-2">Apple</span>
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('apple')} disabled={true}>
+                      <AppleIcon />
+                      <span className="ml-2">Apple</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Apple Sign-In requires backend configuration.</p>
+                    <p className="text-xs">Please contact support for assistance.</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           )}
@@ -350,8 +360,9 @@ const AuthForm = () => {
             </div>
           </div>
         </CardFooter>
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </TooltipProvider>
   );
 };
 
