@@ -52,14 +52,29 @@ export const SupabaseAuthProvider = ({
   useEffect(() => {
     console.log("SupabaseAuthProvider: Initializing auth");
     let cleanup: (() => void) | undefined;
+    let timeoutId: NodeJS.Timeout;
+
+    // Safety timeout to ensure loading state always clears
+    timeoutId = setTimeout(() => {
+      console.warn("Auth initialization timeout - forcing loading state to false");
+      setIsLoading(false);
+    }, 10000); // 10 second timeout
 
     const init = async () => {
-      cleanup = await initializeAuth();
+      try {
+        cleanup = await initializeAuth();
+        clearTimeout(timeoutId);
+      } catch (error) {
+        console.error("Error in init:", error);
+        clearTimeout(timeoutId);
+        setIsLoading(false);
+      }
     };
 
     init();
 
     return () => {
+      clearTimeout(timeoutId);
       if (cleanup) {
         cleanup();
       }
@@ -76,23 +91,45 @@ export const SupabaseAuthProvider = ({
       if (!supabase) {
         console.error("Supabase client not initialized");
         setIsLoading(false);
-        return;
+        return undefined;
       }
 
-      // Get the current session from Supabase
-      const {
-        data: { session: supabaseSession },
-        error,
-      } = await supabase.auth.getSession();
+      console.log("SupabaseAuthProvider: Getting session...");
+
+      // Race the session fetch against a 5-second timeout
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Session fetch timeout')), 5000);
+      });
+
+      const { data: { session: supabaseSession }, error } = await Promise.race([
+        sessionPromise,
+        timeoutPromise
+      ]) as any;
+
+      console.log("SupabaseAuthProvider: Session fetched", {
+        hasSession: !!supabaseSession,
+        hasError: !!error
+      });
 
       if (error) {
         console.error("Error fetching Supabase session:", error);
+        // Continue without session
       } else if (supabaseSession) {
+        console.log("SupabaseAuthProvider: Setting session and user");
         setSession(supabaseSession);
         setUser(supabaseSession.user);
-        await fetchProfile(supabaseSession.user.id);
+
+        // Fetch profile but don't block on it
+        console.log("SupabaseAuthProvider: Fetching profile...");
+        fetchProfile(supabaseSession.user.id).catch(err => {
+          console.error("Error fetching profile (non-blocking):", err);
+        });
+      } else {
+        console.log("SupabaseAuthProvider: No session found");
       }
 
+      console.log("SupabaseAuthProvider: Setting up auth state listener");
       // Set up Supabase auth state listener
       const {
         data: { subscription },
@@ -147,17 +184,32 @@ export const SupabaseAuthProvider = ({
       });
 
       // Set loading to false after initialization
+      console.log("SupabaseAuthProvider: Auth initialized successfully, clearing loading state");
       setIsLoading(false);
 
       // Return cleanup function to remove the subscription when component unmounts
       return () => {
+        console.log("SupabaseAuthProvider: Cleaning up auth subscription");
         subscription.unsubscribe();
       };
     } catch (error) {
       console.error("Error initializing Supabase auth:", error);
-      setInitError(
-        error instanceof Error ? error.message : "Unknown initialization error"
-      );
+
+      // If it's a timeout, don't set initError - just continue without auth
+      if (error instanceof Error && error.message === 'Session fetch timeout') {
+        console.warn("Session fetch timed out - continuing without authentication");
+        toast({
+          title: "Authentication timeout",
+          description: "Could not connect to authentication service. You can continue without signing in.",
+          variant: "default"
+        });
+      } else {
+        setInitError(
+          error instanceof Error ? error.message : "Unknown initialization error"
+        );
+      }
+
+      console.log("SupabaseAuthProvider: Error occurred, clearing loading state");
       setIsLoading(false);
       return undefined;
     }
