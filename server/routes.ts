@@ -155,7 +155,7 @@ export function registerRoutes(app: Express, storage: IStorage) {
       
       // Fetch user's recent memories for context
       const recentMemories = await storage.getRecentMemories(req.user.id, 10);
-      
+
       // Prepare memory context for LLM
       const memoryContext = recentMemories.map(m => ({
         id: m.id,
@@ -163,7 +163,16 @@ export function registerRoutes(app: Express, storage: IStorage) {
         content: m.content.substring(0, 500),
         tags: m.tags
       }));
-      
+
+      // Load MCP tools configuration
+      let mcpTools: string[] = [];
+      try {
+        const mcpConfig = await import('../src/config/mcp-servers.json');
+        mcpTools = Object.keys(mcpConfig.default?.mcpServers || {});
+      } catch (error) {
+        console.warn('Could not load MCP configuration:', error);
+      }
+
       // Call LLM to generate workflow plan
       // Note: This requires OpenAI API key or similar LLM service
       const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -191,6 +200,7 @@ export function registerRoutes(app: Express, storage: IStorage) {
 You see:
 - The user's high-level goal
 - A slice of their recent memories from the LanOnasis Memory Service
+- Available MCP (Model Context Protocol) tools the user has configured
 
 Your job:
 1. Turn the goal into a realistic, execution-ready workflow
@@ -205,9 +215,10 @@ Guidelines:
 - If a goal is unrealistic, downgrade priority and list constraints in "risks"
 - Suggest which internal tool or area of the app should be used:
   - "memory.search" for searching stored memories
-  - "mcp.clickup" for task management
+  - "mcp.<tool_name>" for MCP tools (e.g., "mcp.github", "mcp.perplexity-ask", "mcp.supabase")
   - "cli" for terminal actions
   - "dashboard" for UI actions
+  - Use the specific MCP tools that are available (listed in the user message) when relevant
 
 Think like a senior operator who cares about focus, safety, and leverage.
 
@@ -234,7 +245,7 @@ Return your response as JSON with this exact structure:
             },
             {
               role: 'user',
-              content: `Recent memories:\n${JSON.stringify(memoryContext, null, 2)}\n\nGoal: ${goal}`
+              content: `Recent memories:\n${JSON.stringify(memoryContext, null, 2)}\n\nAvailable MCP Tools:\n${mcpTools.length > 0 ? mcpTools.join(', ') : 'None configured'}\n\nGoal: ${goal}`
             }
           ],
           temperature: 0.7,

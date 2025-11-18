@@ -3,18 +3,44 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Play, 
-  Clock, 
-  CheckCircle, 
+import { apiClient } from '@/lib/api-client';
+import mcpServers from '@/config/mcp-servers.json';
+import {
+  Play,
+  Clock,
+  CheckCircle,
   AlertCircle,
   Zap,
   Brain,
   ListChecks,
-  Lightbulb
+  Lightbulb,
+  Save,
+  Search,
+  Database,
+  Tag,
+  FileText,
+  ChevronDown,
+  Plus,
+  BookOpen,
+  Sparkles
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -46,12 +72,35 @@ interface WorkflowRun {
   status?: string;
 }
 
+interface Memory {
+  id: string;
+  content: string;
+  type: string;
+  tags: string[];
+  created_at: string;
+  metadata?: any;
+}
+
 export const WorkflowOrchestrator: React.FC = () => {
   const [request, setRequest] = useState('');
   const [workflows, setWorkflows] = useState<WorkflowRun[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
+
+  // Memory management states
+  const [memorySearchQuery, setMemorySearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Memory[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [relevantMemories, setRelevantMemories] = useState<Memory[]>([]);
+  const [showMemoryPanel, setShowMemoryPanel] = useState(false);
+
+  // Quick memory creation states
+  const [newMemoryContent, setNewMemoryContent] = useState('');
+  const [newMemoryType, setNewMemoryType] = useState('note');
+  const [newMemoryTags, setNewMemoryTags] = useState('');
+  const [isSavingMemory, setIsSavingMemory] = useState(false);
+  const [showQuickMemory, setShowQuickMemory] = useState(false);
 
   // Fetch workflow history on mount
   useEffect(() => {
@@ -202,8 +251,318 @@ export const WorkflowOrchestrator: React.FC = () => {
     return { icon: '🔧', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
   };
 
+  // Memory search handler
+  const handleMemorySearch = async () => {
+    if (!memorySearchQuery.trim() || !user) return;
+
+    setIsSearching(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await apiClient.searchMemories({
+        query: memorySearchQuery,
+        limit: 10,
+        similarity_threshold: 0.6
+      });
+
+      if (response.data) {
+        setSearchResults(response.data);
+        toast({
+          title: 'Search completed',
+          description: `Found ${response.data.length} relevant memories`,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Search failed',
+        description: error.message || 'Could not search memories',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Quick memory creation handler
+  const handleQuickMemorySave = async () => {
+    if (!newMemoryContent.trim() || !user) return;
+
+    setIsSavingMemory(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const tags = newMemoryTags
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0);
+
+      const { data, error } = await supabase
+        .from('memory_entries')
+        .insert({
+          user_id: user.id,
+          content: newMemoryContent.trim(),
+          type: newMemoryType,
+          tags: tags,
+          metadata: { source: 'orchestrator_quick_add' }
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: 'Memory saved',
+        description: 'Your memory has been stored successfully',
+      });
+
+      // Clear form
+      setNewMemoryContent('');
+      setNewMemoryTags('');
+      setShowQuickMemory(false);
+    } catch (error: any) {
+      toast({
+        title: 'Save failed',
+        description: error.message || 'Could not save memory',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSavingMemory(false);
+    }
+  };
+
+  // Save workflow as memory
+  const handleSaveWorkflowAsMemory = async (workflow: WorkflowRun) => {
+    if (!user) return;
+
+    try {
+      const content = `Workflow: ${workflow.goal}\n\nSummary: ${workflow.summary || 'N/A'}\n\nSteps:\n${workflow.steps.map((step, idx) => `${idx + 1}. ${step.label || step.action}`).join('\n')}\n\nNotes: ${workflow.notes}`;
+
+      const { error } = await supabase
+        .from('memory_entries')
+        .insert({
+          user_id: user.id,
+          content,
+          type: 'workflow',
+          tags: ['orchestrator', 'workflow', workflow.priority || 'medium'],
+          metadata: {
+            source: 'orchestrator_workflow',
+            workflow_id: workflow.id,
+            goal: workflow.goal
+          }
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Workflow saved to memory',
+        description: 'This workflow is now stored in your memory bank',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Save failed',
+        description: error.message || 'Could not save workflow',
+        variant: 'destructive'
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Memory & Tools Management Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        {/* Quick Memory Store */}
+        <Collapsible open={showQuickMemory} onOpenChange={setShowQuickMemory}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Save className="h-5 w-5 text-green-500" />
+                    <CardTitle className="text-base">Quick Memory Store</CardTitle>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showQuickMemory ? 'rotate-180' : ''}`} />
+                </div>
+                <CardDescription>Save context, notes, or insights to your memory bank</CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="memory-type">Memory Type</Label>
+                  <Select value={newMemoryType} onValueChange={setNewMemoryType}>
+                    <SelectTrigger id="memory-type">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="note">📝 Note</SelectItem>
+                      <SelectItem value="context">📄 Context</SelectItem>
+                      <SelectItem value="project">💼 Project</SelectItem>
+                      <SelectItem value="knowledge">📚 Knowledge</SelectItem>
+                      <SelectItem value="reference">🔗 Reference</SelectItem>
+                      <SelectItem value="personal">👤 Personal</SelectItem>
+                      <SelectItem value="workflow">⚙️ Workflow</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="memory-content">Content</Label>
+                  <Textarea
+                    id="memory-content"
+                    placeholder="Paste or type the context you want to remember..."
+                    value={newMemoryContent}
+                    onChange={(e) => setNewMemoryContent(e.target.value)}
+                    rows={4}
+                    className="resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="memory-tags">Tags (comma-separated)</Label>
+                  <Input
+                    id="memory-tags"
+                    placeholder="e.g., api, authentication, production"
+                    value={newMemoryTags}
+                    onChange={(e) => setNewMemoryTags(e.target.value)}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleQuickMemorySave}
+                  disabled={!newMemoryContent.trim() || isSavingMemory}
+                  className="w-full"
+                >
+                  {isSavingMemory ? (
+                    <>
+                      <Brain className="h-4 w-4 mr-2 animate-pulse" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save to Memory
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Memory Search */}
+        <Collapsible open={showMemoryPanel} onOpenChange={setShowMemoryPanel}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Search className="h-5 w-5 text-blue-500" />
+                    <CardTitle className="text-base">Memory Search</CardTitle>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showMemoryPanel ? 'rotate-180' : ''}`} />
+                </div>
+                <CardDescription>Find relevant context from your memories</CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Search by keywords or semantic meaning..."
+                    value={memorySearchQuery}
+                    onChange={(e) => setMemorySearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleMemorySearch()}
+                  />
+                  <Button
+                    onClick={handleMemorySearch}
+                    disabled={!memorySearchQuery.trim() || isSearching}
+                    size="icon"
+                  >
+                    {isSearching ? (
+                      <Brain className="h-4 w-4 animate-pulse" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {searchResults.length > 0 && (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    <p className="text-sm text-muted-foreground">
+                      Found {searchResults.length} relevant {searchResults.length === 1 ? 'memory' : 'memories'}
+                    </p>
+                    {searchResults.map((memory) => (
+                      <div
+                        key={memory.id}
+                        className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors space-y-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {memory.type}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(memory.created_at), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <p className="text-sm line-clamp-3">{memory.content}</p>
+                        {memory.tags && memory.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {memory.tags.map((tag, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* MCP Tools Panel */}
+        <Card className="lg:col-span-2 xl:col-span-1">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-purple-500" />
+              <CardTitle className="text-base">Available MCP Tools</CardTitle>
+            </div>
+            <CardDescription>Tools the AI can leverage in workflows</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {Object.entries(mcpServers.mcpServers || {}).map(([serverName, config]: [string, any]) => (
+                <div
+                  key={serverName}
+                  className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Database className="h-4 w-4 text-purple-500" />
+                    <span className="text-sm font-medium">{serverName}</span>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    MCP
+                  </Badge>
+                </div>
+              ))}
+              {Object.keys(mcpServers.mcpServers || {}).length === 0 && (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No MCP tools configured</p>
+                  <p className="text-xs mt-1">Configure MCP servers to enhance workflows</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <p className="text-xs text-muted-foreground">
+                The AI orchestrator can reference these tools when planning workflows. Examples: "Use GitHub MCP to create an issue" or "Search with Perplexity"
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Workflow Request Input */}
       <Card>
         <CardHeader>
@@ -428,6 +787,27 @@ export const WorkflowOrchestrator: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Workflow Actions */}
+                <div className="pt-4 border-t flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSaveWorkflowAsMemory(workflow)}
+                    className="flex items-center gap-2"
+                  >
+                    <Save className="h-4 w-4" />
+                    Save to Memory
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 ml-auto"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Use as Template
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))
