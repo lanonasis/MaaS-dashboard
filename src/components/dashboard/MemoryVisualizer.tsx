@@ -58,8 +58,8 @@ export function MemoryVisualizer() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
-  const [customApiKey, setCustomApiKey] = useState('vx_vxz9i6hcdpnubdbzf3pl559kqg2eatfo');
-  const [useCustomApiKey, setUseCustomApiKey] = useState(true);
+  const [customApiKey, setCustomApiKey] = useState('');
+  const [useCustomApiKey, setUseCustomApiKey] = useState(false);
   const [stats, setStats] = useState({
     totalMemories: 0,
     totalTags: 0,
