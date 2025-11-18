@@ -51,11 +51,23 @@ export const SupabaseAuthProvider = ({
 
   useEffect(() => {
     console.log("SupabaseAuthProvider: Initializing auth");
-    initializeAuth();
+    let cleanup: (() => void) | undefined;
+
+    const init = async () => {
+      cleanup = await initializeAuth();
+    };
+
+    init();
+
+    return () => {
+      if (cleanup) {
+        cleanup();
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const initializeAuth = async () => {
+  const initializeAuth = async (): Promise<(() => void) | undefined> => {
     console.log("SupabaseAuthProvider: initializeAuth called");
     setIsLoading(true);
 
@@ -134,7 +146,10 @@ export const SupabaseAuthProvider = ({
         }
       });
 
-      // Cleanup function to remove the subscription when component unmounts
+      // Set loading to false after initialization
+      setIsLoading(false);
+
+      // Return cleanup function to remove the subscription when component unmounts
       return () => {
         subscription.unsubscribe();
       };
@@ -143,8 +158,8 @@ export const SupabaseAuthProvider = ({
       setInitError(
         error instanceof Error ? error.message : "Unknown initialization error"
       );
-    } finally {
       setIsLoading(false);
+      return undefined;
     }
   };
 
