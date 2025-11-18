@@ -44,10 +44,12 @@ const App = () => (
               <Route path="/landing" element={<Index />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/memory-visualizer" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/memory-analytics" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/mcp-tracking" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/scheduler" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/api-keys" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/orchestrator" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/extensions" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/upload" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/api-docs" element={<ApiDocs />} />
               <Route path="/docs" element={<ApiDocs />} />
               <Route path="/api-analytics" element={<ApiAnalytics />} />
