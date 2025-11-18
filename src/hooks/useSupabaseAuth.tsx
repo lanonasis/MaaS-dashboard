@@ -52,14 +52,29 @@ export const SupabaseAuthProvider = ({
   useEffect(() => {
     console.log("SupabaseAuthProvider: Initializing auth");
     let cleanup: (() => void) | undefined;
+    let timeoutId: NodeJS.Timeout;
+
+    // Safety timeout to ensure loading state always clears
+    timeoutId = setTimeout(() => {
+      console.warn("Auth initialization timeout - forcing loading state to false");
+      setIsLoading(false);
+    }, 10000); // 10 second timeout
 
     const init = async () => {
-      cleanup = await initializeAuth();
+      try {
+        cleanup = await initializeAuth();
+        clearTimeout(timeoutId);
+      } catch (error) {
+        console.error("Error in init:", error);
+        clearTimeout(timeoutId);
+        setIsLoading(false);
+      }
     };
 
     init();
 
     return () => {
+      clearTimeout(timeoutId);
       if (cleanup) {
         cleanup();
       }
@@ -76,23 +91,38 @@ export const SupabaseAuthProvider = ({
       if (!supabase) {
         console.error("Supabase client not initialized");
         setIsLoading(false);
-        return;
+        return undefined;
       }
 
+      console.log("SupabaseAuthProvider: Getting session...");
       // Get the current session from Supabase
       const {
         data: { session: supabaseSession },
         error,
       } = await supabase.auth.getSession();
 
+      console.log("SupabaseAuthProvider: Session fetched", {
+        hasSession: !!supabaseSession,
+        hasError: !!error
+      });
+
       if (error) {
         console.error("Error fetching Supabase session:", error);
       } else if (supabaseSession) {
+        console.log("SupabaseAuthProvider: Setting session and user");
         setSession(supabaseSession);
         setUser(supabaseSession.user);
-        await fetchProfile(supabaseSession.user.id);
+
+        // Fetch profile but don't block on it
+        console.log("SupabaseAuthProvider: Fetching profile...");
+        fetchProfile(supabaseSession.user.id).catch(err => {
+          console.error("Error fetching profile (non-blocking):", err);
+        });
+      } else {
+        console.log("SupabaseAuthProvider: No session found");
       }
 
+      console.log("SupabaseAuthProvider: Setting up auth state listener");
       // Set up Supabase auth state listener
       const {
         data: { subscription },
@@ -147,10 +177,12 @@ export const SupabaseAuthProvider = ({
       });
 
       // Set loading to false after initialization
+      console.log("SupabaseAuthProvider: Auth initialized successfully, clearing loading state");
       setIsLoading(false);
 
       // Return cleanup function to remove the subscription when component unmounts
       return () => {
+        console.log("SupabaseAuthProvider: Cleaning up auth subscription");
         subscription.unsubscribe();
       };
     } catch (error) {
@@ -158,6 +190,7 @@ export const SupabaseAuthProvider = ({
       setInitError(
         error instanceof Error ? error.message : "Unknown initialization error"
       );
+      console.log("SupabaseAuthProvider: Error occurred, clearing loading state");
       setIsLoading(false);
       return undefined;
     }
