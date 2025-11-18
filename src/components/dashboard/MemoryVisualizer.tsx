@@ -93,6 +93,12 @@ export function MemoryVisualizer() {
         params.apiKey = customApiKey;
         console.log('Using API key:', customApiKey.substring(0, 8) + '...');
       }
+      
+      // Use custom API key if enabled
+      if (useCustomApiKey && customApiKey) {
+        params.apiKey = customApiKey;
+        console.log('Using API key:', customApiKey.substring(0, 8) + '...');
+      }
 
       console.log('Fetching memories with params:', params);
       const response = await apiClient.getMemories(params);
