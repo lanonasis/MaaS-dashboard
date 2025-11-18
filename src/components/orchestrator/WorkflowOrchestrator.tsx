@@ -40,7 +40,10 @@ import {
   ChevronDown,
   Plus,
   BookOpen,
-  Sparkles
+  Sparkles,
+  Download,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -101,6 +104,12 @@ export const WorkflowOrchestrator: React.FC = () => {
   const [newMemoryTags, setNewMemoryTags] = useState('');
   const [isSavingMemory, setIsSavingMemory] = useState(false);
   const [showQuickMemory, setShowQuickMemory] = useState(false);
+
+  // Bulk operations states
+  const [selectedMemoryIds, setSelectedMemoryIds] = useState<Set<string>>(new Set());
+  const [bulkTagInput, setBulkTagInput] = useState('');
+  const [isBulkTagging, setIsBulkTagging] = useState(false);
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   // Fetch workflow history on mount
   useEffect(() => {
@@ -364,6 +373,131 @@ export const WorkflowOrchestrator: React.FC = () => {
     }
   };
 
+  // Use workflow as template
+  const handleUseAsTemplate = (workflow: WorkflowRun) => {
+    // Create a templated version of the goal with placeholders
+    const templateGoal = `[Based on previous workflow]\n\n${workflow.goal}\n\n---\nOriginal workflow had:\n- ${workflow.steps.length} steps\n- Priority: ${workflow.priority || 'medium'}\n- Timeframe: ${workflow.suggestedTimeframe || 'not specified'}\n\nModify the goal above to create a new workflow.`;
+
+    setRequest(templateGoal);
+
+    toast({
+      title: 'Template loaded',
+      description: 'Edit the request to create a new workflow based on this template',
+    });
+
+    // Scroll to the input area
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Toggle memory selection
+  const toggleMemorySelection = (memoryId: string) => {
+    setSelectedMemoryIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(memoryId)) {
+        newSet.delete(memoryId);
+      } else {
+        newSet.add(memoryId);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all memories
+  const handleSelectAll = () => {
+    if (selectedMemoryIds.size === searchResults.length) {
+      setSelectedMemoryIds(new Set());
+    } else {
+      setSelectedMemoryIds(new Set(searchResults.map(m => m.id)));
+    }
+  };
+
+  // Bulk tag memories
+  const handleBulkTag = async () => {
+    if (selectedMemoryIds.size === 0 || !bulkTagInput.trim() || !user) return;
+
+    setIsBulkTagging(true);
+    try {
+      const newTags = bulkTagInput
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0);
+
+      // Update each selected memory
+      const updates = Array.from(selectedMemoryIds).map(async (memoryId) => {
+        const memory = searchResults.find(m => m.id === memoryId);
+        if (!memory) return;
+
+        const updatedTags = [...new Set([...(memory.tags || []), ...newTags])];
+
+        return supabase
+          .from('memory_entries')
+          .update({ tags: updatedTags })
+          .eq('id', memoryId)
+          .eq('user_id', user.id);
+      });
+
+      await Promise.all(updates);
+
+      // Refresh search results
+      await handleMemorySearch();
+
+      toast({
+        title: 'Tags added',
+        description: `Added tags to ${selectedMemoryIds.size} ${selectedMemoryIds.size === 1 ? 'memory' : 'memories'}`,
+      });
+
+      // Clear selection and input
+      setSelectedMemoryIds(new Set());
+      setBulkTagInput('');
+      setShowBulkActions(false);
+    } catch (error: any) {
+      toast({
+        title: 'Bulk tag failed',
+        description: error.message || 'Could not add tags',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsBulkTagging(false);
+    }
+  };
+
+  // Export selected memories
+  const handleExportMemories = () => {
+    if (selectedMemoryIds.size === 0) return;
+
+    const selectedMemories = searchResults.filter(m => selectedMemoryIds.has(m.id));
+
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      count: selectedMemories.length,
+      memories: selectedMemories.map(m => ({
+        id: m.id,
+        content: m.content,
+        type: m.type,
+        tags: m.tags,
+        created_at: m.created_at,
+        metadata: m.metadata
+      }))
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `memories-export-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Export successful',
+      description: `Exported ${selectedMemoryIds.size} ${selectedMemoryIds.size === 1 ? 'memory' : 'memories'}`,
+    });
+
+    setSelectedMemoryIds(new Set());
+  };
+
   return (
     <div className="space-y-6">
       {/* Memory & Tools Management Section */}
@@ -485,35 +619,105 @@ export const WorkflowOrchestrator: React.FC = () => {
                 </div>
 
                 {searchResults.length > 0 && (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    <p className="text-sm text-muted-foreground">
-                      Found {searchResults.length} relevant {searchResults.length === 1 ? 'memory' : 'memories'}
-                    </p>
-                    {searchResults.map((memory) => (
-                      <div
-                        key={memory.id}
-                        className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors space-y-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {memory.type}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(memory.created_at), { addSuffix: true })}
-                          </span>
-                        </div>
-                        <p className="text-sm line-clamp-3">{memory.content}</p>
-                        {memory.tags && memory.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {memory.tags.map((tag, idx) => (
-                              <Badge key={idx} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        Found {searchResults.length} relevant {searchResults.length === 1 ? 'memory' : 'memories'}
+                        {selectedMemoryIds.size > 0 && ` (${selectedMemoryIds.size} selected)`}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSelectAll}
+                          className="text-xs"
+                        >
+                          {selectedMemoryIds.size === searchResults.length ? 'Deselect All' : 'Select All'}
+                        </Button>
+                        {selectedMemoryIds.size > 0 && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowBulkActions(!showBulkActions)}
+                              className="text-xs"
+                            >
+                              <Tag className="h-3 w-3 mr-1" />
+                              Bulk Tag
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleExportMemories}
+                              className="text-xs"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              Export
+                            </Button>
+                          </>
                         )}
                       </div>
-                    ))}
+                    </div>
+
+                    {showBulkActions && selectedMemoryIds.size > 0 && (
+                      <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                        <Label htmlFor="bulk-tags" className="text-xs">Add tags to {selectedMemoryIds.size} selected {selectedMemoryIds.size === 1 ? 'memory' : 'memories'}</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="bulk-tags"
+                            placeholder="e.g., important, reviewed"
+                            value={bulkTagInput}
+                            onChange={(e) => setBulkTagInput(e.target.value)}
+                            className="text-sm"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={handleBulkTag}
+                            disabled={!bulkTagInput.trim() || isBulkTagging}
+                          >
+                            {isBulkTagging ? 'Adding...' : 'Add Tags'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {searchResults.map((memory) => (
+                        <div
+                          key={memory.id}
+                          className={`p-3 rounded-lg transition-colors space-y-2 cursor-pointer ${
+                            selectedMemoryIds.has(memory.id)
+                              ? 'bg-primary/10 border border-primary/30'
+                              : 'bg-muted/50 hover:bg-muted'
+                          }`}
+                          onClick={() => toggleMemorySelection(memory.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            {selectedMemoryIds.has(memory.id) ? (
+                              <CheckSquare className="h-4 w-4 text-primary flex-shrink-0" />
+                            ) : (
+                              <Square className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {memory.type}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(memory.created_at), { addSuffix: true })}
+                            </span>
+                          </div>
+                          <p className="text-sm line-clamp-3 ml-6">{memory.content}</p>
+                          {memory.tags && memory.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 ml-6">
+                              {memory.tags.map((tag, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -802,6 +1006,7 @@ export const WorkflowOrchestrator: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => handleUseAsTemplate(workflow)}
                     className="flex items-center gap-2 ml-auto"
                   >
                     <Sparkles className="h-4 w-4" />
