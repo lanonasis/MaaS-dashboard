@@ -95,11 +95,17 @@ export const SupabaseAuthProvider = ({
       }
 
       console.log("SupabaseAuthProvider: Getting session...");
-      // Get the current session from Supabase
-      const {
-        data: { session: supabaseSession },
-        error,
-      } = await supabase.auth.getSession();
+
+      // Race the session fetch against a 5-second timeout
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Session fetch timeout')), 5000);
+      });
+
+      const { data: { session: supabaseSession }, error } = await Promise.race([
+        sessionPromise,
+        timeoutPromise
+      ]) as any;
 
       console.log("SupabaseAuthProvider: Session fetched", {
         hasSession: !!supabaseSession,
@@ -108,6 +114,7 @@ export const SupabaseAuthProvider = ({
 
       if (error) {
         console.error("Error fetching Supabase session:", error);
+        // Continue without session
       } else if (supabaseSession) {
         console.log("SupabaseAuthProvider: Setting session and user");
         setSession(supabaseSession);
@@ -187,9 +194,21 @@ export const SupabaseAuthProvider = ({
       };
     } catch (error) {
       console.error("Error initializing Supabase auth:", error);
-      setInitError(
-        error instanceof Error ? error.message : "Unknown initialization error"
-      );
+
+      // If it's a timeout, don't set initError - just continue without auth
+      if (error instanceof Error && error.message === 'Session fetch timeout') {
+        console.warn("Session fetch timed out - continuing without authentication");
+        toast({
+          title: "Authentication timeout",
+          description: "Could not connect to authentication service. You can continue without signing in.",
+          variant: "default"
+        });
+      } else {
+        setInitError(
+          error instanceof Error ? error.message : "Unknown initialization error"
+        );
+      }
+
       console.log("SupabaseAuthProvider: Error occurred, clearing loading state");
       setIsLoading(false);
       return undefined;
