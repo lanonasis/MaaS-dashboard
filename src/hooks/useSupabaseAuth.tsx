@@ -86,14 +86,15 @@ export const SupabaseAuthProvider = ({
     console.log("SupabaseAuthProvider: initializeAuth called");
     setIsLoading(true);
 
-    try {
-      // Check if supabase client is available
-      if (!supabase) {
-        console.error("Supabase client not initialized");
-        setIsLoading(false);
-        return undefined;
-      }
+    // Check if supabase client is available
+    if (!supabase) {
+      console.error("Supabase client not initialized");
+      setIsLoading(false);
+      return undefined;
+    }
 
+    // Try to get initial session, but don't let failure prevent listener setup
+    try {
       console.log("SupabaseAuthProvider: Getting session...");
 
       // Race the session fetch against a 5-second timeout
@@ -128,9 +129,25 @@ export const SupabaseAuthProvider = ({
       } else {
         console.log("SupabaseAuthProvider: No session found");
       }
+    } catch (error) {
+      console.error("Error fetching initial session:", error);
 
+      // If it's a timeout, show friendly message but continue
+      if (error instanceof Error && error.message === 'Session fetch timeout') {
+        console.warn("Session fetch timed out - will still set up auth listener");
+        toast({
+          title: "Slow connection",
+          description: "Authentication is loading slowly. You can still sign in.",
+          variant: "default"
+        });
+      }
+      // Don't return - continue to set up listener
+    }
+
+    // ALWAYS set up the auth state listener, even if initial session fetch failed
+    // This is critical - without this, login won't work!
+    try {
       console.log("SupabaseAuthProvider: Setting up auth state listener");
-      // Set up Supabase auth state listener
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, supabaseSession) => {
@@ -193,23 +210,10 @@ export const SupabaseAuthProvider = ({
         subscription.unsubscribe();
       };
     } catch (error) {
-      console.error("Error initializing Supabase auth:", error);
-
-      // If it's a timeout, don't set initError - just continue without auth
-      if (error instanceof Error && error.message === 'Session fetch timeout') {
-        console.warn("Session fetch timed out - continuing without authentication");
-        toast({
-          title: "Authentication timeout",
-          description: "Could not connect to authentication service. You can continue without signing in.",
-          variant: "default"
-        });
-      } else {
-        setInitError(
-          error instanceof Error ? error.message : "Unknown initialization error"
-        );
-      }
-
-      console.log("SupabaseAuthProvider: Error occurred, clearing loading state");
+      console.error("Error setting up auth listener:", error);
+      setInitError(
+        error instanceof Error ? error.message : "Failed to initialize authentication"
+      );
       setIsLoading(false);
       return undefined;
     }
