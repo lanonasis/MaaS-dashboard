@@ -5,15 +5,17 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
-import Dashboard from "@/pages/dashboard";
-import IdePanel from "@/pages/ide-panel";
+
+// Import from the new package structure
+import { Dashboard } from "@/packages/web-extension/Dashboard";
+import { IDEPanel } from "@/packages/vscode-extension/IDEPanel";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/dashboard" component={Dashboard} />
-      <Route path="/vscode" component={IdePanel} />
+      <Route path="/vscode" component={IDEPanel} />
       <Route component={NotFound} />
     </Switch>
   );
