@@ -1,9 +1,19 @@
 import React from "react";
 import { RichPanel } from "@/components/rich-panel";
-import { Brain, Shield, Zap, Globe, Code2, CheckCircle2, Briefcase } from "lucide-react";
+import { Brain, Shield, Zap, Globe, Code2, CheckCircle2, Briefcase, Terminal, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 export default function LandingPage() {
+  const [copied, setCopied] = useState(false);
+  const installCommand = "npm install @lanonasis/memory-client @LanOnasis/sdk";
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(installCommand);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="min-h-screen bg-[#0D0D0D] text-white font-sans selection:bg-[#007ACC]/30">
       
@@ -56,16 +66,25 @@ export default function LandingPage() {
               Stop searching for the same snippet twice.
             </p>
             
-            <div className="flex flex-wrap gap-4">
-              <Button className="h-12 px-8 bg-[#007ACC] hover:bg-[#0063A5] text-white text-base rounded-full shadow-[0_0_20px_rgba(0,122,204,0.3)]">
-                Install Extension
-              </Button>
-              <Button variant="outline" className="h-12 px-8 border-white/10 bg-transparent hover:bg-white/5 text-white text-base rounded-full">
-                View Demo
-              </Button>
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-mono text-gray-400 mb-2">
+                    <Terminal className="h-4 w-4" />
+                    <span>Install the SDK to get started instantly:</span>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-[#151515] border border-white/10 rounded-lg max-w-md group relative">
+                    <code className="text-sm text-[#007ACC] flex-1 font-mono">{installCommand}</code>
+                    <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 hover:bg-white/10 text-gray-400 hover:text-white"
+                        onClick={handleCopy}
+                    >
+                        {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                </div>
             </div>
 
-            <div className="pt-8 flex items-center gap-6 text-sm text-gray-500">
+            <div className="pt-4 flex items-center gap-6 text-sm text-gray-500">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
                 <span>Vector Storage</span>
