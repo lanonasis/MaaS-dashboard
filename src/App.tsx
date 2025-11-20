@@ -8,6 +8,7 @@ import { SupabaseAuthProvider } from "@/hooks/useSupabaseAuth";
 import { CentralAuthProvider } from "@/hooks/useCentralAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AIAssistant } from "@/components/ai/AIAssistant";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
@@ -34,6 +35,7 @@ const App = () => (
             <CentralAuthProvider>
               <Toaster />
               <Sonner />
+              <AIAssistant />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth/*" element={<SupabaseAuthRedirect />} />
@@ -49,6 +51,7 @@ const App = () => (
               <Route path="/dashboard/scheduler" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/api-keys" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/orchestrator" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/ai-tools" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/extensions" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/api-docs" element={<ApiDocs />} />
               <Route path="/docs" element={<ApiDocs />} />
