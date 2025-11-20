@@ -28,25 +28,14 @@ name = "Start application"
 author = "agent"
 mode = "sequential"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run lint && npm run typecheck"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bun install && bun undate"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bun run dev"
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bun install && bun run dev"
+waitForPort = 5000
 
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 5001
-externalPort = 3001
