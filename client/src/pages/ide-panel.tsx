@@ -17,15 +17,13 @@ import {
   LogOut,
   User,
   Settings,
-  ChevronDown,
   ChevronRight,
-  ExternalLink,
-  Shield,
-  Globe,
+  MoreHorizontal,
   Briefcase,
-  MoreHorizontal
+  Globe,
+  Shield
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -38,7 +36,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -52,7 +49,6 @@ import {
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
@@ -141,25 +137,27 @@ const MemoryCard = ({ memory }: { memory: typeof MOCK_MEMORIES[0] }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, x: -5 }}
+      animate={{ opacity: 1, x: 0 }}
       className={cn(
-        "group relative flex flex-col gap-2 rounded-md border border-[#2D2D2D] bg-[#252526] p-3 hover:bg-[#2A2D2E] hover:border-[#3C3C3C] transition-all duration-200 cursor-pointer",
-        isHovered && "shadow-lg"
+        "group relative flex flex-col gap-1.5 rounded-sm p-2 hover:bg-[var(--vscode-list-hoverBackground)] transition-colors duration-100 cursor-pointer border border-transparent hover:border-[var(--vscode-focusBorder)]",
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       data-testid={`memory-card-${memory.id}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-medium text-[#CCCCCC] leading-tight line-clamp-2">
-          {memory.title}
-        </h3>
+        <div className="flex items-center gap-2">
+            <memory.icon className="h-3.5 w-3.5 text-[var(--vscode-editor-foreground)] opacity-70 shrink-0" />
+            <h3 className="text-[13px] text-[var(--vscode-editor-foreground)] leading-tight line-clamp-1">
+            {memory.title}
+            </h3>
+        </div>
         {isHovered && (
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-[#CCCCCC] hover:text-white hover:bg-[#3C3C3C] -mt-1 -mr-1 shrink-0"
+            className="h-5 w-5 text-[var(--vscode-editor-foreground)] hover:bg-[var(--vscode-button-secondaryHoverBackground)] -mt-0.5 -mr-1 shrink-0 rounded-sm"
             onClick={handleCopy}
           >
             {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
@@ -167,13 +165,12 @@ const MemoryCard = ({ memory }: { memory: typeof MOCK_MEMORIES[0] }) => {
         )}
       </div>
 
-      <div className="flex items-center gap-3 text-[10px] text-[#888888]">
-        <div className="flex items-center gap-1">
-          <Calendar className="h-3 w-3" />
-          <span>{format(memory.date, "dd/MM/yyyy")}</span>
+      <div className="flex items-center gap-3 text-[11px] text-[var(--vscode-descriptionForeground)] pl-5.5">
+        <div className="flex items-center gap-1 opacity-60">
+          <span>{format(memory.date, "MMM d")}</span>
         </div>
         {memory.tags.map((tag) => (
-          <div key={tag} className="flex items-center gap-1 bg-[#1E1E1E] px-1.5 py-0.5 rounded text-[#CCCCCC]">
+          <div key={tag} className="flex items-center gap-0.5 px-1 rounded bg-[var(--vscode-badge-background)]/10 text-[var(--vscode-editor-foreground)] opacity-60">
             <Hash className="h-2.5 w-2.5" />
             <span>{tag}</span>
           </div>
@@ -185,93 +182,63 @@ const MemoryCard = ({ memory }: { memory: typeof MOCK_MEMORIES[0] }) => {
 
 const WelcomeView = ({ onLogin }: { onLogin: () => void }) => {
   return (
-    <div className="p-4 space-y-8">
+    <div className="p-4 space-y-6 select-none">
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-[#CCCCCC]">Welcome to Lanonasis Memory! 🧠</h2>
+          <h2 className="text-sm font-semibold text-[var(--vscode-editor-foreground)]">Welcome to Lanonasis Memory</h2>
         </div>
-        <p className="text-xs text-[#888888] leading-relaxed">
-          To get started, you need to authenticate with your Lanonasis account to access your synchronized context and scoped API keys.
+        <p className="text-[13px] text-[var(--vscode-descriptionForeground)] leading-relaxed">
+          Authenticate to access synchronized context and scoped API keys.
         </p>
         
-        <div className="space-y-2">
+        <div className="space-y-2 pt-2">
           <Button 
-            className="w-full bg-[#007ACC] hover:bg-[#0063A5] text-white h-8 text-xs font-medium"
+            className="w-full vscode-button"
             onClick={onLogin}
             data-testid="btn-connect-browser"
           >
             Connect in Browser
           </Button>
           <Button 
-            variant="secondary" 
-            className="w-full bg-[#007ACC] hover:bg-[#0063A5] text-white h-8 text-xs font-medium"
+            className="w-full vscode-button vscode-button-secondary"
             onClick={onLogin}
             data-testid="btn-enter-key"
           >
             Enter API Key
           </Button>
-          <Button 
-            variant="outline" 
-            className="w-full bg-[#007ACC] hover:bg-[#0063A5] text-white border-none h-8 text-xs font-medium"
-            data-testid="btn-get-key"
-          >
-            Get API Key
-          </Button>
         </div>
       </div>
 
-      <Separator className="bg-[#3C3C3C]" />
+      <div className="h-px bg-[var(--vscode-panel-border)] w-full" />
 
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-[#CCCCCC]">**What is Lanonasis Memory?**</h3>
+        <h3 className="text-[11px] font-bold text-[var(--vscode-editor-foreground)] uppercase opacity-80">Features</h3>
         
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex gap-3">
-            <div className="mt-0.5 bg-[#007ACC]/10 p-1.5 rounded h-fit">
-               <Brain className="h-3.5 w-3.5 text-[#007ACC]" />
+            <div className="mt-0.5">
+               <Brain className="h-4 w-4 text-[var(--vscode-button-background)]" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-xs font-medium text-[#CCCCCC]">Intelligent Memory Management</h4>
-              <p className="text-[10px] text-[#888888] leading-relaxed">
-                Advanced vector search and semantic understanding to store, organize, and retrieve information intelligently.
+              <h4 className="text-[12px] font-medium text-[var(--vscode-editor-foreground)]">Intelligent Memory</h4>
+              <p className="text-[11px] text-[var(--vscode-descriptionForeground)] leading-relaxed opacity-80">
+                Vector search and semantic understanding for your codebase.
               </p>
             </div>
           </div>
 
           <div className="flex gap-3">
-            <div className="mt-0.5 bg-[#007ACC]/10 p-1.5 rounded h-fit">
-               <Globe className="h-3.5 w-3.5 text-[#007ACC]" />
+            <div className="mt-0.5">
+               <Globe className="h-4 w-4 text-[var(--vscode-button-background)]" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-xs font-medium text-[#CCCCCC]">Real-time Synchronization</h4>
-              <p className="text-[10px] text-[#888888] leading-relaxed">
-                Keep your memories synchronized across all platforms and devices with real-time updates.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <div className="mt-0.5 bg-[#007ACC]/10 p-1.5 rounded h-fit">
-               <Shield className="h-3.5 w-3.5 text-[#007ACC]" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-xs font-medium text-[#CCCCCC]">Enterprise Ready</h4>
-              <p className="text-[10px] text-[#888888] leading-relaxed">
-                Built for scale with secure scoped API keys and seamless integration with your workflow.
+              <h4 className="text-[12px] font-medium text-[var(--vscode-editor-foreground)]">Real-time Sync</h4>
+              <p className="text-[11px] text-[var(--vscode-descriptionForeground)] leading-relaxed opacity-80">
+                Synchronized context across all your devices.
               </p>
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="pt-2">
-        <p className="text-[10px] text-[#888888] mb-2">**Need Help?**</p>
-        <Button 
-            variant="secondary" 
-            className="w-full bg-[#007ACC] hover:bg-[#0063A5] text-white h-8 text-xs font-medium"
-          >
-            View Documentation
-        </Button>
       </div>
     </div>
   );
@@ -280,55 +247,52 @@ const WelcomeView = ({ onLogin }: { onLogin: () => void }) => {
 const ApiKeyManager = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-[#252526] border-[#3C3C3C] text-[#CCCCCC] max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-[#CCCCCC] flex items-center gap-2">
-            <Key className="h-4 w-4 text-[#007ACC]" />
+      <DialogContent className="bg-[var(--vscode-editor-background)] border-[var(--vscode-panel-border)] text-[var(--vscode-editor-foreground)] max-w-md gap-0 p-0 overflow-hidden shadow-2xl">
+        <DialogHeader className="p-4 border-b border-[var(--vscode-panel-border)] bg-[var(--vscode-sideBarSectionHeader-background)]">
+          <DialogTitle className="text-[13px] font-semibold flex items-center gap-2">
+            <Key className="h-4 w-4 text-[var(--vscode-button-background)]" />
             Manage Scoped API Keys
           </DialogTitle>
-          <DialogDescription className="text-[#888888]">
-            Manage your API keys for secure access to Lanonasis services.
-          </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 p-4">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-[#CCCCCC]">Create New Key</label>
+            <label className="text-[11px] font-medium text-[var(--vscode-descriptionForeground)] uppercase">Create New Key</label>
             <div className="flex gap-2">
               <Input 
                 placeholder="Key Name (e.g., CI/CD Pipeline)" 
-                className="bg-[#1E1E1E] border-[#3C3C3C] text-[#CCCCCC] text-xs h-8 focus-visible:ring-[#007ACC]"
+                className="vscode-input h-7 text-[13px]"
               />
-              <Button size="sm" className="bg-[#007ACC] hover:bg-[#0063A5] h-8">
+              <Button size="sm" className="vscode-button h-7">
                 Generate
               </Button>
             </div>
           </div>
 
-          <Separator className="bg-[#3C3C3C]" />
+          <div className="h-px bg-[var(--vscode-panel-border)] w-full" />
 
-          <div className="space-y-3">
-            <label className="text-xs font-medium text-[#CCCCCC]">Active Keys</label>
+          <div className="space-y-2">
+            <label className="text-[11px] font-medium text-[var(--vscode-descriptionForeground)] uppercase">Active Keys</label>
             {MOCK_API_KEYS.map(key => (
-              <div key={key.id} className="flex items-center justify-between p-2 rounded border border-[#3C3C3C] bg-[#1E1E1E]">
+              <div key={key.id} className="flex items-center justify-between p-2 rounded-sm hover:bg-[var(--vscode-list-hoverBackground)] border border-transparent hover:border-[var(--vscode-focusBorder)] group">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-[#CCCCCC]">{key.name}</span>
-                    <Badge variant="outline" className="text-[9px] border-[#3C3C3C] text-[#888888] h-4 px-1">
+                    <span className="text-[13px] font-medium">{key.name}</span>
+                    <Badge variant="outline" className="text-[10px] border-[var(--vscode-panel-border)] text-[var(--vscode-descriptionForeground)] h-4 px-1 font-normal">
                       {key.scope}
                     </Badge>
                   </div>
-                  <p className="text-[9px] text-[#666666]">Last used: {key.lastUsed}</p>
+                  <p className="text-[11px] text-[var(--vscode-descriptionForeground)] opacity-70">Last used: {key.lastUsed}</p>
                 </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-[#666666] hover:text-red-400">
-                   <Briefcase className="h-3 w-3" />
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-editor-foreground)] opacity-0 group-hover:opacity-100 transition-opacity">
+                   <Briefcase className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ))}
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="secondary" size="sm" onClick={onClose} className="bg-[#3C3C3C] hover:bg-[#4D4D4D] text-[#CCCCCC]">
+        <DialogFooter className="p-2 border-t border-[var(--vscode-panel-border)] bg-[var(--vscode-sideBar-background)]">
+          <Button variant="secondary" size="sm" onClick={onClose} className="vscode-button vscode-button-secondary h-6 text-[12px]">
             Close
           </Button>
         </DialogFooter>
@@ -353,48 +317,47 @@ const IdePanel = () => {
   );
 
   return (
-    <div className="flex h-screen w-full bg-[#1E1E1E] text-[#CCCCCC] font-mono overflow-hidden justify-center">
+    <div className="flex h-screen w-full bg-[var(--vscode-sideBar-background)] text-[var(--vscode-sideBar-foreground)] font-sans overflow-hidden justify-center select-none">
       {/* Sidebar Container */}
-      <div className="w-full max-w-[400px] h-full flex flex-col border-x border-[#3C3C3C] bg-[#252526] shadow-2xl relative">
+      <div className="w-full max-w-[400px] h-full flex flex-col bg-[var(--vscode-sideBar-background)] relative">
         
         {/* Top Header / User Bar */}
-        <div className="flex items-center justify-between p-2 bg-[#1E1E1E] border-b border-[#3C3C3C] select-none">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-[var(--vscode-sideBar-background)]">
           <div className="flex items-center gap-2">
-             <div className="h-5 w-5 bg-[#007ACC] rounded flex items-center justify-center text-white font-bold text-xs">L</div>
-             <span className="text-xs font-medium uppercase tracking-wide text-[#CCCCCC]">Lanonasis Memory</span>
+             <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--vscode-sideBarTitle-foreground)]">Lanonasis Memory</span>
           </div>
           
           <div className="flex items-center gap-1">
              {isAuthenticated ? (
                <DropdownMenu>
                  <DropdownMenuTrigger asChild>
-                   <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-[#3C3C3C]">
-                     <Settings className="h-3.5 w-3.5 text-[#888888]" />
+                   <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-[var(--vscode-list-hoverBackground)] rounded-sm">
+                     <Settings className="h-3.5 w-3.5 text-[var(--vscode-icon-foreground)]" />
                    </Button>
                  </DropdownMenuTrigger>
-                 <DropdownMenuContent align="end" className="bg-[#252526] border-[#3C3C3C] text-[#CCCCCC]">
-                   <DropdownMenuLabel className="text-xs">My Account</DropdownMenuLabel>
-                   <DropdownMenuSeparator className="bg-[#3C3C3C]" />
-                   <DropdownMenuItem className="text-xs focus:bg-[#007ACC] focus:text-white cursor-pointer" onClick={() => setShowApiKeys(true)}>
-                     <Key className="mr-2 h-3.5 w-3.5" />
+                 <DropdownMenuContent align="end" className="bg-[var(--vscode-menu-background)] border-[var(--vscode-panel-border)] text-[var(--vscode-menu-foreground)] min-w-[160px] p-1 gap-0.5 shadow-xl">
+                   <DropdownMenuLabel className="text-[11px] text-[var(--vscode-descriptionForeground)] px-2 py-1.5 font-normal">My Account</DropdownMenuLabel>
+                   <DropdownMenuSeparator className="bg-[var(--vscode-panel-border)] my-1" />
+                   <DropdownMenuItem className="text-[13px] hover:bg-[var(--vscode-menu-selectionBackground)] hover:text-[var(--vscode-menu-selectionForeground)] cursor-pointer rounded-sm px-2 py-1.5 focus:bg-[var(--vscode-menu-selectionBackground)] focus:text-[var(--vscode-menu-selectionForeground)]" onClick={() => setShowApiKeys(true)}>
+                     <Key className="mr-2 h-3.5 w-3.5 opacity-70" />
                      <span>API Keys</span>
                    </DropdownMenuItem>
-                   <DropdownMenuItem className="text-xs focus:bg-[#007ACC] focus:text-white cursor-pointer">
-                     <User className="mr-2 h-3.5 w-3.5" />
+                   <DropdownMenuItem className="text-[13px] hover:bg-[var(--vscode-menu-selectionBackground)] hover:text-[var(--vscode-menu-selectionForeground)] cursor-pointer rounded-sm px-2 py-1.5 focus:bg-[var(--vscode-menu-selectionBackground)] focus:text-[var(--vscode-menu-selectionForeground)]">
+                     <User className="mr-2 h-3.5 w-3.5 opacity-70" />
                      <span>Profile</span>
                    </DropdownMenuItem>
-                   <DropdownMenuSeparator className="bg-[#3C3C3C]" />
-                   <DropdownMenuItem className="text-xs focus:bg-[#007ACC] focus:text-white cursor-pointer" onClick={() => setIsAuthenticated(false)}>
-                     <LogOut className="mr-2 h-3.5 w-3.5" />
+                   <DropdownMenuSeparator className="bg-[var(--vscode-panel-border)] my-1" />
+                   <DropdownMenuItem className="text-[13px] hover:bg-[var(--vscode-menu-selectionBackground)] hover:text-[var(--vscode-menu-selectionForeground)] cursor-pointer rounded-sm px-2 py-1.5 focus:bg-[var(--vscode-menu-selectionBackground)] focus:text-[var(--vscode-menu-selectionForeground)]" onClick={() => setIsAuthenticated(false)}>
+                     <LogOut className="mr-2 h-3.5 w-3.5 opacity-70" />
                      <span>Log out</span>
                    </DropdownMenuItem>
                  </DropdownMenuContent>
                </DropdownMenu>
              ) : (
-               <div className="h-2 w-2 rounded-full bg-yellow-500" />
+               <div className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
              )}
-             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-[#3C3C3C]">
-                <MoreHorizontal className="h-3.5 w-3.5 text-[#888888]" />
+             <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-[var(--vscode-list-hoverBackground)] rounded-sm">
+                <MoreHorizontal className="h-3.5 w-3.5 text-[var(--vscode-icon-foreground)]" />
              </Button>
           </div>
         </div>
@@ -403,13 +366,13 @@ const IdePanel = () => {
           <div className="flex flex-col min-h-full">
             
             {/* Memory Assistant Section */}
-            <Collapsible open={isAssistantOpen} onOpenChange={setIsAssistantOpen} className="border-b border-[#3C3C3C]">
-              <div className="flex items-center px-2 py-1 bg-[#1E1E1E] hover:bg-[#2A2D2E] cursor-pointer group" onClick={() => setIsAssistantOpen(!isAssistantOpen)}>
-                <ChevronRight className={cn("h-3.5 w-3.5 text-[#CCCCCC] transition-transform mr-1", isAssistantOpen && "rotate-90")} />
-                <span className="text-[11px] font-bold text-[#CCCCCC] uppercase">Memory Assistant</span>
+            <Collapsible open={isAssistantOpen} onOpenChange={setIsAssistantOpen}>
+              <div className="vscode-section-header group" onClick={() => setIsAssistantOpen(!isAssistantOpen)}>
+                <ChevronRight className={cn("h-4 w-4 text-[var(--vscode-icon-foreground)] transition-transform mr-0.5 opacity-80", isAssistantOpen && "rotate-90")} />
+                <span className="text-[11px] font-bold text-[var(--vscode-sideBarSectionHeader-foreground)] uppercase">Memory Assistant</span>
               </div>
               <CollapsibleContent>
-                 <div className="min-h-[100px] bg-[#1E1E1E] p-3 text-xs text-[#888888] flex items-center justify-center text-center italic">
+                 <div className="min-h-[80px] p-4 text-[13px] text-[var(--vscode-descriptionForeground)] flex items-center justify-center text-center italic opacity-80">
                    {isAuthenticated ? 
                      "Ready to assist. Ask me to recall context or refine prompts." : 
                      "Please connect to enable AI assistance."
@@ -420,53 +383,49 @@ const IdePanel = () => {
 
             {/* Memories Section */}
             <Collapsible open={isMemoriesOpen} onOpenChange={setIsMemoriesOpen} className="flex-1 flex flex-col">
-              <div className="flex items-center justify-between px-2 py-1 bg-[#1E1E1E] hover:bg-[#2A2D2E] cursor-pointer group" onClick={() => setIsMemoriesOpen(!isMemoriesOpen)}>
+              <div className="vscode-section-header group" onClick={() => setIsMemoriesOpen(!isMemoriesOpen)}>
                 <div className="flex items-center">
-                   <ChevronRight className={cn("h-3.5 w-3.5 text-[#CCCCCC] transition-transform mr-1", isMemoriesOpen && "rotate-90")} />
-                   <span className="text-[11px] font-bold text-[#CCCCCC] uppercase">Memories</span>
+                   <ChevronRight className={cn("h-4 w-4 text-[var(--vscode-icon-foreground)] transition-transform mr-0.5 opacity-80", isMemoriesOpen && "rotate-90")} />
+                   <span className="text-[11px] font-bold text-[var(--vscode-sideBarSectionHeader-foreground)] uppercase">Memories</span>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Search className="h-3 w-3 text-[#CCCCCC]" />
-                  <RefreshCw className="h-3 w-3 text-[#CCCCCC]" />
+                <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-[var(--vscode-list-hoverBackground)] rounded-sm">
+                    <Search className="h-3.5 w-3.5 text-[var(--vscode-icon-foreground)]" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-[var(--vscode-list-hoverBackground)] rounded-sm">
+                    <RefreshCw className="h-3.5 w-3.5 text-[var(--vscode-icon-foreground)]" />
+                  </Button>
                 </div>
               </div>
               
-              <CollapsibleContent className="flex-1 bg-[#252526]">
+              <CollapsibleContent className="flex-1">
                 {isAuthenticated ? (
-                  <div className="p-2 space-y-4">
+                  <div className="p-2 space-y-2">
                     {/* Authenticated View */}
-                    <div className="relative">
-                      <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-[#888888]" />
+                    <div className="relative mb-3">
                       <Input
                         placeholder="Search memories..."
-                        className="bg-[#3C3C3C]/50 border-none pl-8 h-8 text-xs focus-visible:ring-1 focus-visible:ring-[#007ACC] placeholder:text-[#666666]"
+                        className="vscode-input h-7 text-[13px] pl-2"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button className="flex-1 bg-[#0E639C] hover:bg-[#1177BB] text-white h-7 text-xs border border-white/5">
-                        <Plus className="h-3 w-3 mr-1.5" />
+                    <div className="flex gap-2 mb-4">
+                      <Button className="flex-1 vscode-button h-7 gap-1.5">
+                        <Plus className="h-3.5 w-3.5" />
                         Create
                       </Button>
-                      <Button variant="secondary" className="flex-1 bg-[#3C3C3C] hover:bg-[#4D4D4D] text-[#CCCCCC] h-7 text-xs border border-white/5">
-                        <RefreshCw className="h-3 w-3 mr-1.5" />
+                      <Button className="flex-1 vscode-button vscode-button-secondary h-7 gap-1.5">
+                        <RefreshCw className="h-3.5 w-3.5" />
                         Sync
                       </Button>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 px-2 py-1.5 bg-[#2D2D2D]/50 rounded border border-[#2D2D2D]">
-                        <Lightbulb className="h-3.5 w-3.5 text-yellow-500/80" />
-                        <span className="text-xs font-medium text-[#CCCCCC]">Context</span>
-                        <span className="ml-auto text-[10px] text-[#888888]">{filteredMemories.length}</span>
-                      </div>
-                      <div className="space-y-2">
+                    <div className="space-y-0.5">
                         {filteredMemories.map((memory) => (
                           <MemoryCard key={memory.id} memory={memory} />
                         ))}
-                      </div>
                     </div>
                   </div>
                 ) : (
@@ -479,31 +438,34 @@ const IdePanel = () => {
           </div>
         </ScrollArea>
 
-        {/* Bottom Chat Interface - Always visible but disabled state if not auth */}
-        <div className="p-3 bg-[#1E1E1E] border-t border-[#3C3C3C]">
-          <div className="relative">
-            <div className="absolute left-3 top-3 text-[#007ACC]">
-              <Terminal className="h-4 w-4" />
+        {/* Bottom Chat Interface - VS Code Chat Input Style */}
+        <div className="p-3 bg-[var(--vscode-sideBar-background)] border-t border-[var(--vscode-panel-border)]">
+          <div className="relative bg-[var(--vscode-input-background)] border border-[var(--vscode-input-border)] focus-within:border-[var(--vscode-focusBorder)] rounded-[2px] transition-colors">
+            <div className="p-2 pb-8">
+                <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder={isAuthenticated ? "Refine context..." : "Connect to chat"}
+                disabled={!isAuthenticated}
+                className="w-full min-h-[40px] bg-transparent border-none text-[13px] text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)] resize-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed font-sans"
+                />
             </div>
-            <textarea
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder={isAuthenticated ? "Ask AI to refine context..." : "Please connect to chat..."}
-              disabled={!isAuthenticated}
-              className="w-full min-h-[80px] bg-[#252526] border border-[#3C3C3C] rounded-md pl-9 pr-10 py-2.5 text-sm text-[#CCCCCC] placeholder:text-[#666666] resize-none focus:outline-none focus:border-[#007ACC] focus:ring-1 focus:ring-[#007ACC] disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <div className="absolute right-2 bottom-2 flex gap-1">
+            
+            <div className="absolute left-2 bottom-1.5 flex gap-1">
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-7 w-7 text-[#888888] hover:text-[#CCCCCC] hover:bg-[#3C3C3C]"
+                className="h-6 w-6 text-[var(--vscode-icon-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] rounded-[2px]"
                 disabled={!isAuthenticated}
               >
-                <PaperclipIcon className="h-4 w-4" />
+                <PaperclipIcon className="h-3.5 w-3.5" />
               </Button>
+            </div>
+
+            <div className="absolute right-2 bottom-1.5">
               <Button
                 size="icon"
-                className="h-7 w-7 bg-[#0E639C] hover:bg-[#1177BB] text-white rounded-sm disabled:opacity-50"
+                className="h-6 w-6 bg-[var(--vscode-button-background)] hover:bg-[var(--vscode-button-hoverBackground)] text-[var(--vscode-button-foreground)] rounded-[2px] disabled:opacity-50"
                 disabled={!isAuthenticated}
               >
                 <SendHorizontal className="h-3.5 w-3.5" />
