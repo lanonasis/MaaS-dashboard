@@ -68,16 +68,20 @@ const Index = () => {
             </p>
             
             <div className="animate-slide-up flex flex-col sm:flex-row gap-4 mb-12">
-              <Link to={user ? "/dashboard" : "/auth/register"}>
-                <AnimatedButton size="lg" className="min-w-[160px]">
-                  {user ? "Go to Dashboard" : "Get Started"} <ArrowRight className="ml-2 h-4 w-4" />
-                </AnimatedButton>
+              <Link to={user ? "/dashboard" : "/auth/register"} className="inline-block">
+                <div className="w-full">
+                  <AnimatedButton size="lg" className="min-w-[160px]">
+                    {user ? "Go to Dashboard" : "Get Started"} <ArrowRight className="ml-2 h-4 w-4" />
+                  </AnimatedButton>
+                </div>
               </Link>
-              <Link to="#features">
-                <AnimatedButton variant="outline" size="lg" className="min-w-[160px]">
-                  Learn More
-                </AnimatedButton>
-              </Link>
+              <a href="#features" className="inline-block">
+                <div className="w-full">
+                  <AnimatedButton variant="outline" size="lg" className="min-w-[160px]">
+                    Learn More
+                  </AnimatedButton>
+                </div>
+              </a>
             </div>
             
             {/* Browser Frame */}

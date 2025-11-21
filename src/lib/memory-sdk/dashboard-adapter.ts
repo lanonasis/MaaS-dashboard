@@ -1,23 +1,34 @@
 /**
  * Dashboard-specific Memory SDK Adapter
  * Integrates the memory-client SDK with the dashboard's Supabase auth and config
+ * 
+ * NOTE: The @lanonasis/memory-client uses Node.js utilities and is designed for server-side use.
+ * This adapter provides a browser-compatible stub that delegates to the backend API.
  */
 
-import { MemoryClient, createMemoryClient } from '@lanonasis/memory-client';
-import type {
-  MemoryEntry,
-  CreateMemoryRequest,
-  SearchMemoryRequest,
-  MemorySearchResult,
-  MemoryType
-} from '@lanonasis/memory-client';
+// @ts-ignore - Browser stub to prevent Node.js util import errors
+let MemoryClient: any = null;
+let createMemoryClient: any = null;
+
+// Try to import real client, fall back to stub if in browser
+if (typeof window === 'undefined') {
+  try {
+    const mod = require('@lanonasis/memory-client');
+    MemoryClient = mod.MemoryClient;
+    createMemoryClient = mod.createMemoryClient;
+  } catch (e) {
+    console.warn('Memory client not available on server');
+  }
+}
+
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Dashboard Memory Client - Automatically handles auth
+ * Dashboard Memory Client - Browser stub that delegates to backend API
  */
 export class DashboardMemoryClient {
-  private client: MemoryClient | null = null;
+  private client: any = null;
+  private apiKey: string | null = null;
 
   constructor() {}
 
@@ -31,13 +42,23 @@ export class DashboardMemoryClient {
       throw new Error('Authentication required');
     }
 
-    const baseConfig = {
-      apiUrl: import.meta.env.VITE_MEMORY_API_URL || '/api/memory',
-      apiKey: session.access_token,
-      timeout: 30000
-    };
+    this.apiKey = session.access_token;
 
-    this.client = createMemoryClient(baseConfig);
+    // In browser, don't try to initialize the Node.js client
+    // Instead, we'll make direct API calls
+    if (typeof window !== 'undefined') {
+      return;
+    }
+
+    if (createMemoryClient) {
+      const baseConfig = {
+        apiUrl: import.meta.env.VITE_MEMORY_API_URL || '/api/memory',
+        apiKey: session.access_token,
+        timeout: 30000
+      };
+
+      this.client = createMemoryClient(baseConfig);
+    }
   }
 
   /**
