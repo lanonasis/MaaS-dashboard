@@ -30,7 +30,7 @@
   - ✅ GitHub  
   - ✅ LinkedIn
   - ✅ Discord
-  - ✅ Apple (UI ready, backend configuration pending)
+  - ⚠️ Apple (UI ready, backend configuration required - see APPLE_OAUTH_CONFIGURATION.md)
 
 ### 5. Authentication Hook Updates
 - Updated useAuth hook to handle OAuth callbacks
@@ -75,6 +75,11 @@ Configure redirect URLs in each OAuth provider:
 
 #### Discord
 - Redirects: `https://[YOUR_SUPABASE_URL].supabase.co/auth/v1/callback`
+
+#### Apple
+- **Configuration Guide**: See `/docs/APPLE_OAUTH_CONFIGURATION.md` for complete setup instructions
+- Service ID, Team ID, Key ID, and Private Key required
+- More complex setup than other providers
 
 ## 📦 Package Structure
 
