@@ -22,7 +22,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
       "@shared": path.resolve(__dirname, "./shared"),
       "@assets": path.resolve(__dirname, "./attached_assets"),
+      // Stub out Node.js modules that shouldn't be bundled for browser
+      'child_process': path.resolve(__dirname, "./src/lib/stubs/child_process.ts"),
+      'util': path.resolve(__dirname, "./src/lib/stubs/util.ts"),
     },
+  },
+  optimizeDeps: {
+    exclude: ['@lanonasis/memory-client'],
   },
   build: {
     rollupOptions: {

@@ -51,37 +51,103 @@ export const SupabaseAuthProvider = ({
 
   useEffect(() => {
     console.log("SupabaseAuthProvider: Initializing auth");
-    initializeAuth();
+    let cleanup: (() => void) | undefined;
+    let timeoutId: NodeJS.Timeout;
+
+    // Safety timeout to ensure loading state always clears
+    timeoutId = setTimeout(() => {
+      console.warn("Auth initialization timeout - forcing loading state to false");
+      setIsLoading(false);
+    }, 10000); // 10 second timeout
+
+    const init = async () => {
+      try {
+        cleanup = await initializeAuth();
+        clearTimeout(timeoutId);
+      } catch (error) {
+        console.error("Error in init:", error);
+        clearTimeout(timeoutId);
+        setIsLoading(false);
+      }
+    };
+
+    init();
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (cleanup) {
+        cleanup();
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const initializeAuth = async () => {
+  const initializeAuth = async (): Promise<(() => void) | undefined> => {
     console.log("SupabaseAuthProvider: initializeAuth called");
     setIsLoading(true);
 
-    try {
-      // Check if supabase client is available
-      if (!supabase) {
-        console.error("Supabase client not initialized");
-        setIsLoading(false);
-        return;
-      }
+    // Check if supabase client is available
+    if (!supabase) {
+      console.error("Supabase client not initialized");
+      setIsLoading(false);
+      return undefined;
+    }
 
-      // Get the current session from Supabase
-      const {
-        data: { session: supabaseSession },
-        error,
-      } = await supabase.auth.getSession();
+    // Try to get initial session, but don't let failure prevent listener setup
+    try {
+      console.log("SupabaseAuthProvider: Getting session...");
+
+      // Race the session fetch against a 5-second timeout
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Session fetch timeout')), 5000);
+      });
+
+      const { data: { session: supabaseSession }, error } = await Promise.race([
+        sessionPromise,
+        timeoutPromise
+      ]) as any;
+
+      console.log("SupabaseAuthProvider: Session fetched", {
+        hasSession: !!supabaseSession,
+        hasError: !!error
+      });
 
       if (error) {
         console.error("Error fetching Supabase session:", error);
+        // Continue without session
       } else if (supabaseSession) {
+        console.log("SupabaseAuthProvider: Setting session and user");
         setSession(supabaseSession);
         setUser(supabaseSession.user);
-        await fetchProfile(supabaseSession.user.id);
-      }
 
-      // Set up Supabase auth state listener
+        // Fetch profile but don't block on it
+        console.log("SupabaseAuthProvider: Fetching profile...");
+        fetchProfile(supabaseSession.user.id).catch(err => {
+          console.error("Error fetching profile (non-blocking):", err);
+        });
+      } else {
+        console.log("SupabaseAuthProvider: No session found");
+      }
+    } catch (error) {
+      console.error("Error fetching initial session:", error);
+
+      // If it's a timeout, show friendly message but continue
+      if (error instanceof Error && error.message === 'Session fetch timeout') {
+        console.warn("Session fetch timed out - will still set up auth listener");
+        toast({
+          title: "Slow connection",
+          description: "Authentication is loading slowly. You can still sign in.",
+          variant: "default"
+        });
+      }
+      // Don't return - continue to set up listener
+    }
+
+    // ALWAYS set up the auth state listener, even if initial session fetch failed
+    // This is critical - without this, login won't work!
+    try {
+      console.log("SupabaseAuthProvider: Setting up auth state listener");
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, supabaseSession) => {
@@ -134,17 +200,22 @@ export const SupabaseAuthProvider = ({
         }
       });
 
-      // Cleanup function to remove the subscription when component unmounts
+      // Set loading to false after initialization
+      console.log("SupabaseAuthProvider: Auth initialized successfully, clearing loading state");
+      setIsLoading(false);
+
+      // Return cleanup function to remove the subscription when component unmounts
       return () => {
+        console.log("SupabaseAuthProvider: Cleaning up auth subscription");
         subscription.unsubscribe();
       };
     } catch (error) {
-      console.error("Error initializing Supabase auth:", error);
+      console.error("Error setting up auth listener:", error);
       setInitError(
-        error instanceof Error ? error.message : "Unknown initialization error"
+        error instanceof Error ? error.message : "Failed to initialize authentication"
       );
-    } finally {
       setIsLoading(false);
+      return undefined;
     }
   };
 
