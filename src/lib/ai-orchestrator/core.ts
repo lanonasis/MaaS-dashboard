@@ -11,7 +11,7 @@
  */
 
 import { getDashboardMemoryClient } from '@/lib/memory-sdk/dashboard-adapter';
-import type { MemorySearchResult, MemoryType } from '@lanonasis/memory-client';
+import type { MemorySearchResult, MemoryType } from '@/hooks/useMemoryClient';
 import { createToolRegistry, type ToolRegistry } from '@/lib/ai-orchestrator/tool-registry';
 
 export interface UserContext {
