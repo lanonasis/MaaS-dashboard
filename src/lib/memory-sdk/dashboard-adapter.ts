@@ -1,36 +1,64 @@
 /**
  * Dashboard-specific Memory SDK Adapter
- * Integrates the memory-client SDK with the dashboard's Supabase auth and config
+ * Browser-safe stub for memory operations
  * 
- * NOTE: The @lanonasis/memory-client uses Node.js utilities and is designed for server-side use.
- * This adapter provides a browser-compatible stub that delegates to the backend API.
+ * NOTE: The @lanonasis/memory-client is a server-side package using Node.js utilities.
+ * This adapter provides browser-compatible stubs that delegate to backend API endpoints.
  */
 
-// @ts-ignore - Browser stub to prevent Node.js util import errors
-let MemoryClient: any = null;
-let createMemoryClient: any = null;
+import { supabase } from '@/integrations/supabase/client';
 
-// Try to import real client, fall back to stub if in browser
-if (typeof window === 'undefined') {
-  try {
-    const mod = require('@lanonasis/memory-client');
-    MemoryClient = mod.MemoryClient;
-    createMemoryClient = mod.createMemoryClient;
-  } catch (e) {
-    console.warn('Memory client not available on server');
-  }
+// Browser-compatible type definitions
+export interface MemoryEntry {
+  id: string;
+  title: string;
+  content: string;
+  type: MemoryType;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
 }
 
-import { supabase } from '@/integrations/supabase/client';
+export interface MemorySearchResult {
+  id: string;
+  title: string;
+  content: string;
+  type: MemoryType;
+  tags?: string[];
+  similarity?: number;
+  created_at: string;
+}
+
+export interface CreateMemoryRequest {
+  title: string;
+  content: string;
+  memory_type?: MemoryType;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface SearchMemoryRequest {
+  query: string;
+  limit?: number;
+  threshold?: number;
+  memory_types?: MemoryType[];
+  tags?: string[];
+  status?: string;
+}
+
+export type MemoryType = 'context' | 'insight' | 'reference' | 'plan';
 
 /**
  * Dashboard Memory Client - Browser stub that delegates to backend API
  */
 export class DashboardMemoryClient {
-  private client: any = null;
   private apiKey: string | null = null;
+  private apiUrl: string;
 
-  constructor() {}
+  constructor() {
+    this.apiUrl = import.meta.env.VITE_MEMORY_API_URL || '/api/memory';
+  }
 
   /**
    * Initialize client with current auth session
@@ -43,32 +71,16 @@ export class DashboardMemoryClient {
     }
 
     this.apiKey = session.access_token;
-
-    // In browser, don't try to initialize the Node.js client
-    // Instead, we'll make direct API calls
-    if (typeof window !== 'undefined') {
-      return;
-    }
-
-    if (createMemoryClient) {
-      const baseConfig = {
-        apiUrl: import.meta.env.VITE_MEMORY_API_URL || '/api/memory',
-        apiKey: session.access_token,
-        timeout: 30000
-      };
-
-      this.client = createMemoryClient(baseConfig);
-    }
   }
 
   /**
    * Get the initialized client
    */
   private async getClient() {
-    if (!this.client) {
+    if (!this.apiKey) {
       await this.initializeClient();
     }
-    return this.client;
+    return this;
   }
 
   /**
@@ -83,17 +95,29 @@ export class DashboardMemoryClient {
   }): Promise<MemorySearchResult[]> {
     const client = await this.getClient();
 
-    const searchParams: SearchMemoryRequest = {
-      query: params.query,
-      limit: params.limit || 20,
-      threshold: params.threshold || 0.7,
-      memory_types: params.types,
-      tags: params.tags,
-      status: 'active'
-    };
+    try {
+      const response = await fetch(`${this.apiUrl}/search`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          query: params.query,
+          limit: params.limit || 20,
+          threshold: params.threshold || 0.7,
+          memory_types: params.types,
+          tags: params.tags,
+          status: 'active'
+        })
+      });
 
-    const response = await client.searchMemories(searchParams);
-    return response.data || [];
+      if (!response.ok) throw new Error('Search failed');
+      return await response.json();
+    } catch (error) {
+      console.warn('Memory search failed, returning empty results:', error);
+      return [];
+    }
   }
 
   /**
@@ -108,16 +132,28 @@ export class DashboardMemoryClient {
   }): Promise<MemoryEntry> {
     const client = await this.getClient();
 
-    const createParams: CreateMemoryRequest = {
-      title: memory.title,
-      content: memory.content,
-      memory_type: memory.type || 'context',
-      tags: memory.tags || [],
-      metadata: memory.metadata
-    };
+    try {
+      const response = await fetch(`${this.apiUrl}/memories`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: memory.title,
+          content: memory.content,
+          memory_type: memory.type || 'context',
+          tags: memory.tags || [],
+          metadata: memory.metadata
+        })
+      });
 
-    const response = await client.createMemory(createParams);
-    return response.data!;
+      if (!response.ok) throw new Error('Create failed');
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to create memory:', error);
+      throw error;
+    }
   }
 
   /**
@@ -125,8 +161,23 @@ export class DashboardMemoryClient {
    */
   async update(id: string, updates: Partial<CreateMemoryRequest>): Promise<MemoryEntry> {
     const client = await this.getClient();
-    const response = await client.updateMemory(id, updates);
-    return response.data!;
+
+    try {
+      const response = await fetch(`${this.apiUrl}/memories/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) throw new Error('Update failed');
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to update memory:', error);
+      throw error;
+    }
   }
 
   /**
@@ -134,7 +185,20 @@ export class DashboardMemoryClient {
    */
   async delete(id: string): Promise<void> {
     const client = await this.getClient();
-    await client.deleteMemory(id);
+
+    try {
+      const response = await fetch(`${this.apiUrl}/memories/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Delete failed');
+    } catch (error) {
+      console.error('Failed to delete memory:', error);
+      throw error;
+    }
   }
 
   /**
@@ -142,8 +206,21 @@ export class DashboardMemoryClient {
    */
   async getById(id: string): Promise<MemoryEntry> {
     const client = await this.getClient();
-    const response = await client.getMemory(id);
-    return response.data!;
+
+    try {
+      const response = await fetch(`${this.apiUrl}/memories/${id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Get failed');
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to get memory:', error);
+      throw error;
+    }
   }
 
   /**
@@ -156,14 +233,34 @@ export class DashboardMemoryClient {
     tags?: string[];
   }): Promise<MemoryEntry[]> {
     const client = await this.getClient();
-    const response = await client.listMemories({
-      limit: params?.limit || 20,
-      offset: params?.offset || 0,
-      memory_types: params?.types,
-      tags: params?.tags,
-      status: 'active'
-    });
-    return response.data || [];
+
+    try {
+      const queryParams = new URLSearchParams({
+        limit: String(params?.limit || 20),
+        offset: String(params?.offset || 0),
+        status: 'active'
+      });
+
+      if (params?.types?.length) {
+        queryParams.append('types', params.types.join(','));
+      }
+      if (params?.tags?.length) {
+        queryParams.append('tags', params.tags.join(','));
+      }
+
+      const response = await fetch(`${this.apiUrl}/memories?${queryParams}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
+        }
+      });
+
+      if (!response.ok) throw new Error('List failed');
+      return await response.json();
+    } catch (error) {
+      console.warn('Memory list failed, returning empty results:', error);
+      return [];
+    }
   }
 
   /**
@@ -172,8 +269,12 @@ export class DashboardMemoryClient {
   async batchCreate(memories: CreateMemoryRequest[]): Promise<MemoryEntry[]> {
     const results: MemoryEntry[] = [];
     for (const memory of memories) {
-      const result = await this.create(memory);
-      results.push(result);
+      try {
+        const result = await this.create(memory);
+        results.push(result);
+      } catch (error) {
+        console.error('Batch create failed for item:', error);
+      }
     }
     return results;
   }
@@ -182,11 +283,14 @@ export class DashboardMemoryClient {
    * Bulk tag memories
    */
   async bulkTag(memoryIds: string[], tags: string[]): Promise<void> {
-    const client = await this.getClient();
     for (const id of memoryIds) {
-      const memory = await this.getById(id);
-      const updatedTags = [...new Set([...(memory.tags || []), ...tags])];
-      await this.update(id, { tags: updatedTags });
+      try {
+        const memory = await this.getById(id);
+        const updatedTags = [...new Set([...(memory.tags || []), ...tags])];
+        await this.update(id, { tags: updatedTags });
+      } catch (error) {
+        console.error('Bulk tag failed for memory:', id, error);
+      }
     }
   }
 
@@ -195,8 +299,21 @@ export class DashboardMemoryClient {
    */
   async getStats() {
     const client = await this.getClient();
-    const response = await client.getUserStats();
-    return response.data;
+
+    try {
+      const response = await fetch(`${this.apiUrl}/stats`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Stats failed');
+      return await response.json();
+    } catch (error) {
+      console.warn('Failed to get memory stats:', error);
+      return { total: 0, tags: [], access_count: 0 };
+    }
   }
 }
 
