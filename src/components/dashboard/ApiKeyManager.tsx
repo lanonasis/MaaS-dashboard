@@ -35,8 +35,10 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 // Define ApiKey type locally since we're using Supabase directly
 interface ApiKey {
   id: string;
-  key: string;
-  service: string;
+  // key is only shown immediately after creation; not stored in DB
+  key?: string;
+  // optional UI hint; DB may not store this column
+  service?: string;
   user_id: string;
   name: string;
   expires_at: string | null;
@@ -46,6 +48,15 @@ interface ApiKey {
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+
+// SHA-256 helper (browser Web Crypto)
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 export const ApiKeyManager = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -164,10 +175,12 @@ export const ApiKeyManager = () => {
               Date.now() + parseInt(keyExpiration) * 86400000
             ).toISOString();
 
+      // Hash before storing; only the hashed form goes to the database
+      const keyHash = await sha256Hex(formattedKey);
+
       const { error } = await supabase.from("api_keys").insert({
         name: keyName.trim(),
-        key: formattedKey,
-        service: keyService,
+        key_hash: keyHash,
         user_id: user.id,
         expires_at: expirationDate,
         is_active: true,
@@ -407,7 +420,7 @@ export const ApiKeyManager = () => {
                     </p>
                     <p>
                       <span className="text-muted-foreground">Services:</span>{" "}
-                      {keyService === "all" ? "All services" : keyService}
+                              {(key.service ?? "all") === "all" ? "All Services" : (key.service ?? "All Services")}
                     </p>
                     <p>
                       <span className="text-muted-foreground">Expires:</span>{" "}
