@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { centralAuth } from '../../lib/central-auth';
+import { secureTokenStorage } from '../../lib/secure-token-storage';
 
 /**
  * Central Auth Redirect Component
@@ -49,25 +50,36 @@ const CentralAuthRedirect = () => {
       console.log('CentralAuthRedirect: Using token from URL parameters');
     }
     
-    // Also check localStorage for tokens (set by auth gateway) with retry for timing issues
+    // Also check secure storage for tokens (migrated from localStorage) with retry for timing issues
     if (!accessToken) {
-      // Check both token formats for compatibility
-      accessToken = localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
-      console.log('CentralAuthRedirect: Found token in localStorage (immediate):', !!accessToken);
+      // Check secure in-memory storage first
+      accessToken = secureTokenStorage.getAccessToken();
+      console.log('CentralAuthRedirect: Found token in secure storage (immediate):', !!accessToken);
+      
+      // Fallback to localStorage for migration (legacy support)
+      if (!accessToken) {
+        accessToken = localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
+        if (accessToken) {
+          // Migrate to secure storage
+          secureTokenStorage.setAccessToken(accessToken);
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('lanonasis_token');
+        }
+      }
       
       // If no token found and this is a callback with session info, wait a bit and retry
       if (!accessToken && isCallbackPath && (sessionId || userId)) {
         console.log('CentralAuthRedirect: User-specific callback but no immediate token, retrying in 500ms...');
         await new Promise(resolve => setTimeout(resolve, 500));
-        accessToken = localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
-        console.log('CentralAuthRedirect: Found token in localStorage (retry):', !!accessToken);
+        accessToken = secureTokenStorage.getAccessToken() || localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
+        console.log('CentralAuthRedirect: Found token (retry):', !!accessToken);
         
         // One more retry if still not found
         if (!accessToken) {
           console.log('CentralAuthRedirect: Still no token, retrying in 1000ms...');
           await new Promise(resolve => setTimeout(resolve, 1000));
-          accessToken = localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
-          console.log('CentralAuthRedirect: Found token in localStorage (final retry):', !!accessToken);
+          accessToken = secureTokenStorage.getAccessToken() || localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
+          console.log('CentralAuthRedirect: Found token (final retry):', !!accessToken);
         }
       }
     }
@@ -97,26 +109,28 @@ const CentralAuthRedirect = () => {
         console.log('CentralAuthRedirect: Processing access token for user:', userId || 'unknown');
         console.log('CentralAuthRedirect: Session ID:', sessionId);
         
-        // If token came from localStorage, also get user data
-        if (!refreshToken && localStorage.getItem('lanonasis_user')) {
-          const userData = localStorage.getItem('lanonasis_user');
-          console.log('CentralAuthRedirect: Found user data in localStorage');
-          
-          // Store user data using the expected format
-          if (userData) {
-            try {
-              const user = JSON.parse(userData);
-              localStorage.setItem('user_data', JSON.stringify(user));
-            } catch (e) {
-              console.error('Error parsing user data from localStorage:', e);
+        // Get user data from secure storage or localStorage (migration)
+        if (!refreshToken) {
+          const user = secureTokenStorage.getUser();
+          if (!user) {
+            // Try legacy localStorage
+            const userData = localStorage.getItem('lanonasis_user');
+            if (userData) {
+              try {
+                const parsedUser = JSON.parse(userData);
+                secureTokenStorage.setUser(parsedUser);
+                localStorage.removeItem('lanonasis_user');
+              } catch (e) {
+                console.error('Error parsing user data:', e);
+              }
             }
           }
         }
         
-        // Use central auth to handle tokens
+        // Use central auth to handle tokens (stores in secure storage)
         await centralAuth.handleAuthTokens(accessToken, refreshToken || undefined);
         
-        // Store session info for user identification
+        // Store session info (non-sensitive, can use localStorage)
         if (sessionId) {
           localStorage.setItem('lanonasis_current_session', sessionId);
         }
@@ -127,7 +141,7 @@ const CentralAuthRedirect = () => {
           localStorage.setItem('lanonasis_auth_timestamp', timestamp);
         }
         
-        // Clean up old localStorage tokens
+        // Clean up old localStorage tokens (migrated to secure storage)
         localStorage.removeItem('lanonasis_token');
         localStorage.removeItem('lanonasis_user');
         

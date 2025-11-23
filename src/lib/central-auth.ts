@@ -1,6 +1,9 @@
 // Central Authentication Gateway API Client
 // This module handles communication with the onasis-core auth gateway
 // Updated to use OAuth flow and platform-specific authentication
+// SECURITY: Uses in-memory token storage instead of localStorage to prevent XSS attacks
+
+import { secureTokenStorage } from './secure-token-storage';
 
 interface AuthSession {
   access_token: string;
@@ -52,26 +55,24 @@ const PROJECT_SCOPE = import.meta.env.VITE_PROJECT_SCOPE || 'app_maas_dashboard'
 const PLATFORM = 'web';
 
 class CentralAuthClient {
-  private getStoredToken(): string | null {
-    // Check both token formats for compatibility
-    return localStorage.getItem('access_token') || localStorage.getItem('lanonasis_token');
+  constructor() {
+    // Migrate from localStorage on initialization (one-time migration)
+    secureTokenStorage.migrateFromLocalStorage();
   }
 
-  private setStoredToken(token: string): void {
-    // Store in new format and maintain backward compatibility
-    localStorage.setItem('access_token', token);
-    localStorage.setItem('lanonasis_token', token);
+  private getStoredToken(): string | null {
+    // Get token from secure in-memory storage
+    return secureTokenStorage.getAccessToken();
+  }
+
+  private setStoredToken(token: string, expiresIn?: number): void {
+    // Store token in secure in-memory storage
+    secureTokenStorage.setAccessToken(token, expiresIn);
   }
 
   private removeStoredToken(): void {
-    // Remove both token formats
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('lanonasis_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_data');
-    localStorage.removeItem('lanonasis_user');
-    localStorage.removeItem('lanonasis_current_session');
-    localStorage.removeItem('lanonasis_current_user_id');
+    // Clear all tokens from secure storage
+    secureTokenStorage.clear();
   }
 
   private async makeAuthenticatedRequest(
@@ -169,7 +170,7 @@ class CentralAuthClient {
   }
 
   async refreshToken(): Promise<AuthSession> {
-    const refreshToken = localStorage.getItem('refresh_token');
+    const refreshToken = secureTokenStorage.getRefreshToken();
     
     if (!refreshToken) {
       throw new Error('No refresh token available');
@@ -191,9 +192,9 @@ class CentralAuthClient {
     }
 
     const session = await response.json();
-    this.setStoredToken(session.access_token);
-    localStorage.setItem('refresh_token', session.refresh_token);
-    localStorage.setItem('user_data', JSON.stringify(session.user));
+    this.setStoredToken(session.access_token, session.expires_in);
+    secureTokenStorage.setRefreshToken(session.refresh_token);
+    secureTokenStorage.setUser(session.user);
     return session;
   }
 
@@ -223,7 +224,7 @@ class CentralAuthClient {
       // Transform to AuthSession format
       return {
         access_token: this.getStoredToken() || '',
-        refresh_token: localStorage.getItem('refresh_token') || '',
+        refresh_token: secureTokenStorage.getRefreshToken() || '',
         expires_in: 3600, // Default 1 hour
         user: userData.user || userData
       };
@@ -282,12 +283,12 @@ class CentralAuthClient {
   }
 
   // Handle auth tokens from URL parameters (from onasis-core OAuth flow)
-  async handleAuthTokens(accessToken: string, refreshToken?: string): Promise<AuthSession> {
+  async handleAuthTokens(accessToken: string, refreshToken?: string, expiresIn?: number): Promise<AuthSession> {
     console.log('CentralAuth: handleAuthTokens called', { accessToken: !!accessToken, refreshToken: !!refreshToken });
-    // Store tokens
-    this.setStoredToken(accessToken);
+    // Store tokens in secure in-memory storage
+    this.setStoredToken(accessToken, expiresIn);
     if (refreshToken) {
-      localStorage.setItem('refresh_token', refreshToken);
+      secureTokenStorage.setRefreshToken(refreshToken);
     }
 
     // Verify token with onasis-core
@@ -311,14 +312,14 @@ class CentralAuthClient {
     const userData = await response.json();
     console.log('CentralAuth: User data received', userData);
     
-    // Store user data
-    localStorage.setItem('user_data', JSON.stringify(userData.user || userData));
+    // Store user data (non-sensitive, can use localStorage)
+    secureTokenStorage.setUser(userData.user || userData);
     
     // Return session format
     const session = {
       access_token: accessToken,
       refresh_token: refreshToken || '',
-      expires_in: 3600,
+      expires_in: expiresIn || 3600,
       user: userData.user || userData
     };
     console.log('CentralAuth: Session created', session);

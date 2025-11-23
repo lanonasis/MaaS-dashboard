@@ -21,6 +21,20 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Filter out Chrome extension errors (they're not app errors)
+    const isExtensionError = 
+      error.message?.includes('No tab with id') ||
+      error.message?.includes('chrome-extension://') ||
+      error.stack?.includes('chrome-extension://');
+    
+    if (isExtensionError) {
+      // Silently ignore extension errors - they don't affect the app
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Chrome extension error (ignored):', error.message);
+      }
+      return;
+    }
+    
     console.error('Uncaught error:', error, errorInfo);
   }
 
