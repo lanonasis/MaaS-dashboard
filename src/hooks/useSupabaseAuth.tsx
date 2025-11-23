@@ -89,67 +89,19 @@ export const SupabaseAuthProvider = ({
     // Check if supabase client is available
     if (!supabase) {
       console.error("Supabase client not initialized");
+      setInitError("Supabase client not initialized");
       setIsLoading(false);
       return undefined;
     }
 
-    // Try to get initial session, but don't let failure prevent listener setup
-    try {
-      console.log("SupabaseAuthProvider: Getting session...");
+    // ALWAYS set up the auth state listener FIRST
+    // This ensures we catch auth state changes even if initial session fetch is slow
+    let subscription: { unsubscribe: () => void } | null = null;
 
-      // Race the session fetch against a 5-second timeout
-      const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Session fetch timeout')), 5000);
-      });
-
-      const { data: { session: supabaseSession }, error } = await Promise.race([
-        sessionPromise,
-        timeoutPromise
-      ]) as any;
-
-      console.log("SupabaseAuthProvider: Session fetched", {
-        hasSession: !!supabaseSession,
-        hasError: !!error
-      });
-
-      if (error) {
-        console.error("Error fetching Supabase session:", error);
-        // Continue without session
-      } else if (supabaseSession) {
-        console.log("SupabaseAuthProvider: Setting session and user");
-        setSession(supabaseSession);
-        setUser(supabaseSession.user);
-
-        // Fetch profile but don't block on it
-        console.log("SupabaseAuthProvider: Fetching profile...");
-        fetchProfile(supabaseSession.user.id).catch(err => {
-          console.error("Error fetching profile (non-blocking):", err);
-        });
-      } else {
-        console.log("SupabaseAuthProvider: No session found");
-      }
-    } catch (error) {
-      console.error("Error fetching initial session:", error);
-
-      // If it's a timeout, show friendly message but continue
-      if (error instanceof Error && error.message === 'Session fetch timeout') {
-        console.warn("Session fetch timed out - will still set up auth listener");
-        toast({
-          title: "Slow connection",
-          description: "Authentication is loading slowly. You can still sign in.",
-          variant: "default"
-        });
-      }
-      // Don't return - continue to set up listener
-    }
-
-    // ALWAYS set up the auth state listener, even if initial session fetch failed
-    // This is critical - without this, login won't work!
     try {
       console.log("SupabaseAuthProvider: Setting up auth state listener");
       const {
-        data: { subscription },
+        data: { subscription: authSubscription },
       } = supabase.auth.onAuthStateChange(async (event, supabaseSession) => {
         console.log(
           "Supabase auth state change:",
@@ -200,23 +152,79 @@ export const SupabaseAuthProvider = ({
         }
       });
 
-      // Set loading to false after initialization
-      console.log("SupabaseAuthProvider: Auth initialized successfully, clearing loading state");
-      setIsLoading(false);
-
-      // Return cleanup function to remove the subscription when component unmounts
-      return () => {
-        console.log("SupabaseAuthProvider: Cleaning up auth subscription");
-        subscription.unsubscribe();
-      };
+      subscription = authSubscription;
+      console.log("SupabaseAuthProvider: Auth state listener established");
     } catch (error) {
-      console.error("Error setting up auth listener:", error);
+      console.error("CRITICAL: Error setting up auth listener:", error);
       setInitError(
         error instanceof Error ? error.message : "Failed to initialize authentication"
       );
       setIsLoading(false);
       return undefined;
     }
+
+    // Now try to get initial session, but don't let failure prevent listener from working
+    try {
+      console.log("SupabaseAuthProvider: Getting initial session...");
+
+      // Race the session fetch against a 5-second timeout
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Session fetch timeout')), 5000);
+      });
+
+      const { data: { session: supabaseSession }, error } = await Promise.race([
+        sessionPromise,
+        timeoutPromise
+      ]) as any;
+
+      console.log("SupabaseAuthProvider: Session fetched", {
+        hasSession: !!supabaseSession,
+        hasError: !!error
+      });
+
+      if (error) {
+        console.error("Error fetching Supabase session:", error);
+        // Continue without session
+      } else if (supabaseSession) {
+        console.log("SupabaseAuthProvider: Setting session and user");
+        setSession(supabaseSession);
+        setUser(supabaseSession.user);
+
+        // Fetch profile but don't block on it
+        console.log("SupabaseAuthProvider: Fetching profile...");
+        fetchProfile(supabaseSession.user.id).catch(err => {
+          console.error("Error fetching profile (non-blocking):", err);
+        });
+      } else {
+        console.log("SupabaseAuthProvider: No session found");
+      }
+    } catch (error) {
+      console.error("Error fetching initial session:", error);
+
+      // If it's a timeout, show friendly message but continue
+      if (error instanceof Error && error.message === 'Session fetch timeout') {
+        console.warn("Session fetch timed out - auth listener is still active");
+        toast({
+          title: "Slow connection",
+          description: "Authentication is loading slowly. You can still sign in.",
+          variant: "default"
+        });
+      }
+      // Don't return - continue, we have the listener set up
+    }
+
+    // Set loading to false after initialization
+    console.log("SupabaseAuthProvider: Auth initialized successfully, clearing loading state");
+    setIsLoading(false);
+
+    // Return cleanup function to remove the subscription when component unmounts
+    return () => {
+      console.log("SupabaseAuthProvider: Cleaning up auth subscription");
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   };
 
   const fetchProfile = async (userId: string) => {
