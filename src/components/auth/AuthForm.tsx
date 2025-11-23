@@ -110,6 +110,13 @@ const AuthForm = () => {
     if (!validate()) return;
 
     setIsLoading(true);
+
+    // Safety timeout to ensure loading state clears after 10 seconds max
+    const safetyTimeout = setTimeout(() => {
+      console.warn('Auth operation timeout - forcing loading state to clear');
+      setIsLoading(false);
+    }, 10000);
+
     try {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
@@ -123,7 +130,11 @@ const AuthForm = () => {
           title: 'Welcome back!',
           description: 'You have been successfully signed in.',
         });
-        navigate('/dashboard');
+
+        // Clear the safety timeout - auth state listener will handle navigation
+        clearTimeout(safetyTimeout);
+        // Keep loading state active until navigation completes (component unmounts)
+        // The auth state change listener in useSupabaseAuth will trigger navigation
       } else if (mode === 'register') {
         const { error } = await supabase.auth.signUp({
           email: formData.email,
@@ -140,6 +151,8 @@ const AuthForm = () => {
           title: 'Registration successful!',
           description: 'Please check your email to confirm your account.',
         });
+        clearTimeout(safetyTimeout);
+        setIsLoading(false);
         switchMode('login');
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
@@ -152,6 +165,8 @@ const AuthForm = () => {
           title: 'Reset link sent',
           description: 'Check your email for password reset instructions.',
         });
+        clearTimeout(safetyTimeout);
+        setIsLoading(false);
         switchMode('login');
       }
     } catch (error) {
@@ -161,14 +176,15 @@ const AuthForm = () => {
         description: message,
         variant: 'destructive',
       });
-    } finally {
+      clearTimeout(safetyTimeout);
       setIsLoading(false);
     }
   };
 
   const handleSocialLogin = async (provider: 'google' | 'github' | 'linkedin' | 'discord' | 'apple') => {
+    setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: getRedirectUrl(),
@@ -177,21 +193,33 @@ const AuthForm = () => {
       });
 
       if (error) throw error;
+
+      // OAuth redirect will happen, loading state will clear when component unmounts
+      // or after timeout if redirect fails
+      console.log('OAuth redirect initiated', { provider, url: data?.url });
+
+      // Set a safety timeout to clear loading state if redirect doesn't happen
+      setTimeout(() => {
+        setIsLoading(false);
+        console.warn('OAuth redirect timeout - loading state cleared');
+      }, 5000);
+
     } catch (error) {
       let message = error instanceof Error ? error.message : `Failed to login with ${provider}`;
       let title = 'Login failed';
-      
+
       // Provide more helpful error messages for specific providers
       if (provider === 'apple') {
         title = 'Apple Sign-In Configuration Required';
         message = 'Apple Sign-In is not fully configured yet. Please contact support or use alternative login methods.';
       }
-      
+
       toast({
         title,
         description: message,
         variant: 'destructive',
       });
+      setIsLoading(false);
     }
   };
 
