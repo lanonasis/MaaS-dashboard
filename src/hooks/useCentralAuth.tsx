@@ -9,6 +9,7 @@ import {
   centralAuth,
   type AuthSession as CentralAuthSession,
 } from "@/lib/central-auth";
+import { secureTokenStorage } from "@/lib/secure-token-storage";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 
@@ -65,6 +66,8 @@ export const CentralAuthProvider = ({
     let cleanup: (() => void) | undefined;
 
     const init = async () => {
+      // Initialize secure token storage (migrates from localStorage if needed)
+      secureTokenStorage.migrateFromLocalStorage();
       cleanup = await initializeAuth();
     };
 

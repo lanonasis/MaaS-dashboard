@@ -2,7 +2,10 @@
  * Centralized API client for MaaS Dashboard
  * Handles all communication with Onasis-CORE Gateway
  * Replaces direct Supabase usage with Core API calls
+ * SECURITY: Uses secure in-memory token storage
  */
+
+import { secureTokenStorage } from './secure-token-storage';
 
 const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || 'https://api.LanOnasis.com';
 const MAAS_API_PREFIX = '/api/v1';
@@ -62,7 +65,8 @@ interface ApiKey {
 
 class ApiClient {
   private getAuthHeaders(apiKey?: string): Record<string, string> {
-    const token = localStorage.getItem('access_token');
+    // Get token from secure in-memory storage (not localStorage)
+    const token = secureTokenStorage.getAccessToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Platform': 'dashboard',
@@ -111,19 +115,25 @@ class ApiClient {
       
       // Handle authentication errors by redirecting to central auth
       if (response.status === 401) {
-        // Clear local tokens
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_data');
+        // Clear secure tokens
+        secureTokenStorage.clear();
         
-        // Redirect to onasis-core auth
-        const redirectUrl = `${window.location.origin}/auth/callback`;
-        const authUrl = new URL(`${API_BASE_URL}/auth/login`);
-        authUrl.searchParams.set('platform', 'dashboard');
-        authUrl.searchParams.set('redirect_url', redirectUrl);
-        
-        window.location.href = authUrl.toString();
-        throw new Error('Authentication required - redirecting to login');
+        // Try to refresh token before redirecting
+        try {
+          const { centralAuth } = await import('./central-auth');
+          await centralAuth.refreshToken();
+          // Retry the request with new token
+          return this.makeRequest(endpoint, options, apiKey);
+        } catch (refreshError) {
+          // Refresh failed, redirect to login
+          const redirectUrl = `${window.location.origin}/auth/callback`;
+          const authUrl = new URL(`${API_BASE_URL}/auth/login`);
+          authUrl.searchParams.set('platform', 'dashboard');
+          authUrl.searchParams.set('redirect_url', redirectUrl);
+          
+          window.location.href = authUrl.toString();
+          throw new Error('Authentication required - redirecting to login');
+        }
       }
       
       if (!response.ok) {
