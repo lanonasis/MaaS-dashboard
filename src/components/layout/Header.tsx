@@ -12,9 +12,7 @@ import { LanguageSwitcher } from "../LanguageSwitcher";
 const navItems = [
   { name: "header.nav.home", path: "/" },
   { name: "header.nav.features", path: "/#features" },
-  { name: "header.nav.pricing", path: "/#pricing" },
   { name: "header.nav.about", path: "/#about" },
-  { name: "header.nav.contact", path: "/#contact" },
 ];
 
 export const Header = () => {
@@ -52,25 +50,25 @@ export const Header = () => {
           : "bg-transparent py-6"
       )}
     >
-      <div className="container mx-auto flex items-center justify-between px-4">
+      <div className="container mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 max-w-7xl">
         {/* Logo */}
         <Link
           to="/"
-          className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
+          className="flex items-center gap-2 text-xl sm:text-2xl font-semibold tracking-tight flex-shrink-0"
         >
           <span className="text-primary">LanOnasis</span>
-          <span className="text-foreground">Platform</span>
+          <span className="text-foreground hidden sm:inline">Platform</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8">
-          <ul className="flex items-center space-x-8">
+        <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
+          <ul className="flex items-center gap-6 xl:gap-8">
             {navItems.map((item) => (
               <li key={item.name}>
                 <Link
                   to={item.path}
                   className={cn(
-                    "text-sm font-medium transition-all duration-300 hover:text-primary relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:origin-bottom-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:after:scale-x-100",
+                    "text-sm font-medium transition-all duration-300 hover:text-primary relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:origin-bottom-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 hover:after:scale-x-100 whitespace-nowrap",
                     location.pathname === item.path && "text-primary after:scale-x-100"
                   )}
                 >
@@ -80,12 +78,12 @@ export const Header = () => {
             ))}
           </ul>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-2 xl:gap-4 ml-2">
             <LanguageSwitcher />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="p-2 rounded-full hover:bg-muted transition-colors duration-200"
+                  className="p-2 rounded-full hover:bg-muted transition-colors duration-200 flex-shrink-0"
                   aria-label="Theme settings"
                 >
                   {resolvedTheme === "dark" ? (
@@ -111,13 +109,73 @@ export const Header = () => {
               </DropdownMenuContent>
             </DropdownMenu>
             
+            <Link to="/auth/login" className="flex-shrink-0">
+              <AnimatedButton variant="ghost" size="sm" className="text-xs sm:text-sm">
+                {t('header.login')}
+              </AnimatedButton>
+            </Link>
+            <Link to="/auth/register" className="flex-shrink-0">
+              <AnimatedButton variant="default" size="sm" className="text-xs sm:text-sm">
+                {t('header.signup')}
+              </AnimatedButton>
+            </Link>
+          </div>
+        </nav>
+
+        {/* Tablet/Mobile Navigation - Show simplified nav on medium screens */}
+        <nav className="hidden md:flex lg:hidden items-center gap-3">
+          <ul className="flex items-center gap-3">
+            {navItems.slice(0, 2).map((item) => (
+              <li key={item.name}>
+                <Link
+                  to={item.path}
+                  className={cn(
+                    "text-xs font-medium transition-colors duration-300 hover:text-primary whitespace-nowrap",
+                    location.pathname === item.path && "text-primary"
+                  )}
+                >
+                  {t(item.name)}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center gap-2 ml-2">
+            <LanguageSwitcher />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="p-1.5 rounded-full hover:bg-muted transition-colors duration-200 flex-shrink-0"
+                  aria-label="Theme settings"
+                >
+                  {resolvedTheme === "dark" ? (
+                    <Moon className="h-4 w-4" />
+                  ) : (
+                    <Sun className="h-4 w-4" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setTheme("light")}>
+                  <Sun className="h-4 w-4 mr-2" />
+                  {t('header.theme.light')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("dark")}>
+                  <Moon className="h-4 w-4 mr-2" />
+                  {t('header.theme.dark')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("system")}>
+                  <Laptop className="h-4 w-4 mr-2" />
+                  {t('header.theme.system')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Link to="/auth/login">
-              <AnimatedButton variant="ghost" size="sm">
+              <AnimatedButton variant="ghost" size="sm" className="text-xs px-2">
                 {t('header.login')}
               </AnimatedButton>
             </Link>
             <Link to="/auth/register">
-              <AnimatedButton variant="default" size="sm">
+              <AnimatedButton variant="default" size="sm" className="text-xs px-2">
                 {t('header.signup')}
               </AnimatedButton>
             </Link>
@@ -125,12 +183,12 @@ export const Header = () => {
         </nav>
 
         {/* Mobile Menu Button and Theme Toggle */}
-        <div className="flex md:hidden items-center space-x-2">
+        <div className="flex md:hidden items-center gap-2">
           <LanguageSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="p-2 rounded-full hover:bg-muted transition-colors duration-200"
+                className="p-2 rounded-full hover:bg-muted transition-colors duration-200 flex-shrink-0"
                 aria-label="Theme settings"
               >
                 {resolvedTheme === "dark" ? (
@@ -157,7 +215,7 @@ export const Header = () => {
           </DropdownMenu>
           
           <button
-            className="p-2 text-foreground"
+            className="p-2 text-foreground flex-shrink-0"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >

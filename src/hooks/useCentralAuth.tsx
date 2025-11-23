@@ -216,10 +216,21 @@ export const CentralAuthProvider = ({
       });
 
       setTimeout(() => {
-        const redirectPath =
-          localStorage.getItem("redirectAfterLogin") || "/dashboard";
-        localStorage.removeItem("redirectAfterLogin");
-        navigate(redirectPath);
+        // Try sessionStorage first, fallback to localStorage
+        let redirectPath = null;
+        try {
+          redirectPath = sessionStorage.getItem("redirectAfterLogin");
+          if (redirectPath) {
+            sessionStorage.removeItem("redirectAfterLogin");
+          }
+        } catch (e) {
+          // Fallback to localStorage
+          redirectPath = localStorage.getItem("redirectAfterLogin");
+          if (redirectPath) {
+            localStorage.removeItem("redirectAfterLogin");
+          }
+        }
+        navigate(redirectPath || "/dashboard");
       }, 100);
     } catch (error) {
       console.error("Error handling OAuth user:", error);
@@ -281,10 +292,21 @@ export const CentralAuthProvider = ({
           description: "Welcome back!",
         });
 
-        const redirectPath =
-          localStorage.getItem("redirectAfterLogin") || "/dashboard";
-        localStorage.removeItem("redirectAfterLogin");
-        navigate(redirectPath);
+        // Try sessionStorage first, fallback to localStorage
+        let redirectPath = null;
+        try {
+          redirectPath = sessionStorage.getItem("redirectAfterLogin");
+          if (redirectPath) {
+            sessionStorage.removeItem("redirectAfterLogin");
+          }
+        } catch (e) {
+          // Fallback to localStorage
+          redirectPath = localStorage.getItem("redirectAfterLogin");
+          if (redirectPath) {
+            localStorage.removeItem("redirectAfterLogin");
+          }
+        }
+        navigate(redirectPath || "/dashboard");
       } else {
         throw new Error("No authentication method available");
       }
