@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
+import xss from "xss";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,7 +19,8 @@ export async function setupVite(app: express.Application, server: any) {
   app.use(vite.middlewares);
 
   app.use((req, res, next) => {
-    const url = req.originalUrl;
+    // Sanitize URL to prevent XSS attacks
+    const url = xss(req.originalUrl);
 
     if (url.startsWith('/api')) {
       return next();
