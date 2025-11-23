@@ -11,7 +11,6 @@ import {
   SendHorizontal,
   Copy,
   Check,
-  Brain,
   Zap,
   Key,
   LogOut,
@@ -53,6 +52,7 @@ import {
 import { cn } from "@/lib/utils";
 import { MOCK_MEMORIES, MOCK_API_KEYS } from "../shared/mock-data";
 import { Memory } from "../shared/types";
+import { LanoLogo } from "@/components/lano-logo";
 
 const MemoryCard = ({ memory }: { memory: Memory }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -115,7 +115,7 @@ const WelcomeView = ({ onLogin }: { onLogin: () => void }) => {
     <div className="p-4 space-y-6 select-none">
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-[var(--vscode-editor-foreground)]">Welcome to Lanonasis Memory</h2>
+          <h2 className="text-sm font-semibold text-[var(--vscode-editor-foreground)]">Welcome to LanOnasis Memory</h2>
         </div>
         <p className="text-[13px] text-[var(--vscode-descriptionForeground)] leading-relaxed">
           Authenticate to access synchronized context and scoped API keys.
@@ -147,7 +147,7 @@ const WelcomeView = ({ onLogin }: { onLogin: () => void }) => {
         <div className="space-y-3">
           <div className="flex gap-3">
             <div className="mt-0.5">
-               <Brain className="h-4 w-4 text-[var(--vscode-button-background)]" />
+               <Lightbulb className="h-4 w-4 text-[var(--vscode-button-background)]" />
             </div>
             <div className="space-y-1">
               <h4 className="text-[12px] font-medium text-[var(--vscode-editor-foreground)]">Intelligent Memory</h4>
@@ -254,7 +254,7 @@ export const IDEPanel = () => {
         {/* Top Header / User Bar */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-[var(--vscode-sideBar-background)]">
           <div className="flex items-center gap-2">
-             <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--vscode-sideBarTitle-foreground)]">Lanonasis Memory</span>
+             <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--vscode-sideBarTitle-foreground)]">LanOnasis Memory</span>
           </div>
           
           <div className="flex items-center gap-1">
