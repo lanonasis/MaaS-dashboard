@@ -82,6 +82,22 @@ export default defineConfig(({ mode }) => ({
             return 'chunk-dashboard';
           }
         },
+        // Suppress sourcemap warnings for external packages
+        sourcemapIgnoreList: (sourcePath) => {
+          // Ignore sourcemap warnings for node_modules packages
+          // This is expected - published packages don't include source files
+          return sourcePath.includes('node_modules');
+        },
+      },
+      // Suppress warnings about missing source files in external packages
+      onwarn(warning, warn) {
+        // Suppress sourcemap warnings for external packages
+        if (warning.code === 'SOURCEMAP_ERROR' || 
+            warning.message?.includes('points to missing source files')) {
+          return;
+        }
+        // Use default warning handler for other warnings
+        warn(warning);
       },
     },
     // Increase chunk size warning limit to 1500kb (gzipped will be much smaller)
