@@ -6,7 +6,6 @@ import {
   Terminal, 
   SendHorizontal,
   Check,
-  Brain,
   Key,
   LogOut,
   User,
@@ -55,6 +54,7 @@ import { cn } from "@/lib/utils";
 import { Memory } from "../shared/types";
 import { useLanonasis } from "@/lib/lanonasis-sdk";
 import { useSecuritySDK } from "@/lib/lanonasis-security-sdk";
+import { LanoLogo } from "@/components/lano-logo";
 
 const MemoryCard = ({ memory, onSelect }: { memory: Memory; onSelect?: () => void }) => {
   return (
@@ -97,7 +97,7 @@ const WelcomeView = ({ onLogin, isConnecting }: { onLogin: () => void, isConnect
     return (
         <div className="p-6 space-y-8 flex flex-col items-center justify-center min-h-[400px]">
              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="h-14 w-14 bg-gradient-to-br from-[#007ACC] to-[#0E639C] rounded-full flex items-center justify-center shadow-lg shadow-[#007ACC]/30">
-                 <Brain className="h-7 w-7 text-white" />
+                 <LanoLogo size={28} className="text-white" />
              </motion.div>
              <div className="space-y-3 text-center">
                 <h3 className="text-lg font-bold text-white">Your Memory Awaits</h3>
@@ -230,10 +230,10 @@ export const RichPanel = () => {
              <div className="flex items-center justify-between p-4 bg-[#1E1E1E]/80 backdrop-blur-sm border-b border-[#3C3C3C] select-none shrink-0">
                 <motion.div className="flex items-center gap-2" whileHover={{ scale: 1.02 }}>
                     <motion.div animate={{ rotate: isAuthenticated ? 360 : 0 }} transition={{ duration: 0.6 }}>
-                      <Brain className="h-5 w-5 text-[#007ACC]" />
+                      <LanoLogo size={18} className="text-[#007ACC]" />
                     </motion.div>
                     <div className="flex flex-col">
-                      <h1 className="text-sm font-bold tracking-tight text-white">Lanonasis</h1>
+                      <h1 className="text-sm font-bold tracking-tight text-white">LanOnasis</h1>
                       <span className="text-[9px] text-[#888888]">Memory Orchestrator</span>
                     </div>
                 </motion.div>

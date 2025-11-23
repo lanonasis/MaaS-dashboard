@@ -1,7 +1,8 @@
 import React from "react";
 import { RichPanel } from "@/components/rich-panel";
-import { Brain, Shield, Zap, Globe, Code2, CheckCircle2, Briefcase, Terminal, Copy, Check, Sparkles, Lock, ArrowRight } from "lucide-react";
+import { Shield, Zap, Globe, Code2, CheckCircle2, Briefcase, Terminal, Copy, Check, Sparkles, Lock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LanoLogo } from "@/components/lano-logo";
 import { useState } from "react";
 
 export default function LandingPage() {
@@ -20,11 +21,11 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="border-b border-white/10 bg-[#0D0D0D]/80 backdrop-blur-xl fixed w-full z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 group cursor-pointer">
+          <div className="flex items-center gap-3 group cursor-pointer">
             <div className="h-8 w-8 bg-gradient-to-br from-[#007ACC] to-[#0E639C] rounded-lg flex items-center justify-center group-hover:shadow-lg group-hover:shadow-[#007ACC]/30 transition-all">
-              <Brain className="h-5 w-5 text-white" />
+              <LanoLogo size={20} className="text-white" />
             </div>
-            <span className="font-bold tracking-tight text-lg">Lanonasis</span>
+            <span className="font-bold tracking-tight text-lg">LanOnasis</span>
           </div>
           <div className="flex items-center gap-8 text-sm text-gray-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
@@ -63,7 +64,7 @@ export default function LandingPage() {
             </h1>
             
             <p className="text-lg text-gray-400 max-w-xl leading-relaxed">
-              Stop searching for the same code snippet twice. Lanonasis acts as your development brain—managing context, API keys, and project memories with semantic intelligence. Designed for developers who think in vectors.
+              Stop searching for the same code snippet twice. LanOnasis acts as your development brain—managing context, API keys, and project memories with semantic intelligence. Designed for developers who think in vectors.
             </p>
             
             <div className="space-y-4 pt-4">
@@ -155,7 +156,7 @@ export default function LandingPage() {
 
             <div className="grid md:grid-cols-3 gap-8">
                 <FeatureCard 
-                    icon={Brain}
+                    icon={Sparkles}
                     title="Semantic Memory"
                     description="Vector search powered by embeddings. Find relevant code in milliseconds, not keywords."
                 />
@@ -193,12 +194,12 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="text-center space-y-4">
             <h2 className="text-4xl font-bold">Three Powerful SDKs</h2>
-            <p className="text-gray-400 text-lg">Everything you need to build with Lanonasis</p>
+            <p className="text-gray-400 text-lg">Everything you need to build with LanOnasis</p>
           </div>
           
           <div className="grid md:grid-cols-3 gap-6">
             <SDKCard 
-              icon={Brain}
+              icon={Sparkles}
               title="@lanonasis/memory-client"
               description="Access your vector memory store with semantic search, filtering, and analytics."
             />
@@ -222,8 +223,8 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Brain className="h-5 w-5 text-[#007ACC]" />
-                <span className="font-bold text-gray-300">Lanonasis</span>
+                <LanoLogo size={20} className="text-[#007ACC]" />
+                <span className="font-bold text-gray-300">LanOnasis</span>
               </div>
               <p className="text-sm text-gray-500">Your AI Memory Orchestrator</p>
             </div>
@@ -255,7 +256,7 @@ export default function LandingPage() {
           
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-sm text-gray-500">
-              © 2025 Lanonasis Inc. All rights reserved.
+              © 2025 LanOnasis Inc. All rights reserved.
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <a href="#" className="hover:text-white transition-colors">Status</a>
