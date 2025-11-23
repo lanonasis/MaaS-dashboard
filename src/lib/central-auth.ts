@@ -134,10 +134,16 @@ class CentralAuthClient {
     authUrl.searchParams.set('redirect_url', redirectUrl);
     authUrl.searchParams.set('return_to', 'dashboard');
     
-    // Store current path for post-auth redirect
+    // Store current path for post-auth redirect (use sessionStorage for better security)
     const currentPath = window.location.pathname;
     if (currentPath !== '/' && currentPath !== '/auth' && currentPath !== '/login') {
-      localStorage.setItem('redirectAfterLogin', currentPath);
+      try {
+        sessionStorage.setItem('redirectAfterLogin', currentPath);
+      } catch (e) {
+        // Fallback to localStorage only if sessionStorage unavailable
+        console.warn('sessionStorage unavailable, using localStorage fallback');
+        localStorage.setItem('redirectAfterLogin', currentPath);
+      }
     }
     
     window.location.href = authUrl.toString();
@@ -329,26 +335,45 @@ class CentralAuthClient {
   // Health check to verify central auth is available
   async healthCheck(): Promise<boolean> {
     try {
-      // First attempt the real health check
+      // First attempt the real health check with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
       const response = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
         headers: {
           'X-Project-Scope': PROJECT_SCOPE,
         },
+        signal: controller.signal,
       });
       
+      clearTimeout(timeoutId);
+      
       if (response.ok) {
-        console.log('CentralAuth: Real health check succeeded');
+        console.log('CentralAuth: Health check succeeded');
         return true;
       }
       
-      console.log('CentralAuth: Real health check failed, returning true anyway to unblock auth flow');
-      // Always return true to unblock auth flow - we'll catch actual auth errors during login
-      return true;
+      // Log the failure but allow fallback to Supabase
+      console.warn('CentralAuth: Health check failed', {
+        status: response.status,
+        statusText: response.statusText,
+        url: `${API_BASE_URL}/health`
+      });
+      
+      // Return false to indicate health check failure
+      // This allows useCentralAuth to properly fall back to Supabase
+      return false;
     } catch (error) {
-      console.log('CentralAuth: Health check error, returning true anyway to unblock auth flow');
-      // Always return true even on errors to unblock auth flow
-      return true;
+      // Log the error for monitoring
+      console.warn('CentralAuth: Health check error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        url: `${API_BASE_URL}/health`
+      });
+      
+      // Return false on error to trigger fallback
+      // This prevents masking gateway failures
+      return false;
     }
   }
 }

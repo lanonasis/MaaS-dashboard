@@ -6,6 +6,7 @@
  */
 
 import { secureTokenStorage } from './secure-token-storage';
+import { centralAuth } from './central-auth';
 
 const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || 'https://api.LanOnasis.com';
 const MAAS_API_PREFIX = '/api/v1';
@@ -120,7 +121,6 @@ class ApiClient {
         
         // Try to refresh token before redirecting
         try {
-          const { centralAuth } = await import('./central-auth');
           await centralAuth.refreshToken();
           // Retry the request with new token
           return this.makeRequest(endpoint, options, apiKey);
