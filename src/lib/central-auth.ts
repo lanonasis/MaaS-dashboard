@@ -80,7 +80,21 @@ class CentralAuthClient {
     options: RequestInit = {}
   ): Promise<Response> {
     let token = this.getStoredToken();
-    
+
+    // If we have a refresh token but no access token (e.g., after reload), try to refresh
+    if (!token) {
+      const refresh = secureTokenStorage.getRefreshToken();
+      if (refresh) {
+        try {
+          const refreshed = await this.refreshToken();
+          token = refreshed.access_token;
+        } catch (error) {
+          this.removeStoredToken();
+          throw new Error('No authentication token available');
+        }
+      }
+    }
+
     if (!token) {
       throw new Error('No authentication token available');
     }
@@ -219,6 +233,20 @@ class CentralAuthClient {
 
   async getCurrentSession(): Promise<AuthSession | null> {
     try {
+      // If we lost the access token (memory reset) but have a refresh token, try to refresh first
+      if (!this.getStoredToken()) {
+        const refresh = secureTokenStorage.getRefreshToken();
+        if (refresh) {
+          try {
+            const refreshed = await this.refreshToken();
+            return refreshed;
+          } catch (error) {
+            this.removeStoredToken();
+            return null;
+          }
+        }
+      }
+
       const response = await this.makeAuthenticatedRequest('/v1/auth/verify');
       
       if (!response.ok) {
