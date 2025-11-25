@@ -31,81 +31,11 @@ export default defineConfig(({ mode }) => ({
     exclude: ['@lanonasis/memory-client'],
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: (id) => {
-          // Node modules
-          if (id.includes('node_modules')) {
-            // React and core dependencies
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'vendor-react';
-            }
-            // Supabase
-            if (id.includes('@supabase')) {
-              return 'vendor-supabase';
-            }
-            // Radix UI components
-            if (id.includes('@radix-ui')) {
-              return 'vendor-radix';
-            }
-            // Chart libraries
-            if (id.includes('recharts') || id.includes('victory')) {
-              return 'vendor-charts';
-            }
-            // Form libraries
-            if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) {
-              return 'vendor-forms';
-            }
-            // Query libraries
-            if (id.includes('@tanstack/react-query')) {
-              return 'vendor-query';
-            }
-            // Date libraries
-            if (id.includes('date-fns')) {
-              return 'vendor-dates';
-            }
-            // Other large dependencies
-            if (id.includes('i18next') || id.includes('react-i18next')) {
-              return 'vendor-i18n';
-            }
-            // Everything else from node_modules
-            return 'vendor-other';
-          }
-          // Large local modules
-          if (id.includes('/orchestrator/') || id.includes('/components/orchestrator/')) {
-            return 'chunk-orchestrator';
-          }
-          if (id.includes('/mcp/') || id.includes('/components/mcp/')) {
-            return 'chunk-mcp';
-          }
-          if (id.includes('/dashboard/') && !id.includes('/components/dashboard/')) {
-            return 'chunk-dashboard';
-          }
-        },
-        // Suppress sourcemap warnings for external packages
-        sourcemapIgnoreList: (sourcePath) => {
-          // Ignore sourcemap warnings for node_modules packages
-          // This is expected - published packages don't include source files
-          return sourcePath.includes('node_modules');
-        },
-      },
-      // Suppress warnings about missing source files in external packages
-      onwarn(warning, warn) {
-        // Suppress sourcemap warnings for external packages
-        if (warning.code === 'SOURCEMAP_ERROR' || 
-            warning.message?.includes('points to missing source files')) {
-          return;
-        }
-        // Use default warning handler for other warnings
-        warn(warning);
-      },
-    },
-    // Increase chunk size warning limit to 1500kb (gzipped will be much smaller)
+    // Allow Rollup to determine optimal chunk boundaries to prevent
+    // accidental circular dependencies between vendor bundles
     chunkSizeWarningLimit: 1500,
-    // Ensure proper module resolution
     target: 'esnext',
     minify: 'esbuild',
-    // Enable source maps for production debugging
     sourcemap: false,
   },
 }));
