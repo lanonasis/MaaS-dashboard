@@ -212,12 +212,12 @@ export const ApiKeyManager = () => {
     setIsLoading(true);
 
     try {
-      // Generate key locally and store in Supabase
+      // Generate key locally with lano_ prefix (matches oauth-client and auth-gateway)
       const randomKey = Array.from({ length: 32 }, () =>
         Math.floor(Math.random() * 36).toString(36)
       ).join("");
 
-      const formattedKey = `vx_${randomKey}`;
+      const formattedKey = `lano_${randomKey}`;
       setGeneratedKey(formattedKey);
 
       let expirationDate: string | null = null;
@@ -240,7 +240,9 @@ export const ApiKeyManager = () => {
         .from("api_keys")
         .insert({
           name: keyName.trim(),
-          key_hash: keyHash,
+          key: formattedKey,  // Temporary: still needed until migration completes
+          key_hash: keyHash,   // New: will be primary after migration
+          service: keyService, // Fix: include service column
           user_id: user.id,
           expires_at: expirationDate,
           is_active: true,

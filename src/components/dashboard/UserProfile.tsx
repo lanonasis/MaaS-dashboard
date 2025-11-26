@@ -43,7 +43,8 @@ export const UserProfile = () => {
           setProfile(data);
           setDisplayName(data.full_name || "");
           setCompanyName(data.company_name || "");
-          setPhone(data.phone || "");
+          // Phone column doesn't exist in current schema
+          setPhone("");
         } else {
           // No profile exists yet - create empty profile
           setProfile({
@@ -51,7 +52,7 @@ export const UserProfile = () => {
             email: user.email,
             full_name: user.user_metadata?.full_name || "",
             company_name: "",
-            phone: "",
+            // phone column removed - doesn't exist in schema
             role: user.user_metadata?.role || "user"
           });
           setDisplayName(user.user_metadata?.full_name || "");
