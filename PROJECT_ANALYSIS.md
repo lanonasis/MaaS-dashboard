@@ -78,7 +78,7 @@ The project implements a **centralized authentication** approach:
   - Session verification
 
 ### 2. Auth Flow
-- All auth requests redirect to central auth server at `https://api.LanOnasis.com`
+- All auth requests redirect to central auth server at `https://api.lanonasis.com`
 - Supports multiple providers (configured via OAuth)
 - Implements token refresh mechanism
 - Stores tokens in localStorage
@@ -205,7 +205,7 @@ npm run i18n:check
 ```env
 VITE_SUPABASE_URL=https://LanOnasis.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-VITE_API_URL=https://api.LanOnasis.com
+VITE_API_URL=https://api.lanonasis.com
 VITE_PROJECT_SCOPE=dashboard
 ```
 
@@ -313,7 +313,7 @@ VITE_PROJECT_SCOPE=dashboard
 
 ### API Client Architecture (`src/lib/api-client.ts`)
 The project uses a centralized API client that:
-- Routes all requests through Onasis-CORE Gateway at `https://api.LanOnasis.com`
+- Routes all requests through Onasis-CORE Gateway at `https://api.lanonasis.com`
 - Prefixes MaaS endpoints with `/api/v1/maas`
 - Handles authentication via Bearer tokens
 - Implements automatic redirect to central auth on 401 errors
@@ -418,8 +418,8 @@ The mismatch between service names needs mapping:
 ```bash
 export VITE_USE_CENTRAL_AUTH=true
 export VITE_USE_FALLBACK_AUTH=true
-export VITE_API_URL=https://api.LanOnasis.com
-export VITE_CORE_API_BASE_URL=https://api.LanOnasis.com
+export VITE_API_URL=https://api.lanonasis.com
+export VITE_CORE_API_BASE_URL=https://api.lanonasis.com
 export VITE_PROJECT_SCOPE=dashboard
 ```
 
@@ -432,10 +432,10 @@ export VITE_PROJECT_SCOPE=dashboard
 4. **Test Health Endpoints**:
 ```bash
 # Test central auth
-curl https://api.LanOnasis.com/health
+curl https://api.lanonasis.com/health
 
 # Test MaaS endpoint
-curl https://api.LanOnasis.com/api/v1/maas/health
+curl https://api.lanonasis.com/api/v1/maas/health
 ```
 
 This analysis provides a comprehensive baseline for debugging the routing and authentication issues. The project shows a well-structured React application with enterprise features, but needs alignment between its various integration points to resolve the current issues.

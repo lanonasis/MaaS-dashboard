@@ -96,7 +96,7 @@ const Index = () => {
                   <div className="h-3 w-3 rounded-full bg-primary/80"></div>
                 </div>
                 <div className="mx-auto flex items-center h-6 w-64 rounded-full bg-background/70 text-xs px-3">
-                  dashboard.LanOnasis.com
+                  dashboard.lanonasis.com
                 </div>
               </div>
               <div className="p-4 bg-gradient-to-b from-transparent to-background/5">
@@ -191,7 +191,7 @@ const Index = () => {
                 Complete developer toolkit with TypeScript SDK, CLI commands, and npm packages for seamless integration.
               </p>
               <ul className="space-y-2">
-                {["@LanOnasis/cli (npx ready)", "@LanOnasis/sdk package", "TypeScript definitions", "React hooks included"].map((item) => (
+                {["@lanonasis/cli (npx ready)", "@lanonasis/sdk package", "TypeScript definitions", "React hooks included"].map((item) => (
                   <li key={item} className="flex items-start">
                     <CheckCircle className="h-5 w-5 text-accent mr-2 flex-shrink-0" />
                     <span className="text-sm">{item}</span>
@@ -261,7 +261,7 @@ const Index = () => {
                   <h3 className="text-xl font-semibold">NPM Packages</h3>
                 </div>
                 <p className="text-muted-foreground">
-                  Ready-to-use packages: @LanOnasis/cli (global install), @LanOnasis/sdk (TypeScript support), and npx commands.
+                  Ready-to-use packages: @lanonasis/cli (global install), @lanonasis/sdk (TypeScript support), and npx commands.
                 </p>
               </div>
               
@@ -291,7 +291,7 @@ const Index = () => {
                     API Documentation
                   </Button>
                 </Link>
-                <Button variant="outline" size="lg" onClick={() => window.open('https://docs.LanOnasis.com', '_blank')}>
+                <Button variant="outline" size="lg" onClick={() => window.open('https://docs.lanonasis.com', '_blank')}>
                   Platform Docs
                 </Button>
               </div>
@@ -302,10 +302,10 @@ const Index = () => {
                 <pre className="text-muted-foreground">
                   <code>
 {`// Example: Memory-as-a-Service with API key management
-const LanOnasis = require('@LanOnasis/sdk');
+const Lanonasis = require('@lanonasis/sdk');
 
 // Initialize with your API key
-const client = new LanOnasis.Client({
+const client = new Lanonasis({
   apiKey: 'your_api_key_here'
 });
 

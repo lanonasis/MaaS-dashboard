@@ -80,7 +80,7 @@ const Dashboard = () => {
       <div className="container mx-auto py-8">
         <div className="flex justify-between items-center mb-6">
           <Button asChild variant="outline" size="sm" className="gap-2">
-            <a href="https://www.LanOnasis.com">
+            <a href="https://www.lanonasis.com">
               <Home className="h-4 w-4" />
               Return to Homepage
             </a>

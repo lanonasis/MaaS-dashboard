@@ -45,7 +45,7 @@ Add the following to your `.env` files:
 ```env
 # OAuth Redirect URLs
 VITE_OAUTH_REDIRECT_URL=http://localhost:5173/dashboard  # Development
-# VITE_OAUTH_REDIRECT_URL=https://api.LanOnasis.com/dashboard  # Production
+# VITE_OAUTH_REDIRECT_URL=https://api.lanonasis.com/dashboard  # Production
 
 # MCP OAuth URLs
 VITE_MCP_OAUTH_AUTHORIZE_URL=http://localhost:5173/oauth/authorize
@@ -103,7 +103,7 @@ oauth-client/
 
 ### Terminal Authentication
 ```typescript
-import { MCPClient } from '@LanOnasis/oauth-client';
+import { MCPClient } from '@lanonasis/oauth-client';
 
 const mcp = new MCPClient({
   clientId: 'LanOnasis-mcp-cli'
@@ -115,7 +115,7 @@ await mcp.connect();
 
 ### Desktop/Mobile Authentication
 ```typescript
-import { MCPClient } from '@LanOnasis/oauth-client';
+import { MCPClient } from '@lanonasis/oauth-client';
 
 const mcp = new MCPClient({
   clientId: 'LanOnasis-mcp-desktop',

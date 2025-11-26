@@ -76,7 +76,7 @@ describe('useAuth Hook', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/v1/auth/session',
+        'https://api.lanonasis.com/v1/auth/session',
         expect.objectContaining({
           credentials: 'include'
         })
@@ -152,7 +152,7 @@ describe('useAuth Hook', () => {
       await result.current.signIn('test@example.com', 'password');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/v1/auth/login',
+        'https://api.lanonasis.com/v1/auth/login',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
@@ -238,7 +238,7 @@ describe('useAuth Hook', () => {
       );
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/v1/auth/register',
+        'https://api.lanonasis.com/v1/auth/register',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
@@ -294,7 +294,7 @@ describe('useAuth Hook', () => {
       await result.current.signOut();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/v1/auth/logout',
+        'https://api.lanonasis.com/v1/auth/logout',
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',
@@ -346,7 +346,7 @@ describe('useAuth Hook', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/v1/auth/reset-password',
+        'https://api.lanonasis.com/v1/auth/reset-password',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({

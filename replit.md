@@ -55,7 +55,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Backend Integration
 
-**Primary Backend**: The dashboard communicates with the LanOnasis unified backend at `api.LanOnasis.com`. All API requests route through this central gateway.
+**Primary Backend**: The dashboard communicates with the LanOnasis unified backend at `api.lanonasis.com`. All API requests route through this central gateway.
 
 **API Client**: Centralized API client (`src/lib/api-client.ts`) handles all backend communication with proper authentication headers, project scoping, and error handling.
 
@@ -98,7 +98,7 @@ Preferred communication style: Simple, everyday language.
 - Configuration: URL and anon key stored in environment variables
 - Features Used: Auth (email/password, OAuth), PostgreSQL database, row-level security
 
-**LanOnasis Backend API** (`api.LanOnasis.com`)
+**LanOnasis Backend API** (`api.lanonasis.com`)
 - Purpose: Unified backend gateway for MaaS platform
 - Endpoints: `/api/v1/maas/*` for memory operations, user management, analytics
 - Authentication: Session-based with Supabase tokens

@@ -25,19 +25,40 @@ export class DashboardMemoryClient {
    * Initialize client with current auth session
    */
   private async initializeClient() {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:27',message:'Initializing memory client',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     const { data: { session } } = await supabase.auth.getSession();
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:30',message:'Session check result',data:{hasSession:!!session,hasAccessToken:!!session?.access_token},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     if (!session) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:32',message:'No session - auth required',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       throw new Error('Authentication required');
     }
 
+    // Memory client expects base URL without /api suffix (it adds /api/v1 itself)
+    // Default to mcp.lanonasis.com if no env var is set
+    const apiUrl = import.meta.env.VITE_MEMORY_API_URL || import.meta.env.VITE_MCP_URL || 'https://mcp.lanonasis.com';
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:36',message:'Creating memory client config',data:{apiUrl,hasToken:!!session.access_token},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
     const baseConfig = {
-      apiUrl: import.meta.env.VITE_MEMORY_API_URL || '/api/memory',
+      apiUrl,
       apiKey: session.access_token,
       timeout: 30000
     };
 
     this.client = createMemoryClient(baseConfig);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:44',message:'Memory client created',data:{hasClient:!!this.client},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
   }
 
   /**
@@ -60,6 +81,10 @@ export class DashboardMemoryClient {
     types?: MemoryType[];
     tags?: string[];
   }): Promise<MemorySearchResult[]> {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:56',message:'Memory search called',data:{query:params.query,limit:params.limit},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     const client = await this.getClient();
 
     const searchParams: SearchMemoryRequest = {
@@ -71,8 +96,22 @@ export class DashboardMemoryClient {
       status: 'active'
     };
 
-    const response = await client.searchMemories(searchParams);
-    return response.data || [];
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:74',message:'Calling client.searchMemories',data:{hasClient:!!client},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
+    try {
+      const response = await client.searchMemories(searchParams);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:78',message:'Search successful',data:{resultCount:response.data?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      return response.data || [];
+    } catch (error: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:81',message:'Search failed',data:{error:error?.message||String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      throw error;
+    }
   }
 
   /**

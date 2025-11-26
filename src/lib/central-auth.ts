@@ -50,7 +50,7 @@ interface ApiKeyResponse {
   name?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE_URL = import.meta.env.VITE_AUTH_GATEWAY_URL || import.meta.env.VITE_API_URL || 'https://auth.lanonasis.com';
 const PROJECT_SCOPE = import.meta.env.VITE_PROJECT_SCOPE || 'app_maas_dashboard';
 const PLATFORM = 'web';
 
