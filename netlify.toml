@@ -5,6 +5,9 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Disable problematic plugins that cause build failures
+# netlify-plugin-bundle-env has been removed due to configuration errors
+
 [[redirects]]
   from = "/login"
   to = "/?showAuth=login"
