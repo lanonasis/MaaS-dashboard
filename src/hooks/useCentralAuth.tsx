@@ -18,9 +18,9 @@ type Profile = {
   full_name: string | null;
   company_name: string | null;
   email: string | null;
-  phone: string | null;
   avatar_url: string | null;
   role: string;
+  // Note: phone column doesn't exist in current schema
 };
 
 interface CentralAuthContextType {
@@ -200,7 +200,6 @@ export const CentralAuthProvider = ({
             oauthUser.user_metadata?.picture ||
             null,
           company_name: null,
-          phone: null,
           role: "user",
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any);

@@ -78,6 +78,35 @@ export function MemoryVisualizer() {
   // Fetch memories from the new API endpoint
   const fetchMemories = async () => {
     setIsLoading(true);
+    
+    // #region agent log
+    const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
+    const logError = (location: string, message: string, data: any) => {
+      try {
+        fetch(logEndpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            location,
+            message,
+            data,
+            timestamp: Date.now(),
+            sessionId: 'debug-session',
+            runId: 'memory-fetch',
+            hypothesisId: 'D'
+          })
+        }).catch(() => {
+          try {
+            const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+            logs.push({location, message, data, timestamp: Date.now()});
+            if (logs.length > 100) logs.shift();
+            localStorage.setItem('debug_logs', JSON.stringify(logs));
+          } catch(e) {}
+        });
+      } catch(e) {}
+    };
+    // #endregion
+    
     try {
       const params: any = {
         limit: 20,
@@ -92,11 +121,117 @@ export function MemoryVisualizer() {
       if (useCustomApiKey && customApiKey) {
         params.apiKey = customApiKey;
         console.log('Using API key:', customApiKey.substring(0, 8) + '...');
+        logError('MemoryVisualizer:fetchMemories', 'Using custom API key', {
+          hasApiKey: true,
+          apiKeyPrefix: customApiKey.substring(0, 8)
+        });
       }
 
       console.log('Fetching memories with params:', params);
-      const response = await apiClient.getMemories(params);
-      console.log('API response:', response);
+      logError('MemoryVisualizer:fetchMemories:start', 'Starting memory fetch', {
+        params,
+        hasUser: !!user,
+        userId: user?.id,
+        useApiKey: useCustomApiKey && !!customApiKey
+      });
+      
+      let response;
+      
+      // If API key is provided, use API client for scoped access (org/project/individual)
+      if (useCustomApiKey && customApiKey) {
+        try {
+          logError('MemoryVisualizer:fetchMemories:apiClient', 'Using API client with API key', {
+            hasApiKey: true
+          });
+          response = await apiClient.getMemories(params);
+          logError('MemoryVisualizer:fetchMemories:apiSuccess', 'API client success', {
+            hasData: !!response.data,
+            dataLength: response.data?.length || 0
+          });
+        } catch (apiError: any) {
+          logError('MemoryVisualizer:fetchMemories:apiError', 'API client failed', {
+            error: apiError?.message,
+            willFallback: true
+          });
+          // Fall through to Supabase fallback
+          throw apiError;
+        }
+      } else {
+        // Use Supabase directly when no API key (user's own memories)
+        if (!user?.id) {
+          throw new Error('User not authenticated');
+        }
+        
+        logError('MemoryVisualizer:fetchMemories:supabase', 'Using Supabase directly', {
+          userId: user.id
+        });
+        
+        let query = supabase
+          .from('memory_entries')
+          .select('*', { count: 'exact' })
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .range(
+            ((params.page || 1) - 1) * (params.limit || 20),
+            (params.page || 1) * (params.limit || 20) - 1
+          );
+        
+        if (params.type && selectedType !== 'all') {
+          query = query.eq('memory_type', params.type);
+        }
+        
+        if (params.tags?.length) {
+          query = query.contains('tags', params.tags);
+        }
+        
+        if (params.search) {
+          query = query.ilike('content', `%${params.search}%`);
+        }
+        
+        const { data: supabaseData, error: supabaseError, count } = await query;
+        
+        logError('MemoryVisualizer:fetchMemories:supabaseQuery', 'Supabase query result', {
+          hasData: !!supabaseData,
+          dataLength: supabaseData?.length || 0,
+          totalCount: count || 0,
+          hasError: !!supabaseError,
+          errorMessage: supabaseError?.message
+        });
+        
+        if (supabaseError) {
+          throw supabaseError;
+        }
+        
+        // Transform Supabase data to match API response format
+        response = {
+          data: (supabaseData || []).map((m: any) => ({
+            id: m.id,
+            title: m.title || m.content?.substring(0, 50) || 'Untitled',
+            content: m.content,
+            type: m.memory_type || m.type || 'context',
+            tags: m.tags || [],
+            metadata: m.metadata || {},
+            is_private: false,
+            is_archived: false,
+            access_count: m.access_count || 0,
+            last_accessed_at: m.last_accessed || null,
+            created_at: m.created_at,
+            updated_at: m.updated_at || m.created_at
+          })) as Memory[],
+          pagination: {
+            page: params.page || 1,
+            limit: params.limit || 20,
+            total: count || 0,
+            total_pages: Math.ceil((count || 0) / (params.limit || 20))
+          }
+        };
+        
+        logError('MemoryVisualizer:fetchMemories:supabaseSuccess', 'Supabase fetch successful', {
+          hasData: !!response.data,
+          dataLength: response.data?.length || 0,
+          total: response.pagination.total
+        });
+      }
       
       if (response.data) {
         setMemories(response.data);
@@ -128,19 +263,35 @@ export function MemoryVisualizer() {
       }
     } catch (error: any) {
       console.error('Error fetching memories:', error);
-      let errorMessage = 'Could not fetch memory data';
       
-      if (error.message.includes('fetch')) {
-        errorMessage = 'Network error - check API connectivity';
-      } else if (error.message.includes('401')) {
-        errorMessage = 'Authentication failed - check API key';
-      } else if (error.message.includes('404')) {
-        errorMessage = 'API endpoint not found';
+      // #region agent log
+      const errorMessage = error?.message || String(error);
+      logError('MemoryVisualizer:fetchMemories:error', 'Memory fetch failed', {
+        errorMessage,
+        errorName: error?.name,
+        errorStack: error?.stack?.substring(0, 200),
+        isNetworkError: errorMessage.includes('fetch') || errorMessage.includes('Network'),
+        isCorsError: errorMessage.includes('CORS'),
+        isAuthError: errorMessage.includes('401') || errorMessage.includes('Authentication'),
+        isNotFound: errorMessage.includes('404')
+      });
+      // #endregion
+      
+      let userFacingMessage = 'Could not fetch memory data';
+      
+      if (errorMessage.includes('fetch') || errorMessage.includes('Network')) {
+        userFacingMessage = 'Network error - check API connectivity';
+      } else if (errorMessage.includes('401') || errorMessage.includes('Authentication')) {
+        userFacingMessage = 'Authentication failed - check API key';
+      } else if (errorMessage.includes('404')) {
+        userFacingMessage = 'API endpoint not found';
+      } else if (errorMessage.includes('CORS')) {
+        userFacingMessage = 'CORS error - API may not allow this origin';
       }
       
       toast({
         title: 'Failed to load memories',
-        description: `${errorMessage}: ${error.message}`,
+        description: `${userFacingMessage}: ${errorMessage}`,
         variant: 'destructive'
       });
       setMemories([]);

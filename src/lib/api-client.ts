@@ -97,8 +97,37 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${MAAS_API_PREFIX}${endpoint}`;
     
+    // #region agent log
+    const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
+    const logError = (location: string, message: string, data: any) => {
+      try {
+        fetch(logEndpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            location,
+            message,
+            data,
+            timestamp: Date.now(),
+            sessionId: 'debug-session',
+            runId: 'api-fix',
+            hypothesisId: 'C'
+          })
+        }).catch(() => {
+          try {
+            const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+            logs.push({location, message, data, timestamp: Date.now()});
+            if (logs.length > 100) logs.shift();
+            localStorage.setItem('debug_logs', JSON.stringify(logs));
+          } catch(e) {}
+        });
+      } catch(e) {}
+    };
+    // #endregion
+    
     const defaultOptions: RequestInit = {
-      credentials: 'include',
+      // Don't use credentials: 'include' to avoid CORS issues with wildcard origins
+      // The API gateway should handle CORS properly without credentials
       headers: this.getAuthHeaders(apiKey),
       ...options
     };
@@ -111,20 +140,43 @@ class ApiClient {
       };
     }
 
+    logError('api-client:makeRequest:start', 'Making API request', {
+      url,
+      endpoint,
+      method: options.method || 'GET',
+      hasApiKey: !!apiKey,
+      hasToken: !!secureTokenStorage.getAccessToken(),
+      headers: Object.keys(defaultOptions.headers as Record<string, string> || {})
+    });
+
     try {
       const response = await fetch(url, defaultOptions);
       
+      logError('api-client:makeRequest:response', 'API response received', {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       // Handle authentication errors by redirecting to central auth
       if (response.status === 401) {
+        logError('api-client:makeRequest:401', 'Unauthorized - attempting refresh', {url});
         // Clear secure tokens
         secureTokenStorage.clear();
         
         // Try to refresh token before redirecting
         try {
           await centralAuth.refreshToken();
+          logError('api-client:makeRequest:refreshSuccess', 'Token refreshed, retrying', {url});
           // Retry the request with new token
           return this.makeRequest(endpoint, options, apiKey);
         } catch (refreshError) {
+          logError('api-client:makeRequest:refreshFailed', 'Token refresh failed', {
+            url,
+            error: refreshError instanceof Error ? refreshError.message : String(refreshError)
+          });
           // Refresh failed, redirect to login
           const redirectUrl = `${window.location.origin}/auth/callback`;
           const authUrl = new URL(`${API_BASE_URL}/auth/login`);
@@ -138,12 +190,43 @@ class ApiClient {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        logError('api-client:makeRequest:notOk', 'Response not OK', {
+          url,
+          status: response.status,
+          errorData
+        });
         throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
 
-      return await response.json();
+      const jsonData = await response.json();
+      logError('api-client:makeRequest:success', 'Request successful', {
+        url,
+        hasData: !!jsonData.data,
+        hasError: !!jsonData.error
+      });
+      return jsonData;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorName = error instanceof Error ? error.name : 'Unknown';
+      
+      logError('api-client:makeRequest:error', 'Request failed', {
+        url,
+        endpoint,
+        errorName,
+        errorMessage,
+        errorStack: error instanceof Error ? error.stack?.substring(0, 200) : undefined,
+        isNetworkError: errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch'),
+        isCorsError: errorMessage.includes('CORS') || errorMessage.includes('cors'),
+        isTimeout: errorMessage.includes('timeout') || errorMessage.includes('aborted')
+      });
+      
       console.error(`API request failed for ${endpoint}:`, error);
+      
+      // Provide more helpful error messages
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        throw new Error(`Network error: Unable to reach ${API_BASE_URL}. Check your internet connection and API endpoint configuration.`);
+      }
+      
       throw error;
     }
   }

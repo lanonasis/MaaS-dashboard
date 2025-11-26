@@ -20,12 +20,19 @@ const Index = () => {
   
   // Handle OAuth callbacks - should not land on Index page  
   useEffect(() => {
-    const hasOAuthCallback = searchParams.get('code') || searchParams.get('access_token') || searchParams.get('error');
+    // Check for OAuth parameters in both query string and hash (Supabase uses hash)
+    const hasOAuthCallback = 
+      searchParams.get('code') || 
+      searchParams.get('access_token') || 
+      searchParams.get('error') ||
+      window.location.hash.includes('access_token') ||
+      window.location.hash.includes('error');
     
     if (hasOAuthCallback) {
       console.log('Index page: OAuth callback detected, redirecting to callback handler');
-      // Redirect to proper callback handler with all parameters
-      navigate(`/auth/callback${window.location.search}`, { replace: true });
+      // Redirect to proper callback handler with all parameters (preserve both search and hash)
+      const redirectUrl = `/auth/callback${window.location.search}${window.location.hash}`;
+      navigate(redirectUrl, { replace: true });
       return;
     }
 
@@ -351,23 +358,21 @@ async function useMemoryService() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <button onClick={() => setShowAuthForm(true)}>
-                  <AnimatedButton 
-                    size="lg" 
-                    className="bg-white text-primary hover:bg-white/90 min-w-[160px]"
-                  >
-                    Sign up free
-                  </AnimatedButton>
-                </button>
-                <button onClick={() => setShowAuthForm(true)}>
-                  <AnimatedButton 
-                    variant="outline" 
-                    size="lg" 
-                    className="border-white text-white hover:bg-white/10 min-w-[160px]"
-                  >
-                    Sign in
-                  </AnimatedButton>
-                </button>
+                <AnimatedButton
+                  size="lg"
+                  className="bg-white text-primary hover:bg-white/90 min-w-[160px]"
+                  onClick={() => setShowAuthForm(true)}
+                >
+                  Sign up free
+                </AnimatedButton>
+                <AnimatedButton
+                  variant="outline"
+                  size="lg"
+                  className="border-white text-white hover:bg-white/10 min-w-[160px]"
+                  onClick={() => setShowAuthForm(true)}
+                >
+                  Sign in
+                </AnimatedButton>
               </div>
             </div>
           </div>

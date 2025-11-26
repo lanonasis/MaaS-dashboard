@@ -12,9 +12,9 @@ type Profile = {
   full_name: string | null;
   company_name: string | null;
   email: string | null;
-  phone: string | null;
   avatar_url: string | null;
   role: string;
+  // Note: phone column doesn't exist in current schema
 };
 
 interface SupabaseAuthContextType {
@@ -55,10 +55,11 @@ export const SupabaseAuthProvider = ({
     let timeoutId: NodeJS.Timeout;
 
     // Safety timeout to ensure loading state always clears
+    // Increased to 20s to match session fetch timeout and prevent premature redirects in production
     timeoutId = setTimeout(() => {
       console.warn("Auth initialization timeout - forcing loading state to false");
       setIsLoading(false);
-    }, 10000); // 10 second timeout
+    }, 20000); // 20 second timeout
 
     const init = async () => {
       try {
@@ -97,10 +98,11 @@ export const SupabaseAuthProvider = ({
     try {
       console.log("SupabaseAuthProvider: Getting session...");
 
-      // Race the session fetch against a 5-second timeout
+      // Fetch session with a more generous timeout (15 seconds)
+      // This prevents stuck loading states on slow connections
       const sessionPromise = supabase.auth.getSession();
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Session fetch timeout')), 5000);
+        setTimeout(() => reject(new Error('Session fetch timeout')), 15000);
       });
 
       const { data: { session: supabaseSession }, error } = await Promise.race([
@@ -132,14 +134,10 @@ export const SupabaseAuthProvider = ({
     } catch (error) {
       console.error("Error fetching initial session:", error);
 
-      // If it's a timeout, show friendly message but continue
+      // If it's a timeout, log it but continue silently
       if (error instanceof Error && error.message === 'Session fetch timeout') {
         console.warn("Session fetch timed out - will still set up auth listener");
-        toast({
-          title: "Slow connection",
-          description: "Authentication is loading slowly. You can still sign in.",
-          variant: "default"
-        });
+        // Don't show toast - just continue with auth setup
       }
       // Don't return - continue to set up listener
     }
@@ -220,7 +218,38 @@ export const SupabaseAuthProvider = ({
   };
 
   const fetchProfile = async (userId: string) => {
+    // #region agent log
+    const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
+    const logError = (location: string, message: string, data: any) => {
+      try {
+        fetch(logEndpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            location,
+            message,
+            data,
+            timestamp: Date.now(),
+            sessionId: 'debug-session',
+            runId: 'profile-fix',
+            hypothesisId: 'B'
+          })
+        }).catch(() => {
+          try {
+            const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+            logs.push({location, message, data, timestamp: Date.now()});
+            if (logs.length > 100) logs.shift();
+            localStorage.setItem('debug_logs', JSON.stringify(logs));
+          } catch(e) {}
+        });
+      } catch(e) {}
+    };
+    // #endregion
+    
     try {
+      console.log("SupabaseAuthProvider: fetchProfile called", { userId, hasUser: !!user });
+      logError('fetchProfile:start', 'Fetching profile', {userId, hasUser: !!user, userEmail: user?.email});
+      
       // Use maybeSingle() instead of single() to handle missing profiles gracefully
       const { data, error } = await supabase
         .from("profiles")
@@ -228,22 +257,45 @@ export const SupabaseAuthProvider = ({
         .eq("id", userId)
         .maybeSingle();
 
+      logError('fetchProfile:query', 'Profile query result', {
+        hasData: !!data,
+        hasError: !!error,
+        errorCode: error?.code,
+        errorMessage: error?.message
+      });
+
       // Only log real errors, not "no rows" scenarios
       if (error && error.code !== "PGRST116") {
         console.error("Error fetching user profile:", error);
+        logError('fetchProfile:error', 'Profile fetch error', {error: error.message, code: error.code});
         return;
       }
 
       if (data) {
+        console.log("SupabaseAuthProvider: Profile found", { profileId: data.id });
+        logError('fetchProfile:found', 'Profile found', {profileId: data.id, email: data.email});
         setProfile(data as Profile);
       } else {
+        console.log("SupabaseAuthProvider: No profile found, creating one", { userId });
+        logError('fetchProfile:notFound', 'Profile not found, creating', {userId});
+        
+        // Get user data from Supabase if not available in state
+        let userData = user;
+        if (!userData) {
+          const { data: { user: fetchedUser } } = await supabase.auth.getUser();
+          userData = fetchedUser;
+          logError('fetchProfile:fetchUser', 'Fetched user from Supabase', {hasUser: !!fetchedUser});
+        }
+        
         // If no profile exists yet, create a basic one with only existing columns
-        if (user) {
+        if (userData) {
           const basicProfile = {
             id: userId,
-            email: user.email,
-            full_name: user.user_metadata.full_name || user.email || "User",
+            email: userData.email || '',
+            full_name: userData.user_metadata?.full_name || userData.email || "User",
           };
+
+          logError('fetchProfile:create', 'Creating profile', {email: basicProfile.email, fullName: basicProfile.full_name});
 
           // Insert the basic profile
           const { data: insertData, error: insertError } = await supabase
@@ -253,11 +305,15 @@ export const SupabaseAuthProvider = ({
 
           if (insertError) {
             console.error("Error creating user profile:", insertError);
+            logError('fetchProfile:createError', 'Profile creation error', {
+              error: insertError.message,
+              code: insertError.code,
+              details: insertError.details
+            });
             // Fall back to a profile object for the UI
             setProfile({
               ...basicProfile,
               company_name: null,
-              phone: null,
               avatar_url: null,
               role: "user",
             });
@@ -265,12 +321,23 @@ export const SupabaseAuthProvider = ({
           }
 
           if (insertData && insertData[0]) {
+            console.log("SupabaseAuthProvider: Profile created", { profileId: insertData[0].id });
+            logError('fetchProfile:created', 'Profile created successfully', {profileId: insertData[0].id});
             setProfile(insertData[0] as Profile);
           }
+        } else {
+          console.warn("SupabaseAuthProvider: Cannot create profile - no user data available");
+          logError('fetchProfile:noUserData', 'Cannot create profile - no user data', {userId});
         }
       }
     } catch (error) {
       console.error("Error in fetchProfile:", error);
+      // #region agent log
+      logError('fetchProfile:exception', 'Exception in fetchProfile', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      // #endregion
     }
   };
 

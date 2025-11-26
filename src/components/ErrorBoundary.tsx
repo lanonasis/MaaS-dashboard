@@ -21,17 +21,81 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Filter out Chrome extension errors (they're not app errors)
+    // #region agent log
+    const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
+    const isExt = (
+      error.message?.includes('No tab with id') ||
+      error.message?.includes('chrome-extension://') ||
+      error.message?.includes('moz-extension://') ||
+      error.message?.includes('safari-extension://') ||
+      error.message?.includes('jamToggleDumpStore') ||
+      error.message?.includes('runtime.lastError') ||
+      error.message?.includes('mobx-state-tree') ||
+      error.message?.includes('detectedLibs') ||
+      error.message?.includes('ScreenshotMachineModel') ||
+      error.stack?.includes('chrome-extension://') ||
+      error.stack?.includes('moz-extension://') ||
+      error.stack?.includes('safari-extension://')
+    );
+    
+    const logEntry = {
+      location: 'ErrorBoundary:componentDidCatch',
+      message: 'Error caught by boundary',
+      data: {
+        message: error.message,
+        stack: error.stack,
+        componentStack: errorInfo.componentStack,
+        isExtension: isExt
+      },
+      timestamp: Date.now(),
+      sessionId: 'debug-session',
+      runId: 'initial',
+      hypothesisId: 'C'
+    };
+    
+    try {
+      fetch(logEndpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(logEntry)
+      }).catch(() => {
+        // CSP blocked - use localStorage fallback
+        try {
+          const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+          logs.push(logEntry);
+          if (logs.length > 100) logs.shift();
+          localStorage.setItem('debug_logs', JSON.stringify(logs));
+        } catch(e) {}
+      });
+    } catch(e) {
+      // Fallback to localStorage
+      try {
+        const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+        logs.push(logEntry);
+        if (logs.length > 100) logs.shift();
+        localStorage.setItem('debug_logs', JSON.stringify(logs));
+      } catch(e2) {}
+    }
+    // #endregion
+    
+    // Enhanced extension error detection
     const isExtensionError = 
       error.message?.includes('No tab with id') ||
       error.message?.includes('chrome-extension://') ||
-      error.stack?.includes('chrome-extension://');
+      error.message?.includes('moz-extension://') ||
+      error.message?.includes('safari-extension://') ||
+      error.message?.includes('jamToggleDumpStore') ||
+      error.message?.includes('runtime.lastError') ||
+      error.message?.includes('message port closed') ||
+      error.message?.includes('mobx-state-tree') ||
+      error.message?.includes('detectedLibs') ||
+      error.message?.includes('ScreenshotMachineModel') ||
+      error.stack?.includes('chrome-extension://') ||
+      error.stack?.includes('moz-extension://') ||
+      error.stack?.includes('safari-extension://');
     
     if (isExtensionError) {
       // Silently ignore extension errors - they don't affect the app
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Chrome extension error (ignored):', error.message);
-      }
       return;
     }
     
