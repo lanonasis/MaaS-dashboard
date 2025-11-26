@@ -398,7 +398,14 @@ export class AIOrchestrator {
    * Execute an action via tool registry (dashboard or MCP tools)
    */
   private async executeAction(action: string, params?: Record<string, any>): Promise<string> {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'core.ts:400',message:'executeAction called from orchestrator',data:{action,hasParams:!!params,hasToolRegistry:!!this.toolRegistry},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+
     if (!this.toolRegistry) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'core.ts:402',message:'Tool registry not initialized',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       return 'Tool registry not initialized. Please try again.';
     }
 
@@ -406,21 +413,39 @@ export class AIOrchestrator {
       // Parse action format: "tool_id.action_id"
       const [toolId, actionId] = action.split('.');
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'core.ts:409',message:'Parsed action',data:{toolId,actionId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+
       if (!toolId || !actionId) {
         return 'Invalid action format. Use "tool_id.action_id"';
       }
 
       // Check if AI has permission
       if (!this.toolRegistry.canUseAction(toolId, actionId)) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'core.ts:415',message:'Permission denied',data:{toolId,actionId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         return `I don't have permission to perform "${actionId}" on ${toolId}. Please grant me access in the AI Tools settings.`;
       }
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'core.ts:419',message:'Executing action via tool registry',data:{toolId,actionId,params},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
 
       // Execute the action
       const result = await this.toolRegistry.executeAction(toolId, actionId, params || {});
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'core.ts:422',message:'Action executed successfully',data:{toolId,actionId,hasResult:!!result},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+
       // Format the result for the user
       return `✓ Action completed successfully!\n\nResult: ${JSON.stringify(result, null, 2)}`;
     } catch (error: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'core.ts:426',message:'Action execution error',data:{action,error:error?.message||String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       console.error('Tool execution error:', error);
       return `⚠️ Failed to execute action: ${error.message}`;
     }

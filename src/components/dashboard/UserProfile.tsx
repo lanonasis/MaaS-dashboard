@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Mail, Lock, Shield, Building, Phone, Image } from "lucide-react";
+import { User, Mail, Lock, Shield, Building, Image } from "lucide-react";
 
 export const UserProfile = () => {
   const { user } = useSupabaseAuth();
@@ -19,7 +19,6 @@ export const UserProfile = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -43,8 +42,6 @@ export const UserProfile = () => {
           setProfile(data);
           setDisplayName(data.full_name || "");
           setCompanyName(data.company_name || "");
-          // Phone column doesn't exist in current schema
-          setPhone("");
         } else {
           // No profile exists yet - create empty profile
           setProfile({
@@ -125,7 +122,6 @@ export const UserProfile = () => {
           email: user.email,
           full_name: displayName,
           company_name: companyName,
-          phone: phone,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'id'
@@ -144,8 +140,7 @@ export const UserProfile = () => {
       setProfile({
         ...profile,
         full_name: displayName,
-        company_name: companyName,
-        phone: phone
+        company_name: companyName
       });
 
       toast({
@@ -222,16 +217,6 @@ export const UserProfile = () => {
           </div>
 
           <div className="flex items-center space-x-3">
-            <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Phone</p>
-              <p className="text-sm text-muted-foreground truncate">
-                {profile?.phone || "Not set"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3">
             <Shield className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-medium">Role</p>
@@ -282,15 +267,6 @@ export const UserProfile = () => {
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Enter your company name"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Enter your phone number"
                   />
                 </div>
               </div>

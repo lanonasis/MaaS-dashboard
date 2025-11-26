@@ -8,8 +8,14 @@
 import { secureTokenStorage } from './secure-token-storage';
 import { centralAuth } from './central-auth';
 
-const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || 'https://api.LanOnasis.com';
+const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || import.meta.env.VITE_API_URL?.replace('/v1', '') || 'https://api.lanonasis.com';
 const MAAS_API_PREFIX = '/api/v1';
+
+// #region agent log - Log API URL configuration
+if (typeof window !== 'undefined') {
+  fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:11',message:'API_BASE_URL configured',data:{apiBaseUrl:API_BASE_URL,envVar:import.meta.env.VITE_CORE_API_BASE_URL,hasEnvVar:!!import.meta.env.VITE_CORE_API_BASE_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
+}
+// #endregion
 
 interface ApiResponse<T = any> {
   data?: T;
@@ -95,6 +101,9 @@ class ApiClient {
     options: RequestInit = {},
     apiKey?: string
   ): Promise<ApiResponse<T>> {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:93',message:'makeRequest called',data:{endpoint,apiBaseUrl:API_BASE_URL,hasApiKey:!!apiKey},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     const url = `${API_BASE_URL}${MAAS_API_PREFIX}${endpoint}`;
     
     // #region agent log

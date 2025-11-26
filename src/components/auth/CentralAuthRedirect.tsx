@@ -271,7 +271,7 @@ const CentralAuthRedirect = () => {
     }
 
     // Get auth gateway URL from environment
-    const authGatewayUrl = import.meta.env.VITE_AUTH_GATEWAY_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    const authGatewayUrl = import.meta.env.VITE_AUTH_GATEWAY_URL || import.meta.env.VITE_API_URL || 'https://auth.lanonasis.com';
     const clientId = import.meta.env.VITE_OAUTH_CLIENT_ID;
     const redirectUri = import.meta.env.VITE_OAUTH_REDIRECT_URI || `${window.location.origin}/auth/callback`;
     
