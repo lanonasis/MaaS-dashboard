@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { supabase, getRedirectUrl } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { GoogleIcon, GitHubIcon, LinkedInIcon, DiscordIcon, AppleIcon } from '@/components/icons/social-providers';
+import { GoogleIcon, GitHubIcon, LinkedInIcon, DiscordIcon, AppleIcon, MicrosoftIcon, TwitterIcon, NotionIcon } from '@/components/icons/social-providers';
 
 type AuthMode = 'login' | 'register' | 'forgot-password';
 
@@ -166,13 +166,38 @@ const AuthForm = () => {
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'github' | 'linkedin' | 'discord' | 'apple') => {
+  const handleSocialLogin = async (provider: 'google' | 'github' | 'linkedin' | 'discord' | 'apple' | 'azure' | 'twitter' | 'notion') => {
     try {
+      // Store redirect path before OAuth
+      localStorage.setItem('redirectAfterLogin', '/dashboard');
+
+      // Get redirect URL - use production URL for OAuth providers that require it
+      const redirectUrl = getRedirectUrl();
+
+      // For localhost development, some providers (like Notion) need the production callback URL
+      // registered in their OAuth settings. Use production URL if localhost.
+      const isLocalhost = window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname.match(/^192\.168\./);
+
+      // Use production callback URL for providers that require it
+      const finalRedirectUrl = (isLocalhost && (provider === 'notion' || provider === 'twitter'))
+        ? 'https://dashboard.lanonasis.com/auth/callback'
+        : redirectUrl;
+
+      // Determine scopes based on provider
+      let scopes: string | undefined;
+      if (provider === 'github') {
+        scopes = 'read:user user:email';
+      } else if (provider === 'apple') {
+        scopes = 'email name'; // Apple requires email scope
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: getRedirectUrl(),
-          scopes: provider === 'github' ? 'read:user user:email' : undefined,
+          redirectTo: finalRedirectUrl,
+          scopes,
         },
       });
 
@@ -180,13 +205,16 @@ const AuthForm = () => {
     } catch (error) {
       let message = error instanceof Error ? error.message : `Failed to login with ${provider}`;
       let title = 'Login failed';
-      
+
       // Provide more helpful error messages for specific providers
-      if (provider === 'apple') {
-        title = 'Apple Sign-In Configuration Required';
-        message = 'Apple Sign-In is not fully configured yet. Please contact support or use alternative login methods.';
+      if (provider === 'twitter') {
+        title = 'Twitter OAuth Configuration Required';
+        message = 'Twitter OAuth is not properly configured. Please verify in Supabase Dashboard: Authentication > Providers > Twitter. Ensure API Key, Secret, and redirect URLs are correctly set.';
+      } else if (provider === 'notion') {
+        title = 'Notion OAuth Redirect URI Issue';
+        message = 'Notion OAuth requires the redirect URI to be registered. For localhost development, ensure "https://dashboard.lanonasis.com/auth/callback" is registered in both Supabase and Notion OAuth settings.';
       }
-      
+
       toast({
         title,
         description: message,
@@ -202,172 +230,179 @@ const AuthForm = () => {
     <TooltipProvider>
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
-        <CardHeader className="space-y-2">
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAuth} className="space-y-4">
-            {mode === 'register' && (
+          <CardHeader className="space-y-2">
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAuth} className="space-y-4">
+              {mode === 'register' && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="Full name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    className={cn(errors.name && 'border-destructive focus-visible:ring-destructive')}
+                  />
+                  {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                </div>
+              )}
+
               <div className="space-y-1.5">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="name"
-                  name="name"
-                  placeholder="Full name"
-                  value={formData.name}
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="name@example.com"
+                  value={formData.email}
                   onChange={handleChange}
                   disabled={isLoading}
-                  className={cn(errors.name && 'border-destructive focus-visible:ring-destructive')}
+                  className={cn(errors.email && 'border-destructive focus-visible:ring-destructive')}
                 />
-                {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
               </div>
-            )}
 
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder="name@example.com"
-                value={formData.email}
-                onChange={handleChange}
-                disabled={isLoading}
-                className={cn(errors.email && 'border-destructive focus-visible:ring-destructive')}
-              />
-              {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-            </div>
-
-            {mode !== 'forgot-password' && (
-              <>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    {mode === 'login' && (
+              {mode !== 'forgot-password' && (
+                <>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password">Password</Label>
+                      {mode === 'login' && (
+                        <button
+                          type="button"
+                          className="text-sm text-blue-600 hover:underline"
+                          onClick={() => switchMode('forgot-password')}
+                        >
+                          Forgot password?
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        name="password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                        placeholder="••••••••"
+                        value={formData.password}
+                        onChange={handleChange}
+                        disabled={isLoading}
+                        className={cn(errors.password && 'border-destructive focus-visible:ring-destructive pr-10')}
+                      />
                       <button
                         type="button"
-                        className="text-sm text-blue-600 hover:underline"
-                        onClick={() => switchMode('forgot-password')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setShowPassword((prev) => !prev)}
                       >
-                        Forgot password?
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
-                    )}
+                    </div>
+                    {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                   </div>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                      placeholder="••••••••"
-                      value={formData.password}
-                      onChange={handleChange}
-                      disabled={isLoading}
-                      className={cn(errors.password && 'border-destructive focus-visible:ring-destructive pr-10')}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+
+                  {mode === 'register' && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="confirmPassword">Confirm password</Label>
+                      <Input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        disabled={isLoading}
+                        className={cn(errors.confirmPassword && 'border-destructive focus-visible:ring-destructive')}
+                      />
+                      {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
+                    </div>
+                  )}
+                </>
+              )}
+
+              <AnimatedButton type="submit" className="w-full" isLoading={isLoading}>
+                {cta}
+              </AnimatedButton>
+            </form>
+
+            {mode !== 'forgot-password' && (
+              <div className="mt-6 space-y-3">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
                   </div>
-                  {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                  </div>
                 </div>
 
-                {mode === 'register' && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="confirmPassword">Confirm password</Label>
-                    <Input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      disabled={isLoading}
-                      className={cn(errors.confirmPassword && 'border-destructive focus-visible:ring-destructive')}
-                    />
-                    {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
-                  </div>
-                )}
-              </>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('google')} disabled={isLoading}>
+                    <GoogleIcon />
+                    <span className="ml-2">Google</span>
+                  </Button>
+                  <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('github')} disabled={isLoading}>
+                    <GitHubIcon />
+                    <span className="ml-2">GitHub</span>
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('linkedin')} disabled={isLoading}>
+                    <LinkedInIcon />
+                    <span className="ml-2">LinkedIn</span>
+                  </Button>
+                  <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('discord')} disabled={isLoading}>
+                    <DiscordIcon />
+                    <span className="ml-2">Discord</span>
+                  </Button>
+                  <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('apple')} disabled={isLoading}>
+                    <AppleIcon />
+                    <span className="ml-2">Apple</span>
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('azure')} disabled={isLoading}>
+                    <MicrosoftIcon />
+                    <span className="ml-2">Azure</span>
+                  </Button>
+                  <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('twitter')} disabled={isLoading}>
+                    <TwitterIcon />
+                    <span className="ml-2">Twitter</span>
+                  </Button>
+                  <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('notion')} disabled={isLoading}>
+                    <NotionIcon />
+                    <span className="ml-2">Notion</span>
+                  </Button>
+                </div>
+              </div>
             )}
-
-            <AnimatedButton type="submit" className="w-full" isLoading={isLoading}>
-              {cta}
-            </AnimatedButton>
-          </form>
-
-          {mode !== 'forgot-password' && (
-            <div className="mt-6 space-y-3">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-                </div>
+          </CardContent>
+          <CardFooter className="flex justify-center text-sm text-center">
+            <div className="space-y-1">
+              <div>
+                <span>{footerText} </span>
+                <button
+                  type="button"
+                  className="text-blue-600 hover:underline"
+                  onClick={() => switchMode(footerTargetMode)}
+                >
+                  {footerAction}
+                </button>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('google')} disabled={isLoading}>
-                  <GoogleIcon />
-                  <span className="ml-2">Google</span>
-                </Button>
-                <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('github')} disabled={isLoading}>
-                  <GitHubIcon />
-                  <span className="ml-2">GitHub</span>
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('linkedin')} disabled={isLoading}>
-                  <LinkedInIcon />
-                  <span className="ml-2">LinkedIn</span>
-                </Button>
-                <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('discord')} disabled={isLoading}>
-                  <DiscordIcon />
-                  <span className="ml-2">Discord</span>
-                </Button>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" type="button" className="w-full" onClick={() => handleSocialLogin('apple')} disabled={true}>
-                      <AppleIcon />
-                      <span className="ml-2">Apple</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Apple Sign-In requires backend configuration.</p>
-                    <p className="text-xs">Please contact support for assistance.</p>
-                  </TooltipContent>
-                </Tooltip>
+              <div>
+                <Link to="/landing" className="text-blue-600 hover:underline">
+                  Learn more about LanOnasis Platform
+                </Link>
               </div>
             </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-center text-sm text-center">
-          <div className="space-y-1">
-            <div>
-              <span>{footerText} </span>
-              <button
-                type="button"
-                className="text-blue-600 hover:underline"
-                onClick={() => switchMode(footerTargetMode)}
-              >
-                {footerAction}
-              </button>
-            </div>
-            <div>
-              <Link to="/landing" className="text-blue-600 hover:underline">
-                Learn more about LanOnasis Platform
-              </Link>
-            </div>
-          </div>
-        </CardFooter>
+          </CardFooter>
         </Card>
       </div>
     </TooltipProvider>
