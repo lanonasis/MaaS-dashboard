@@ -16,7 +16,7 @@ const SupabaseAuthRedirect = () => {
     const timer = setTimeout(() => {
       handleAuthFlow();
     }, 100);
-    
+
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -29,7 +29,7 @@ const SupabaseAuthRedirect = () => {
         try {
           fetch(logEndpoint, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               location,
               message,
@@ -42,15 +42,15 @@ const SupabaseAuthRedirect = () => {
           }).catch(() => {
             try {
               const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
-              logs.push({location, message, data, timestamp: Date.now()});
+              logs.push({ location, message, data, timestamp: Date.now() });
               if (logs.length > 100) logs.shift();
               localStorage.setItem('debug_logs', JSON.stringify(logs));
-            } catch(e) {}
+            } catch (e) { }
           });
-        } catch(e) {}
+        } catch (e) { }
       };
       // #endregion
-      
+
       // Log the current state for debugging
       console.log('SupabaseAuthRedirect: handleAuthFlow called');
       console.log('Current URL:', window.location.href);
@@ -60,11 +60,11 @@ const SupabaseAuthRedirect = () => {
         search: window.location.search,
         hash: window.location.hash?.substring(0, 50)
       });
-      
+
       const currentPath = window.location.pathname;
       const urlParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      
+
       // Handle various auth paths
       if (currentPath.startsWith('/auth/')) {
         // Handle the callback path
@@ -75,15 +75,15 @@ const SupabaseAuthRedirect = () => {
             hasSearchParams: urlParams.toString().length > 0,
             hasHashParams: hashParams.toString().length > 0
           });
-          
+
           // Check if we have OAuth parameters in URL or hash (Supabase uses hash for OAuth)
-          const hasOAuthParams = 
-            urlParams.get('code') || 
-            urlParams.get('access_token') || 
+          const hasOAuthParams =
+            urlParams.get('code') ||
+            urlParams.get('access_token') ||
             urlParams.get('error') ||
             hashParams.get('access_token') ||
             hashParams.get('error');
-          
+
           if (hasOAuthParams) {
             // Let Supabase handle the OAuth callback automatically
             console.log('SupabaseAuthRedirect: OAuth parameters detected, exchanging code for session');
@@ -95,10 +95,10 @@ const SupabaseAuthRedirect = () => {
 
             // First, try to get the session immediately (Supabase might have already processed it)
             const { data: { session: existingSession }, error: sessionError } = await supabase.auth.getSession();
-            
+
             if (existingSession && !sessionError) {
               console.log('SupabaseAuthRedirect: Session already exists, redirecting immediately');
-              logError('SupabaseAuthRedirect:session', 'Session exists', {userId: existingSession.user.id});
+              logError('SupabaseAuthRedirect:session', 'Session exists', { userId: existingSession.user.id });
               const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
               localStorage.removeItem('redirectAfterLogin');
               navigate(redirectPath);
@@ -125,11 +125,14 @@ const SupabaseAuthRedirect = () => {
                   userId: session.user.id,
                   email: session.user.email
                 });
-                
-                // Check for stored redirect path
+
+                // Check for stored redirect path, default to dashboard
                 const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
                 localStorage.removeItem('redirectAfterLogin');
-                navigate(redirectPath);
+
+                // Ensure we always go to dashboard, not landing page
+                const finalPath = redirectPath === '/' || redirectPath === '/landing' ? '/dashboard' : redirectPath;
+                navigate(finalPath, { replace: true });
               }
             });
 
@@ -138,17 +141,17 @@ const SupabaseAuthRedirect = () => {
             const timeoutId = setTimeout(async () => {
               if (!redirectHandled) {
                 subscription.unsubscribe();
-                logError('SupabaseAuthRedirect:timeout', 'Timeout reached', {redirectHandled});
+                logError('SupabaseAuthRedirect:timeout', 'Timeout reached', { redirectHandled });
 
                 // Check manually if user is authenticated
                 const { data: { user }, error } = await supabase.auth.getUser();
                 if (error) {
                   console.error('Error getting user after timeout:', error);
-                  logError('SupabaseAuthRedirect:timeoutError', 'Timeout error', {error: error.message});
+                  logError('SupabaseAuthRedirect:timeoutError', 'Timeout error', { error: error.message });
                   navigate('/?error=auth_callback_timeout');
                 } else if (user) {
                   console.log('SupabaseAuthRedirect: User found via timeout check, redirecting');
-                  logError('SupabaseAuthRedirect:timeoutSuccess', 'User found on timeout', {userId: user.id});
+                  logError('SupabaseAuthRedirect:timeoutSuccess', 'User found on timeout', { userId: user.id });
                   navigate('/dashboard');
                 } else {
                   console.log('SupabaseAuthRedirect: No user after timeout, redirecting to auth');
@@ -174,7 +177,7 @@ const SupabaseAuthRedirect = () => {
           }
         }
       }
-      
+
       // For login/register paths, show the Supabase auth UI
       // Since we're directly handling auth, we'll redirect to the index page
       // which should have a login/register UI based on Supabase
