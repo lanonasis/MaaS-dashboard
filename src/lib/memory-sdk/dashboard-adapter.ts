@@ -102,10 +102,13 @@ export class DashboardMemoryClient {
 
     try {
       const response = await client.searchMemories(searchParams);
+      const results = Array.isArray(response.data)
+        ? response.data
+        : response.data?.results || [];
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:78',message:'Search successful',data:{resultCount:response.data?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:78',message:'Search successful',data:{resultCount:results.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
-      return response.data || [];
+      return results;
     } catch (error: any) {
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard-adapter.ts:81',message:'Search failed',data:{error:error?.message||String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
@@ -174,14 +177,18 @@ export class DashboardMemoryClient {
     tags?: string[];
   }): Promise<MemoryEntry[]> {
     const client = await this.getClient();
+    const limit = params?.limit || 20;
+    const page =
+      params?.offset !== undefined ? Math.floor(params.offset / limit) + 1 : 1;
+
     const response = await client.listMemories({
-      limit: params?.limit || 20,
-      offset: params?.offset || 0,
-      memory_types: params?.types,
+      limit,
+      page,
+      memory_type: params?.types?.[0],
       tags: params?.tags,
       status: 'active'
     });
-    return response.data || [];
+    return response.data?.data || [];
   }
 
   /**
@@ -213,8 +220,11 @@ export class DashboardMemoryClient {
    */
   async getStats() {
     const client = await this.getClient();
-    const response = await client.getUserStats();
-    return response.data;
+    if (typeof client.getMemoryStats !== 'function') {
+      return null;
+    }
+    const response = await client.getMemoryStats();
+    return response.data || null;
   }
 }
 

@@ -10,11 +10,10 @@ import { Session, User } from "@supabase/supabase-js";
 type Profile = {
   id: string;
   full_name: string | null;
-  company_name: string | null;
+  company_name?: string | null;
   email: string | null;
-  avatar_url: string | null;
-  role: string;
-  // Note: phone column doesn't exist in current schema
+  avatar_url?: string | null;
+  role?: string | null;
 };
 
 interface SupabaseAuthContextType {
@@ -52,7 +51,7 @@ export const SupabaseAuthProvider = ({
   useEffect(() => {
     console.log("SupabaseAuthProvider: Initializing auth");
     let cleanup: (() => void) | undefined;
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     // Safety timeout to ensure loading state always clears
     // Increased to 20s to match session fetch timeout and prevent premature redirects in production

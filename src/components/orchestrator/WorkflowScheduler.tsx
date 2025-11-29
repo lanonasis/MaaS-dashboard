@@ -38,11 +38,17 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
+const SCHEDULE_TYPES = ['once', 'daily', 'weekly', 'monthly'] as const;
+type ScheduleType = typeof SCHEDULE_TYPES[number];
+
+const isScheduleType = (value: string): value is ScheduleType =>
+  SCHEDULE_TYPES.includes(value as ScheduleType);
+
 interface ScheduledWorkflow {
   id: string;
   user_id: string;
   goal: string;
-  schedule_type: 'once' | 'daily' | 'weekly' | 'monthly';
+  schedule_type: ScheduleType;
   scheduled_time: string;
   next_run_at: string;
   last_run_at?: string;
@@ -60,7 +66,7 @@ export const WorkflowScheduler: React.FC = () => {
 
   // Form state
   const [newGoal, setNewGoal] = useState('');
-  const [scheduleType, setScheduleType] = useState<'once' | 'daily' | 'weekly' | 'monthly'>('once');
+  const [scheduleType, setScheduleType] = useState<ScheduleType>('once');
   const [scheduledTime, setScheduledTime] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -91,7 +97,12 @@ export const WorkflowScheduler: React.FC = () => {
         throw error;
       }
 
-      setScheduledWorkflows(data || []);
+      const normalized = (data || []).map((workflow) => ({
+        ...workflow,
+        schedule_type: isScheduleType(workflow.schedule_type) ? workflow.schedule_type : 'once'
+      })) as ScheduledWorkflow[];
+
+      setScheduledWorkflows(normalized);
     } catch (error: any) {
       console.error('Error fetching scheduled workflows:', error);
       toast({

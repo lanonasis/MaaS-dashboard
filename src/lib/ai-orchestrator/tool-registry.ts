@@ -9,6 +9,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { getDashboardMemoryClient } from '@/lib/memory-sdk/dashboard-adapter';
+import type { Json } from '@/integrations/supabase/types';
 
 export type ToolType = 'dashboard' | 'mcp' | 'api';
 
@@ -66,8 +67,8 @@ export interface UserToolConfig {
   tool_id: string;
   enabled: boolean;
   api_key?: string;
-  config?: Record<string, any>;
-  permissions: string[]; // Which actions AI can perform
+  config?: Json;
+  permissions: string[] | null; // Which actions AI can perform
   created_at: string;
   updated_at: string;
 }

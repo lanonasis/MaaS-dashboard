@@ -1475,13 +1475,13 @@ export type Database = {
           embedding: string | null
           id: string
           last_accessed: string | null
-          memory_type: Database["public"]["Enums"]["memory_type"]
+          memory_type: Database["public"]["Enums"]["memory_type"] | null
           metadata: Json | null
-          organization_id: string
+          organization_id: string | null
           tags: string[] | null
-          title: string
+          title: string | null
           topic_id: string | null
-          type: string
+          type: string | null
           updated_at: string
           user_id: string | null
         }
@@ -1492,13 +1492,13 @@ export type Database = {
           embedding?: string | null
           id?: string
           last_accessed?: string | null
-          memory_type?: Database["public"]["Enums"]["memory_type"]
+          memory_type?: Database["public"]["Enums"]["memory_type"] | null
           metadata?: Json | null
-          organization_id: string
+          organization_id?: string | null
           tags?: string[] | null
-          title: string
+          title?: string | null
           topic_id?: string | null
-          type: string
+          type?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1509,13 +1509,13 @@ export type Database = {
           embedding?: string | null
           id?: string
           last_accessed?: string | null
-          memory_type?: Database["public"]["Enums"]["memory_type"]
+          memory_type?: Database["public"]["Enums"]["memory_type"] | null
           metadata?: Json | null
-          organization_id?: string
+          organization_id?: string | null
           tags?: string[] | null
-          title?: string
+          title?: string | null
           topic_id?: string | null
-          type?: string
+          type?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -3589,10 +3589,124 @@ export type Database = {
             foreignKeyName: "vortex_items_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "company_projects"
-            referencedColumns: ["id"]
-          },
-        ]
+          referencedRelation: "company_projects"
+          referencedColumns: ["id"]
+        },
+      ]
+      }
+      scheduled_workflows: {
+        Row: {
+          created_at: string
+          goal: string
+          id: string
+          last_run_at: string | null
+          metadata: Json | null
+          next_run_at: string | null
+          schedule_type: string
+          scheduled_time: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          goal: string
+          id?: string
+          last_run_at?: string | null
+          metadata?: Json | null
+          next_run_at?: string | null
+          schedule_type: string
+          scheduled_time: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          goal?: string
+          id?: string
+          last_run_at?: string | null
+          metadata?: Json | null
+          next_run_at?: string | null
+          schedule_type?: string
+          scheduled_time?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_tool_configs: {
+        Row: {
+          api_key: string | null
+          config: Json | null
+          created_at: string
+          enabled: boolean
+          id: string
+          permissions: string[] | null
+          tool_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key?: string | null
+          config?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          permissions?: string[] | null
+          tool_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string | null
+          config?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          permissions?: string[] | null
+          tool_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      workflow_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          goal: string
+          id: string
+          results: Json | null
+          status: string
+          steps: Json | null
+          used_memories: Json | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          goal: string
+          id?: string
+          results?: Json | null
+          status?: string
+          steps?: Json | null
+          used_memories?: Json | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          goal?: string
+          id?: string
+          results?: Json | null
+          status?: string
+          steps?: Json | null
+          used_memories?: Json | null
+          user_id?: string
+        }
+        Relationships: []
       }
       webhook_logs: {
         Row: {

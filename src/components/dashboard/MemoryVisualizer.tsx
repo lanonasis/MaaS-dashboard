@@ -10,7 +10,10 @@ import { Database, Search, Tag, FileText, Activity, RefreshCw, Key, Settings, Cl
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { apiClient, type Memory, type ApiKey } from '@/lib/api-client';
+import { apiClient, type Memory } from '@/lib/api-client';
+import type { Database as SupabaseDatabase } from '@/integrations/supabase/types';
+
+type SupabaseApiKey = SupabaseDatabase['public']['Tables']['api_keys']['Row'];
 
 interface RecentMemory {
   id: string;
@@ -54,7 +57,7 @@ const getTypeBadgeColor = (type: string) => {
 export function MemoryVisualizer() {
   const [user, setUser] = useState<any>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [apiKeys, setApiKeys] = useState<SupabaseApiKey[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
