@@ -67,7 +67,7 @@ export const MCPToolTracker: React.FC = () => {
       const toolUsage: Record<string, { count: number; lastUsed: string; successes: number; total: number }> = {};
 
       runs?.forEach((run) => {
-        const steps = run.steps || [];
+        const steps = Array.isArray(run.steps) ? run.steps : [];
         steps.forEach((step: any, index: number) => {
           const tool = step.suggestedTool || step.tool;
           if (tool && (tool.toLowerCase().includes('mcp') || tool.startsWith('mcp.'))) {

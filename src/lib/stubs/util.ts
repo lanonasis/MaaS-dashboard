@@ -2,11 +2,16 @@
 // These stubs prevent errors when Node.js modules are imported in browser code
 // They return no-op functions instead of throwing to avoid breaking the app
 
+const isDevelopment =
+  typeof globalThis !== 'undefined' &&
+  typeof (globalThis as any).process !== 'undefined' &&
+  (globalThis as any).process?.env?.NODE_ENV === 'development';
+
 export const promisify = <T extends (...args: any[]) => any>(fn: T) => {
   // Return a function that returns a rejected promise
   // This prevents runtime errors while clearly indicating the function isn't available
   return (...args: Parameters<T>): Promise<any> => {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment) {
       console.warn('util.promisify is not available in browser. This is expected for browser-only code.');
     }
     return Promise.reject(new Error('util.promisify is not available in browser'));
@@ -14,7 +19,7 @@ export const promisify = <T extends (...args: any[]) => any>(fn: T) => {
 };
 
 export const inspect = (obj: any, options?: any): string => {
-  if (process.env.NODE_ENV === 'development') {
+  if (isDevelopment) {
     console.warn('util.inspect is not available in browser. Using JSON.stringify instead.');
   }
   try {

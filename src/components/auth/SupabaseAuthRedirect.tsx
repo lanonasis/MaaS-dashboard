@@ -22,34 +22,35 @@ const SupabaseAuthRedirect = () => {
   }, []);
 
   const handleAuthFlow = async () => {
+    // #region agent log
+    const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
+    const logError = (location: string, message: string, data: any) => {
+      try {
+        fetch(logEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location,
+            message,
+            data,
+            timestamp: Date.now(),
+            sessionId: 'debug-session',
+            runId: 'oauth-fix',
+            hypothesisId: 'A'
+          })
+        }).catch(() => {
+          try {
+            const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+            logs.push({ location, message, data, timestamp: Date.now() });
+            if (logs.length > 100) logs.shift();
+            localStorage.setItem('debug_logs', JSON.stringify(logs));
+          } catch (e) { }
+        });
+      } catch (e) { }
+    };
+    // #endregion
+
     try {
-      // #region agent log
-      const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
-      const logError = (location: string, message: string, data: any) => {
-        try {
-          fetch(logEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              location,
-              message,
-              data,
-              timestamp: Date.now(),
-              sessionId: 'debug-session',
-              runId: 'oauth-fix',
-              hypothesisId: 'A'
-            })
-          }).catch(() => {
-            try {
-              const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
-              logs.push({ location, message, data, timestamp: Date.now() });
-              if (logs.length > 100) logs.shift();
-              localStorage.setItem('debug_logs', JSON.stringify(logs));
-            } catch (e) { }
-          });
-        } catch (e) { }
-      };
-      // #endregion
 
       // Log the current state for debugging
       console.log('SupabaseAuthRedirect: handleAuthFlow called');
