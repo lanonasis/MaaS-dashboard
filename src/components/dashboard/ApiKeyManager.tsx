@@ -236,19 +236,57 @@ export const ApiKeyManager = () => {
       // Hash before storing; only the hashed form goes to the database
       const keyHash = await sha256Hex(formattedKey);
 
-      const { data, error } = await supabase
-        .from("api_keys")
-        .insert({
-          name: keyName.trim(),
-          key: formattedKey,  // Temporary: still needed until migration completes
-          key_hash: keyHash,   // New: will be primary after migration
-          service: keyService, // Fix: include service column
-          user_id: user.id,
-          expires_at: expirationDate,
-          is_active: true,
-        })
-        .select()
-        .single();
+      // Try inserting with key_hash first (preferred method)
+      let data: any = null;
+      let error: any = null;
+      
+      try {
+        const result = await supabase
+          .from("api_keys")
+          .insert({
+            name: keyName.trim(),
+            key: formattedKey,  // Store plain key (required by schema)
+            key_hash: keyHash,   // SHA-256 hash for validation
+            service: keyService,
+            user_id: user.id,
+            expires_at: expirationDate,
+            is_active: true,
+          })
+          .select()
+          .single();
+        
+        data = result.data;
+        error = result.error;
+        
+        if (error) throw error;
+      } catch (firstError: any) {
+        // If key_hash column doesn't exist (migration not complete), try without it
+        if (firstError?.code === '42703' || 
+            firstError?.message?.includes('key_hash') || 
+            firstError?.message?.includes('column') ||
+            firstError?.code === 'PGRST116') {
+          console.log('[ApiKeyManager] key_hash column not found, inserting without it');
+          const result = await supabase
+            .from("api_keys")
+            .insert({
+              name: keyName.trim(),
+              key: formattedKey,
+              service: keyService,
+              user_id: user.id,
+              expires_at: expirationDate,
+              is_active: true,
+            })
+            .select()
+            .single();
+          
+          data = result.data;
+          error = result.error;
+          
+          if (error) throw error;
+        } else {
+          throw firstError;
+        }
+      }
 
       if (error) {
         console.error("Supabase insert error:", error);
