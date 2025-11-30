@@ -17,6 +17,7 @@
  */
 
 import { createClient, SupabaseClient, Session, User } from '@supabase/supabase-js';
+import { autoExchangeTokens } from './token-exchange';
 
 // Supabase configuration - same project as MCP Core
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://mxtsdgkwzjzlttpotole.supabase.co';
@@ -59,13 +60,18 @@ class DirectAuthClient {
       },
     });
 
-    // Set up auth state listener
-    this.supabase.auth.onAuthStateChange((event, session) => {
+    // Set up auth state listener with token exchange
+    this.supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('DirectAuth: Auth state changed:', event);
       if (session) {
         this.storeSession(session);
+        // Auto-exchange Supabase token for auth-gateway tokens
+        // This enables Dashboard to work with MCP/API/CLI seamlessly
+        await autoExchangeTokens(session.access_token);
       } else if (event === 'SIGNED_OUT') {
         this.clearSession();
+        // Clear auth-gateway tokens on logout
+        await autoExchangeTokens(null);
       }
     });
 

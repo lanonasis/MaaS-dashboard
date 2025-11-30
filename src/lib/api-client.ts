@@ -7,6 +7,7 @@
 
 import { secureTokenStorage } from './secure-token-storage';
 import { centralAuth } from './central-auth';
+import { getAuthGatewayAccessToken } from './token-exchange';
 
 const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || import.meta.env.VITE_API_URL?.replace('/v1', '') || 'https://api.lanonasis.com';
 const MAAS_API_PREFIX = '/api/v1';
@@ -72,14 +73,19 @@ interface ApiKey {
 
 class ApiClient {
   private getAuthHeaders(apiKey?: string): Record<string, string> {
-    // Get token from secure in-memory storage (not localStorage)
-    const token = secureTokenStorage.getAccessToken();
+    // Priority order for authentication:
+    // 1. API key if provided
+    // 2. Auth-gateway token (from token exchange)
+    // 3. Fallback to secure token storage (legacy)
+    const authGatewayToken = getAuthGatewayAccessToken();
+    const legacyToken = secureTokenStorage.getAccessToken();
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Platform': 'dashboard',
       'X-Project-Scope': 'maas'
     };
-    
+
     // Use API key if provided, otherwise use Bearer token
     if (apiKey) {
       // For API keys starting with 'vx_', use as direct authorization
@@ -89,10 +95,16 @@ class ApiClient {
       } else {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
-    } else if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    } else if (authGatewayToken) {
+      // Use auth-gateway token (unified token system)
+      headers['Authorization'] = `Bearer ${authGatewayToken}`;
+      console.log('[API Client] Using auth-gateway token for API call');
+    } else if (legacyToken) {
+      // Fallback to legacy token storage
+      headers['Authorization'] = `Bearer ${legacyToken}`;
+      console.log('[API Client] Using legacy token for API call');
     }
-    
+
     return headers;
   }
 
