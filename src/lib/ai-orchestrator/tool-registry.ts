@@ -417,7 +417,7 @@ export const PRECONFIGURED_MCP_TOOLS: ToolDefinition[] = [
 export class ToolRegistry {
   private userTools: Map<string, UserToolConfig> = new Map();
 
-  constructor(private userId: string) {}
+  constructor(private userId: string) { }
 
   /**
    * Initialize - Load user's configured tools
