@@ -499,8 +499,8 @@ export class AIOrchestrator {
    */
   private generateWorkflowResponse(workflow: WorkflowPlan): string {
     return `I've created a ${workflow.priority}-priority workflow with ${workflow.steps.length} steps. ` +
-           `Estimated time: ${workflow.suggestedTimeframe}. ` +
-           (workflow.risks.length > 0 ? `\n\n⚠️ Please note: ${workflow.risks[0]}` : '');
+      `Estimated time: ${workflow.suggestedTimeframe}. ` +
+      (workflow.risks.length > 0 ? `\n\n⚠️ Please note: ${workflow.risks[0]}` : '');
   }
 
   /**
