@@ -4,45 +4,6 @@ import './index.css'
 import './i18n'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
-// #region agent log - Enhanced error handler with logging
-const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
-const logError = (location: string, message: string, data: any) => {
-  const logEntry = {
-    location,
-    message,
-    data,
-    timestamp: Date.now(),
-    sessionId: 'debug-session',
-    runId: 'initial',
-    hypothesisId: 'B'
-  };
-  
-  // Try fetch, fallback to localStorage if CSP blocks
-  try {
-    fetch(logEndpoint, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(logEntry)
-    }).catch(() => {
-      // CSP blocked - use localStorage fallback
-      try {
-        const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
-        logs.push(logEntry);
-        if (logs.length > 100) logs.shift(); // Keep last 100
-        localStorage.setItem('debug_logs', JSON.stringify(logs));
-      } catch(e) {}
-    });
-  } catch(e) {
-    // Fallback to localStorage
-    try {
-      const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
-      logs.push(logEntry);
-      if (logs.length > 100) logs.shift();
-      localStorage.setItem('debug_logs', JSON.stringify(logs));
-    } catch(e2) {}
-  }
-};
-
 // Enhanced extension error detection - ONLY suppress errors that are DEFINITELY from extensions
 // Be very specific to avoid blocking legitimate app errors (like Supabase errors)
 const isExtensionError = (error: string | Error | unknown, filename?: string): boolean => {
@@ -67,7 +28,7 @@ const isExtensionError = (error: string | Error | unknown, filename?: string): b
     msg?.includes('runtime.lastError') ||
     msg?.includes('message port closed') ||
     msg?.includes('Receiving end does not exist') ||
-    (msg?.includes('mobx-state-tree') && !msg?.includes('supabase')) || // Only if not Supabase-related
+    (msg?.includes('mobx-state-tree') && !msg?.includes('supabase')) ||
     (msg?.includes('detectedLibs') && !msg?.includes('supabase')) ||
     (msg?.includes('ScreenshotMachineModel') && !msg?.includes('supabase')) ||
     (msg?.includes('heuristicsRedefinitions') && !msg?.includes('supabase')) ||
@@ -96,70 +57,11 @@ const isExtensionError = (error: string | Error | unknown, filename?: string): b
   return false; // Default: don't suppress (let legitimate errors through)
 };
 
-// Override console.error and console.warn to catch extension errors that bypass event handlers
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
-
-console.error = function(...args: unknown[]) {
-  const errorStr = args.map(a => String(a)).join(' ');
-  const isExt = isExtensionError(errorStr, '');
-  
-  // #region agent log
-  logError('main.tsx:console.error', 'Console.error called', {
-    error: errorStr.substring(0, 200), // Truncate for logging
-    isExtension: isExt,
-    willSuppress: isExt
-  });
-  // #endregion
-  
-  // Always call original console.error - we just log extension errors but don't suppress them
-  // This ensures Supabase and other legitimate errors still work
-  originalConsoleError.apply(console, args);
-  
-  // Only suppress if it's definitely an extension error AND not app-related
-  if (isExt) {
-    // Log that we're suppressing, but errors are already logged above
-    return;
-  }
-};
-
-console.warn = function(...args: unknown[]) {
-  const warnStr = args.map(a => String(a)).join(' ');
-  const isExt = isExtensionError(warnStr, '');
-  
-  // #region agent log
-  logError('main.tsx:console.warn', 'Console.warn called', {
-    warning: warnStr.substring(0, 200), // Truncate for logging
-    isExtension: isExt,
-    willSuppress: isExt
-  });
-  // #endregion
-  
-  // Always call original console.warn - we just log extension warnings but don't suppress them
-  originalConsoleWarn.apply(console, args);
-  
-  // Only suppress if it's definitely an extension warning AND not app-related
-  if (isExt) {
-    return;
-  }
-};
-// #endregion
-
 // Global error handler to filter out Chrome extension errors
 // IMPORTANT: Only suppress errors that are DEFINITELY from extensions
 // Never suppress Supabase or app errors
 window.addEventListener('error', (event) => {
   const isExt = isExtensionError(event.message, event.filename);
-  
-  // #region agent log
-  logError('main.tsx:error', 'Error event captured', {
-    message: event.message?.substring(0, 200),
-    filename: event.filename,
-    lineno: event.lineno,
-    colno: event.colno,
-    isExtension: isExt
-  });
-  // #endregion
   
   // Only prevent default for DEFINITE extension errors
   // If there's any doubt (e.g., mentions Supabase, auth, session), let it through
@@ -188,14 +90,6 @@ window.addEventListener('unhandledrejection', (event) => {
   const errorMsg = typeof error === 'string' ? error : error?.message || String(error || '');
   const errorStack = error?.stack || '';
   const isExt = isExtensionError(errorMsg, errorStack);
-  
-  // #region agent log
-  logError('main.tsx:unhandledrejection', 'Unhandled rejection captured', {
-    error: errorMsg?.substring(0, 200),
-    stack: errorStack?.substring(0, 200),
-    isExtension: isExt
-  });
-  // #endregion
   
   // Only prevent default for DEFINITE extension rejections
   // If there's any doubt (e.g., mentions Supabase, auth, session), let it through

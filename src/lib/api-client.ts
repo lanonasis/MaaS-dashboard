@@ -8,15 +8,15 @@
 import { secureTokenStorage } from './secure-token-storage';
 import { centralAuth } from './central-auth';
 import { getAuthGatewayAccessToken } from './token-exchange';
+import { supabase } from '@/integrations/supabase/client';
 
 const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || import.meta.env.VITE_API_URL?.replace('/v1', '') || 'https://api.lanonasis.com';
 const MAAS_API_PREFIX = '/api/v1';
 
-// #region agent log - Log API URL configuration
-if (typeof window !== 'undefined') {
-  fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:11',message:'API_BASE_URL configured',data:{apiBaseUrl:API_BASE_URL,envVar:import.meta.env.VITE_CORE_API_BASE_URL,hasEnvVar:!!import.meta.env.VITE_CORE_API_BASE_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
+// Log API configuration in development only
+if (import.meta.env.DEV) {
+  console.log('[API Client] Configuration:', { apiBaseUrl: API_BASE_URL });
 }
-// #endregion
 
 interface ApiResponse<T = any> {
   data?: T;
@@ -72,84 +72,67 @@ interface ApiKey {
 }
 
 class ApiClient {
-  private getAuthHeaders(apiKey?: string): Record<string, string> {
-    // Priority order for authentication:
-    // 1. API key if provided
-    // 2. Auth-gateway token (from token exchange)
-    // 3. Fallback to secure token storage (legacy)
-    const authGatewayToken = getAuthGatewayAccessToken();
-    const legacyToken = secureTokenStorage.getAccessToken();
-
+  /**
+   * Get authentication headers for API requests
+   * Priority: API key > Auth-gateway token > Supabase session > Legacy token
+   */
+  private async getAuthHeaders(apiKey?: string): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Platform': 'dashboard',
       'X-Project-Scope': 'maas'
     };
 
-    // Use API key if provided, otherwise use Bearer token
+    // Use API key if provided
     if (apiKey) {
-      // For API keys starting with 'vx_', use as direct authorization
       if (apiKey.startsWith('vx_')) {
         headers['Authorization'] = apiKey;
         headers['X-API-Key'] = apiKey;
       } else {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
-    } else if (authGatewayToken) {
-      // Use auth-gateway token (unified token system)
+      return headers;
+    }
+
+    // Try auth-gateway token (unified token system)
+    const authGatewayToken = getAuthGatewayAccessToken();
+    if (authGatewayToken) {
       headers['Authorization'] = `Bearer ${authGatewayToken}`;
-      console.log('[API Client] Using auth-gateway token for API call');
-    } else if (legacyToken) {
-      // Fallback to legacy token storage
+      return headers;
+    }
+
+    // Try Supabase session token - this is the most reliable source
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+        return headers;
+      }
+    } catch (error) {
+      console.warn('[API Client] Failed to get Supabase session:', error);
+    }
+
+    // Fallback to legacy token storage
+    const legacyToken = secureTokenStorage.getAccessToken();
+    if (legacyToken) {
       headers['Authorization'] = `Bearer ${legacyToken}`;
-      console.log('[API Client] Using legacy token for API call');
     }
 
     return headers;
   }
 
   private async makeRequest<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {},
     apiKey?: string
   ): Promise<ApiResponse<T>> {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-client.ts:93',message:'makeRequest called',data:{endpoint,apiBaseUrl:API_BASE_URL,hasApiKey:!!apiKey},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     const url = `${API_BASE_URL}${MAAS_API_PREFIX}${endpoint}`;
-    
-    // #region agent log
-    const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
-    const logError = (location: string, message: string, data: any) => {
-      try {
-        fetch(logEndpoint, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            location,
-            message,
-            data,
-            timestamp: Date.now(),
-            sessionId: 'debug-session',
-            runId: 'api-fix',
-            hypothesisId: 'C'
-          })
-        }).catch(() => {
-          try {
-            const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
-            logs.push({location, message, data, timestamp: Date.now()});
-            if (logs.length > 100) logs.shift();
-            localStorage.setItem('debug_logs', JSON.stringify(logs));
-          } catch(e) {}
-        });
-      } catch(e) {}
-    };
-    // #endregion
-    
+
+    // Get auth headers (includes Supabase session check)
+    const authHeaders = await this.getAuthHeaders(apiKey);
+
     const defaultOptions: RequestInit = {
-      // Don't use credentials: 'include' to avoid CORS issues with wildcard origins
-      // The API gateway should handle CORS properly without credentials
-      headers: this.getAuthHeaders(apiKey),
+      headers: authHeaders,
       ...options
     };
 
@@ -161,93 +144,49 @@ class ApiClient {
       };
     }
 
-    logError('api-client:makeRequest:start', 'Making API request', {
-      url,
-      endpoint,
-      method: options.method || 'GET',
-      hasApiKey: !!apiKey,
-      hasToken: !!secureTokenStorage.getAccessToken(),
-      headers: Object.keys(defaultOptions.headers as Record<string, string> || {})
-    });
-
     try {
       const response = await fetch(url, defaultOptions);
-      
-      logError('api-client:makeRequest:response', 'API response received', {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
-      // Handle authentication errors by redirecting to central auth
+
+      // Handle authentication errors
       if (response.status === 401) {
-        logError('api-client:makeRequest:401', 'Unauthorized - attempting refresh', {url});
-        // Clear secure tokens
+        console.warn('[API Client] 401 Unauthorized - attempting token refresh');
         secureTokenStorage.clear();
-        
+
         // Try to refresh token before redirecting
         try {
           await centralAuth.refreshToken();
-          logError('api-client:makeRequest:refreshSuccess', 'Token refreshed, retrying', {url});
           // Retry the request with new token
           return this.makeRequest(endpoint, options, apiKey);
         } catch (refreshError) {
-          logError('api-client:makeRequest:refreshFailed', 'Token refresh failed', {
-            url,
-            error: refreshError instanceof Error ? refreshError.message : String(refreshError)
-          });
+          console.error('[API Client] Token refresh failed:', refreshError);
           // Refresh failed, redirect to login
           const redirectUrl = `${window.location.origin}/auth/callback`;
           const authUrl = new URL(`${API_BASE_URL}/auth/login`);
           authUrl.searchParams.set('platform', 'dashboard');
           authUrl.searchParams.set('redirect_url', redirectUrl);
-          
+
           window.location.href = authUrl.toString();
           throw new Error('Authentication required - redirecting to login');
         }
       }
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        logError('api-client:makeRequest:notOk', 'Response not OK', {
-          url,
-          status: response.status,
-          errorData
-        });
         throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
 
       const jsonData = await response.json();
-      logError('api-client:makeRequest:success', 'Request successful', {
-        url,
-        hasData: !!jsonData.data,
-        hasError: !!jsonData.error
-      });
       return jsonData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorName = error instanceof Error ? error.name : 'Unknown';
-      
-      logError('api-client:makeRequest:error', 'Request failed', {
-        url,
-        endpoint,
-        errorName,
-        errorMessage,
-        errorStack: error instanceof Error ? error.stack?.substring(0, 200) : undefined,
-        isNetworkError: errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch'),
-        isCorsError: errorMessage.includes('CORS') || errorMessage.includes('cors'),
-        isTimeout: errorMessage.includes('timeout') || errorMessage.includes('aborted')
-      });
-      
-      console.error(`API request failed for ${endpoint}:`, error);
-      
+
+      console.error(`[API Client] Request failed for ${endpoint}:`, error);
+
       // Provide more helpful error messages
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
         throw new Error(`Network error: Unable to reach ${API_BASE_URL}. Check your internet connection and API endpoint configuration.`);
       }
-      
+
       throw error;
     }
   }
@@ -263,7 +202,7 @@ class ApiClient {
     apiKey?: string;
   } = {}): Promise<ApiResponse<Memory[]>> {
     const searchParams = new URLSearchParams();
-    
+
     if (params.page) searchParams.set('page', params.page.toString());
     if (params.limit) searchParams.set('limit', params.limit.toString());
     if (params.type) searchParams.set('type', params.type);
@@ -272,7 +211,7 @@ class ApiClient {
 
     const queryString = searchParams.toString();
     const endpoint = `/memory${queryString ? `?${queryString}` : ''}`;
-    
+
     return this.makeRequest<Memory[]>(endpoint, {}, params.apiKey);
   }
 
@@ -404,14 +343,14 @@ class ApiClient {
     storage_used_mb: number;
   }>> {
     const searchParams = new URLSearchParams();
-    
+
     if (params.start_date) searchParams.set('start_date', params.start_date);
     if (params.end_date) searchParams.set('end_date', params.end_date);
     if (params.metric_type) searchParams.set('metric_type', params.metric_type);
 
     const queryString = searchParams.toString();
     const endpoint = `/analytics/usage${queryString ? `?${queryString}` : ''}`;
-    
+
     return this.makeRequest<any>(endpoint);
   }
 }
