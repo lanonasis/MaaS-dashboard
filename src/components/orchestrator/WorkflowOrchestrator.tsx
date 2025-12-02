@@ -79,8 +79,8 @@ interface Memory {
   id: string;
   content: string;
   type: string;
-  tags: string[];
-  created_at: string;
+  tags?: string[];
+  created_at?: string | null;
   metadata?: any;
 }
 
@@ -274,10 +274,25 @@ export const WorkflowOrchestrator: React.FC = () => {
       });
 
       if (response.data) {
-        setSearchResults(response.data);
+        // Normalize results defensively so downstream UI never explodes on missing fields
+        const normalized = response.data.map((m: Memory) => {
+          const safeTags = Array.isArray(m.tags)
+            ? m.tags.filter((tag) => typeof tag === 'string' && tag.trim().length > 0)
+            : [];
+
+          return {
+            ...m,
+            content: (m.content ?? '').toString(),
+            type: m.type || 'context',
+            tags: safeTags,
+            created_at: m.created_at || null,
+          } as Memory;
+        });
+
+        setSearchResults(normalized);
         toast({
           title: 'Search completed',
-          description: `Found ${response.data.length} relevant memories`,
+          description: `Found ${normalized.length} relevant memories`,
         });
       }
     } catch (error: any) {
@@ -701,8 +716,17 @@ export const WorkflowOrchestrator: React.FC = () => {
                             <Badge variant="outline" className="text-xs">
                               {memory.type}
                             </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(memory.created_at), { addSuffix: true })}
+                          <span className="text-xs text-muted-foreground">
+                              {(() => {
+                                try {
+                                  if (!memory.created_at) return 'Just now';
+                                  const d = new Date(memory.created_at);
+                                  if (Number.isNaN(d.getTime())) return 'Just now';
+                                  return formatDistanceToNow(d, { addSuffix: true });
+                                } catch {
+                                  return 'Just now';
+                                }
+                              })()}
                             </span>
                           </div>
                           <p className="text-sm line-clamp-3 ml-6">{memory.content}</p>

@@ -67,6 +67,17 @@ const getTypeBadgeColor = (type: string) => {
   );
 };
 
+const safeFormatDistanceToNow = (value: string | Date | null | undefined) => {
+  try {
+    if (!value) return 'Just now';
+    const date = typeof value === 'string' ? new Date(value) : value;
+    if (Number.isNaN(date.getTime())) return 'Just now';
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch {
+    return 'Just now';
+  }
+};
+
 export function MemoryVisualizer() {
   // Use the auth hook for consistent auth state - this prevents race conditions
   const { user: authUser, isLoading: authLoading } = useSupabaseAuth();
@@ -474,9 +485,7 @@ export function MemoryVisualizer() {
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           <span>
-                            {formatDistanceToNow(new Date(memory.created_at), {
-                              addSuffix: true,
-                            })}
+                            {safeFormatDistanceToNow(memory.created_at)}
                           </span>
                         </div>
                       </div>
