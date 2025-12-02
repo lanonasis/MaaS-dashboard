@@ -21,6 +21,8 @@
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
 
+    /* Path aliases - ignoreDeprecations silences TS 6.0 warnings */
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
