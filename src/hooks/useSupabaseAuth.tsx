@@ -56,7 +56,9 @@ export const SupabaseAuthProvider = ({
     // Safety timeout to ensure loading state always clears
     // Increased to 20s to match session fetch timeout and prevent premature redirects in production
     timeoutId = setTimeout(() => {
-      console.warn("Auth initialization timeout - forcing loading state to false");
+      console.warn(
+        "Auth initialization timeout - forcing loading state to false"
+      );
       setIsLoading(false);
     }, 20000); // 20 second timeout
 
@@ -101,17 +103,17 @@ export const SupabaseAuthProvider = ({
       // This prevents stuck loading states on slow connections
       const sessionPromise = supabase.auth.getSession();
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Session fetch timeout')), 15000);
+        setTimeout(() => reject(new Error("Session fetch timeout")), 15000);
       });
 
-      const { data: { session: supabaseSession }, error } = await Promise.race([
-        sessionPromise,
-        timeoutPromise
-      ]) as any;
+      const {
+        data: { session: supabaseSession },
+        error,
+      } = (await Promise.race([sessionPromise, timeoutPromise])) as any;
 
       console.log("SupabaseAuthProvider: Session fetched", {
         hasSession: !!supabaseSession,
-        hasError: !!error
+        hasError: !!error,
       });
 
       if (error) {
@@ -124,7 +126,7 @@ export const SupabaseAuthProvider = ({
 
         // Fetch profile but don't block on it
         console.log("SupabaseAuthProvider: Fetching profile...");
-        fetchProfile(supabaseSession.user.id).catch(err => {
+        fetchProfile(supabaseSession.user.id).catch((err) => {
           console.error("Error fetching profile (non-blocking):", err);
         });
       } else {
@@ -134,8 +136,10 @@ export const SupabaseAuthProvider = ({
       console.error("Error fetching initial session:", error);
 
       // If it's a timeout, log it but continue silently
-      if (error instanceof Error && error.message === 'Session fetch timeout') {
-        console.warn("Session fetch timed out - will still set up auth listener");
+      if (error instanceof Error && error.message === "Session fetch timeout") {
+        console.warn(
+          "Session fetch timed out - will still set up auth listener"
+        );
         // Don't show toast - just continue with auth setup
       }
       // Don't return - continue to set up listener
@@ -198,7 +202,9 @@ export const SupabaseAuthProvider = ({
       });
 
       // Set loading to false after initialization
-      console.log("SupabaseAuthProvider: Auth initialized successfully, clearing loading state");
+      console.log(
+        "SupabaseAuthProvider: Auth initialized successfully, clearing loading state"
+      );
       setIsLoading(false);
 
       // Return cleanup function to remove the subscription when component unmounts
@@ -209,7 +215,9 @@ export const SupabaseAuthProvider = ({
     } catch (error) {
       console.error("Error setting up auth listener:", error);
       setInitError(
-        error instanceof Error ? error.message : "Failed to initialize authentication"
+        error instanceof Error
+          ? error.message
+          : "Failed to initialize authentication"
       );
       setIsLoading(false);
       return undefined;
@@ -217,38 +225,12 @@ export const SupabaseAuthProvider = ({
   };
 
   const fetchProfile = async (userId: string) => {
-    // #region agent log
-    const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
-    const logError = (location: string, message: string, data: any) => {
-      try {
-        fetch(logEndpoint, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            location,
-            message,
-            data,
-            timestamp: Date.now(),
-            sessionId: 'debug-session',
-            runId: 'profile-fix',
-            hypothesisId: 'B'
-          })
-        }).catch(() => {
-          try {
-            const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
-            logs.push({location, message, data, timestamp: Date.now()});
-            if (logs.length > 100) logs.shift();
-            localStorage.setItem('debug_logs', JSON.stringify(logs));
-          } catch(e) {}
-        });
-      } catch(e) {}
-    };
-    // #endregion
-    
     try {
-      console.log("SupabaseAuthProvider: fetchProfile called", { userId, hasUser: !!user });
-      logError('fetchProfile:start', 'Fetching profile', {userId, hasUser: !!user, userEmail: user?.email});
-      
+      console.log("SupabaseAuthProvider: fetchProfile called", {
+        userId,
+        hasUser: !!user,
+      });
+
       // Use maybeSingle() instead of single() to handle missing profiles gracefully
       const { data, error } = await supabase
         .from("profiles")
@@ -256,45 +238,39 @@ export const SupabaseAuthProvider = ({
         .eq("id", userId)
         .maybeSingle();
 
-      logError('fetchProfile:query', 'Profile query result', {
-        hasData: !!data,
-        hasError: !!error,
-        errorCode: error?.code,
-        errorMessage: error?.message
-      });
-
       // Only log real errors, not "no rows" scenarios
       if (error && error.code !== "PGRST116") {
         console.error("Error fetching user profile:", error);
-        logError('fetchProfile:error', 'Profile fetch error', {error: error.message, code: error.code});
         return;
       }
 
       if (data) {
-        console.log("SupabaseAuthProvider: Profile found", { profileId: data.id });
-        logError('fetchProfile:found', 'Profile found', {profileId: data.id, email: data.email});
+        console.log("SupabaseAuthProvider: Profile found", {
+          profileId: data.id,
+        });
         setProfile(data as Profile);
       } else {
-        console.log("SupabaseAuthProvider: No profile found, creating one", { userId });
-        logError('fetchProfile:notFound', 'Profile not found, creating', {userId});
-        
+        console.log("SupabaseAuthProvider: No profile found, creating one", {
+          userId,
+        });
+
         // Get user data from Supabase if not available in state
         let userData = user;
         if (!userData) {
-          const { data: { user: fetchedUser } } = await supabase.auth.getUser();
+          const {
+            data: { user: fetchedUser },
+          } = await supabase.auth.getUser();
           userData = fetchedUser;
-          logError('fetchProfile:fetchUser', 'Fetched user from Supabase', {hasUser: !!fetchedUser});
         }
-        
+
         // If no profile exists yet, create a basic one with only existing columns
         if (userData) {
           const basicProfile = {
             id: userId,
-            email: userData.email || '',
-            full_name: userData.user_metadata?.full_name || userData.email || "User",
+            email: userData.email || "",
+            full_name:
+              userData.user_metadata?.full_name || userData.email || "User",
           };
-
-          logError('fetchProfile:create', 'Creating profile', {email: basicProfile.email, fullName: basicProfile.full_name});
 
           // Insert the basic profile
           const { data: insertData, error: insertError } = await supabase
@@ -304,11 +280,6 @@ export const SupabaseAuthProvider = ({
 
           if (insertError) {
             console.error("Error creating user profile:", insertError);
-            logError('fetchProfile:createError', 'Profile creation error', {
-              error: insertError.message,
-              code: insertError.code,
-              details: insertError.details
-            });
             // Fall back to a profile object for the UI
             setProfile({
               ...basicProfile,
@@ -320,23 +291,19 @@ export const SupabaseAuthProvider = ({
           }
 
           if (insertData && insertData[0]) {
-            console.log("SupabaseAuthProvider: Profile created", { profileId: insertData[0].id });
-            logError('fetchProfile:created', 'Profile created successfully', {profileId: insertData[0].id});
+            console.log("SupabaseAuthProvider: Profile created", {
+              profileId: insertData[0].id,
+            });
             setProfile(insertData[0] as Profile);
           }
         } else {
-          console.warn("SupabaseAuthProvider: Cannot create profile - no user data available");
-          logError('fetchProfile:noUserData', 'Cannot create profile - no user data', {userId});
+          console.warn(
+            "SupabaseAuthProvider: Cannot create profile - no user data available"
+          );
         }
       }
     } catch (error) {
       console.error("Error in fetchProfile:", error);
-      // #region agent log
-      logError('fetchProfile:exception', 'Exception in fetchProfile', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      // #endregion
     }
   };
 

@@ -121,16 +121,9 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     description: 'Search and store memories',
     icon: '🧠',
     handler: async (action: string, params: any) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:115',message:'Memory tool handler called',data:{action,hasParams:!!params},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-
       const memoryClient = getDashboardMemoryClient();
 
       if (action === 'search') {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:121',message:'Executing memory search',data:{query:params.query,limit:params.limit},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         const results = await memoryClient.search({
           query: params.query || '',
           limit: params.limit || 10,
@@ -138,16 +131,10 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
           types: params.types,
           tags: params.tags
         });
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:129',message:'Memory search completed',data:{resultCount:results.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         return results;
       }
 
       if (action === 'create') {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:133',message:'Executing memory create',data:{title:params.title},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         const memory = await memoryClient.create({
           title: params.title || '',
           content: params.content || '',
@@ -155,9 +142,6 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
           tags: params.tags || [],
           metadata: params.metadata
         });
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:141',message:'Memory create completed',data:{memoryId:memory.id},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         return memory;
       }
 
@@ -536,48 +520,25 @@ export class ToolRegistry {
    * Execute a tool action
    */
   async executeAction(toolId: string, actionId: string, params: any): Promise<any> {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:493',message:'executeAction called',data:{toolId,actionId,hasParams:!!params},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-
     // Check permission
     if (!this.canUseAction(toolId, actionId)) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:496',message:'Permission denied',data:{toolId,actionId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       throw new Error(`Permission denied for ${toolId}.${actionId}`);
     }
 
     const tool = this.getAllTools().find(t => t.id === toolId);
     if (!tool) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:500',message:'Tool not found',data:{toolId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       throw new Error(`Tool not found: ${toolId}`);
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:504',message:'Tool found, checking handler',data:{toolId,actionId,toolType:tool.type,hasHandler:!!tool.handler},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-
     // Execute based on tool type
     if (tool.type === 'dashboard' && tool.handler) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:506',message:'Calling dashboard handler',data:{toolId,actionId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       return tool.handler(actionId, params);
     }
 
     if (tool.type === 'mcp') {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:510',message:'Calling MCP action',data:{toolId,actionId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       return this.executeMCPAction(tool, actionId, params);
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'tool-registry.ts:513',message:'Cannot execute - no handler or MCP',data:{toolId,actionId,toolType:tool.type,hasHandler:!!tool.handler},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     throw new Error(`Cannot execute ${toolId}.${actionId}`);
   }
 
