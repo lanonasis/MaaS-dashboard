@@ -51,11 +51,10 @@ export const SupabaseAuthProvider = ({
   useEffect(() => {
     console.log("SupabaseAuthProvider: Initializing auth");
     let cleanup: (() => void) | undefined;
-    let timeoutId: ReturnType<typeof setTimeout>;
 
     // Safety timeout to ensure loading state always clears
     // Increased to 20s to match session fetch timeout and prevent premature redirects in production
-    timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       console.warn(
         "Auth initialization timeout - forcing loading state to false"
       );
