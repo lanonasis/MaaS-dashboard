@@ -2,7 +2,24 @@
 
 LanOnasis Dashboard is a React-based web application that serves as the management interface for the LanOnasis Memory as a Service (MaaS) platform. It provides administrators and users with tools for monitoring services, managing API keys, visualizing memory data, orchestrating workflows, and administering system settings. The dashboard integrates with Supabase for authentication and data storage, and communicates with the LanOnasis backend API ecosystem.
 
-## Recent Changes (November 6, 2025)
+## Recent Changes (December 8, 2025)
+
+**AI Orchestrator Migration to Direct Supabase**
+- Updated AI orchestrator core (`src/lib/ai-orchestrator/core.ts`) to use Supabase directly instead of external memory API endpoints
+- Memory recall now queries `memory_entries` table directly with safe text-based filtering
+- Context storage uses direct Supabase inserts for reliability
+- Fixed query escaping to handle special characters (commas, quotes) in user input
+- Removed dependency on `@lanonasis/memory-client` package which was causing browser compatibility issues
+
+**Button Nesting Fix**
+- Resolved React hydration error in Index.tsx caused by nested button elements
+- Replaced inner button with styled div to maintain accessibility while fixing DOM structure
+
+**Database Schema Updates**
+- Created `workflow_runs` table for workflow execution tracking
+- Created `memory_entries` table for user memory storage
+
+## Previous Changes (November 6, 2025)
 
 **Memory Visualizer Implementation**
 - Created comprehensive Memory Visualizer component (`src/components/dashboard/MemoryVisualizer.tsx`) that fetches user-specific data from both Supabase and the LanOnasis API
