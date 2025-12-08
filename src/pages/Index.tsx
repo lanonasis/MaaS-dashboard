@@ -355,23 +355,21 @@ async function useMemoryService() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <button onClick={() => setShowAuthForm(true)}>
-                  <AnimatedButton 
-                    size="lg" 
-                    className="bg-white text-primary hover:bg-white/90 min-w-[160px]"
-                  >
-                    Sign up free
-                  </AnimatedButton>
-                </button>
-                <button onClick={() => setShowAuthForm(true)}>
-                  <AnimatedButton 
-                    variant="outline" 
-                    size="lg" 
-                    className="border-white text-white hover:bg-white/10 min-w-[160px]"
-                  >
-                    Sign in
-                  </AnimatedButton>
-                </button>
+                <AnimatedButton 
+                  size="lg" 
+                  className="bg-white text-primary hover:bg-white/90 min-w-[160px]"
+                  onClick={() => setShowAuthForm(true)}
+                >
+                  Sign up free
+                </AnimatedButton>
+                <AnimatedButton 
+                  variant="outline" 
+                  size="lg" 
+                  className="border-white text-white hover:bg-white/10 min-w-[160px]"
+                  onClick={() => setShowAuthForm(true)}
+                >
+                  Sign in
+                </AnimatedButton>
               </div>
             </div>
           </div>

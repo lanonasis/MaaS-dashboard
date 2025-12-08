@@ -10,9 +10,20 @@
  * - Tool execution via ToolRegistry
  */
 
-import { getDashboardMemoryClient } from '@/lib/memory-sdk/dashboard-adapter';
-import type { MemorySearchResult, MemoryType } from '@/hooks/useMemoryClient';
+import { supabase } from '@/integrations/supabase/client';
 import { createToolRegistry, type ToolRegistry } from '@/lib/ai-orchestrator/tool-registry';
+
+// Local type definitions for memory operations
+export interface MemorySearchResult {
+  id: string;
+  content: string;
+  type: string;
+  tags?: string[];
+  similarity?: number;
+  created_at: string;
+}
+
+export type MemoryType = 'context' | 'insight' | 'reference' | 'plan';
 
 export interface UserContext {
   user_id: string;
@@ -55,7 +66,6 @@ export interface AIMessage {
 }
 
 export class AIOrchestrator {
-  private memoryClient = getDashboardMemoryClient();
   private toolRegistry: ToolRegistry | null = null;
   private conversationHistory: AIMessage[] = [];
   private userContext: UserContext | null = null;
@@ -134,17 +144,61 @@ export class AIOrchestrator {
   }
 
   /**
-   * Recall relevant memories using semantic search
+   * Recall relevant memories using Supabase direct query
+   * Note: For semantic search, a backend with embeddings would be needed.
+   * This uses text-based filtering as a fallback.
    */
   private async recallMemories(query: string): Promise<MemorySearchResult[]> {
     try {
-      const memories = await this.memoryClient.search({
-        query,
-        limit: 10,
-        threshold: 0.7
-      });
+      if (!this.userContext?.user_id) {
+        return [];
+      }
 
-      return memories;
+      // Escape special characters that could break the filter
+      // Replace commas and other reserved chars with wildcards for safer matching
+      const safeQuery = query.replace(/[,.'":;!?()]/g, '%');
+
+      // Query memories from Supabase directly using separate filters combined
+      // This avoids the .or() syntax issues with commas in user input
+      const contentResults = await supabase
+        .from('memory_entries')
+        .select('*')
+        .eq('user_id', this.userContext.user_id)
+        .ilike('content', `%${safeQuery}%`)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      const titleResults = await supabase
+        .from('memory_entries')
+        .select('*')
+        .eq('user_id', this.userContext.user_id)
+        .ilike('title', `%${safeQuery}%`)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (contentResults.error || titleResults.error) {
+        console.error('Error querying memories:', contentResults.error || titleResults.error);
+        return [];
+      }
+
+      // Combine and deduplicate results
+      const combined = [...(contentResults.data || []), ...(titleResults.data || [])];
+      const seen = new Set<string>();
+      const unique = combined.filter(m => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      }).slice(0, 10);
+
+      // Transform to expected format
+      return unique.map(m => ({
+        id: m.id,
+        content: m.content || '',
+        type: m.memory_type || 'context',
+        tags: m.tags || [],
+        similarity: 0.8, // Placeholder since we're doing text match
+        created_at: m.created_at
+      }));
     } catch (error) {
       console.error('Error recalling memories:', error);
       return [];
@@ -355,42 +409,56 @@ export class AIOrchestrator {
   }
 
   /**
-   * Store conversation context as memory
+   * Store conversation context as memory using Supabase directly
    */
   private async storeContext(content: string): Promise<void> {
-    await this.memoryClient.create({
-      title: `Context from ${new Date().toLocaleDateString()}`,
-      content,
-      type: 'context' as MemoryType,
-      tags: ['conversation', 'context', this.userContext?.user_id || ''],
-      metadata: {
-        session_id: this.userContext?.current_session_id,
-        timestamp: new Date().toISOString()
-      }
-    });
+    if (!this.userContext?.user_id) return;
+
+    try {
+      await supabase.from('memory_entries').insert({
+        user_id: this.userContext.user_id,
+        title: `Context from ${new Date().toLocaleDateString()}`,
+        content,
+        memory_type: 'context',
+        tags: ['conversation', 'context'],
+        metadata: {
+          session_id: this.userContext?.current_session_id,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error('Failed to store context:', error);
+    }
   }
 
   /**
-   * Store conversation history as memory
+   * Store conversation history as memory using Supabase directly
    */
   private async storeConversationContext(): Promise<void> {
-    if (this.conversationHistory.length % 5 === 0) {
+    if (!this.userContext?.user_id) return;
+
+    if (this.conversationHistory.length % 5 === 0 && this.conversationHistory.length > 0) {
       // Store every 5 messages
       const conversationSummary = this.conversationHistory
         .slice(-5)
         .map(msg => `${msg.role}: ${msg.content}`)
         .join('\n');
 
-      await this.memoryClient.create({
-        title: `Conversation snapshot - ${new Date().toLocaleString()}`,
-        content: conversationSummary,
-        type: 'context' as MemoryType,
-        tags: ['conversation', 'ai-assistant'],
-        metadata: {
-          session_id: this.userContext?.current_session_id,
-          message_count: this.conversationHistory.length
-        }
-      });
+      try {
+        await supabase.from('memory_entries').insert({
+          user_id: this.userContext.user_id,
+          title: `Conversation snapshot - ${new Date().toLocaleString()}`,
+          content: conversationSummary,
+          memory_type: 'context',
+          tags: ['conversation', 'ai-assistant'],
+          metadata: {
+            session_id: this.userContext?.current_session_id,
+            message_count: this.conversationHistory.length
+          }
+        });
+      } catch (error) {
+        console.error('Failed to store conversation context:', error);
+      }
     }
   }
 
