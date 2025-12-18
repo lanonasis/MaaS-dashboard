@@ -9,6 +9,7 @@ import { MemoryVisualizer } from "@/components/dashboard/MemoryVisualizer";
 import { MemoryAnalytics } from "@/components/dashboard/MemoryAnalytics";
 import { MCPToolTracker } from "@/components/mcp/MCPToolTracker";
 import { AIToolsSection } from "@/components/dashboard/AIToolsSection";
+import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -173,28 +174,7 @@ const Dashboard = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-8">
-            <UserProfile />
-            <ApiDashboard />
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center space-y-4">
-                  <h3 className="text-lg font-semibold">Welcome to Your Dashboard</h3>
-                  <p className="text-gray-600">
-                    Manage your API keys, configure MCP servers, and orchestrate intelligent workflows.
-                  </p>
-                  <div className="flex justify-center gap-4">
-                    <Button onClick={() => handleTabChange('orchestrator')} className="gap-2">
-                      <Zap className="h-4 w-4" />
-                      Try AI Orchestrator
-                    </Button>
-                    <Button onClick={() => handleTabChange('api-keys')} variant="outline" className="gap-2">
-                      <Key className="h-4 w-4" />
-                      Manage API Keys
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <DashboardOverview />
           </TabsContent>
 
           <TabsContent value="api-keys">

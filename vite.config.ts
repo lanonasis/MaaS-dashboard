@@ -12,6 +12,10 @@ export default defineConfig(({ mode }) => ({
     allowedHosts: true,
     hmr: {
       clientPort: 5000
+    },
+    watch: {
+      // Ignore cache directories to prevent file descriptor exhaustion
+      ignored: ['**/.cache/**', '**/node_modules/.cache/**', '**/.local/**']
     }
   },
   plugins: [

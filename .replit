@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "bash", "web", "postgresql-16", "bun"]
+modules = ["bash", "web", "postgresql-16", "bun", "nodejs-22"]
 [agent]
 expertMode = true
 integrations = ["javascript_database:1.0.0"]
@@ -39,7 +39,3 @@ waitForPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 36009
-externalPort = 3000

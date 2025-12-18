@@ -1,144 +1,86 @@
-import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import { usePatternAnalysis, useHealthCheck, useInsightExtraction, useDuplicateDetection } from '@/hooks/useMemoryIntelligence';
 import {
   BarChart3,
   TrendingUp,
+  TrendingDown,
+  Minus,
   Database,
   Tag as TagIcon,
   Calendar,
   RefreshCw,
   Brain,
   FileText,
-  Zap
+  Zap,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Copy,
+  Lightbulb,
+  Clock,
+  Shield
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 
-interface MemoryStats {
-  totalMemories: number;
-  memoryByType: Record<string, number>;
-  topTags: Array<{ tag: string; count: number }>;
-  recentActivity: Array<{ date: string; count: number }>;
-  totalTags: number;
-  averageTagsPerMemory: number;
-}
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
-export const MemoryAnalytics: React.FC = () => {
-  const [stats, setStats] = useState<MemoryStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { user } = useSupabaseAuth();
-  const { toast } = useToast();
+export const MemoryAnalytics = () => {
+  const { data: patternData, isLoading: patternLoading, refetch: refetchPatterns } = usePatternAnalysis(30);
+  const { data: healthData, isLoading: healthLoading, refetch: refetchHealth } = useHealthCheck();
+  const { data: insights, isLoading: insightsLoading, refetch: refetchInsights } = useInsightExtraction();
+  const { data: duplicates, isLoading: duplicatesLoading, refetch: refetchDuplicates } = useDuplicateDetection();
 
-  useEffect(() => {
-    if (user) {
-      fetchAnalytics();
-    }
-  }, [user]);
+  const handleRefresh = () => {
+    refetchPatterns();
+    refetchHealth();
+    refetchInsights();
+    refetchDuplicates();
+  };
 
-  const fetchAnalytics = async () => {
-    if (!user) return;
-
-    setIsLoading(true);
-    try {
-      // Fetch all user memories
-      const { data: memories, error } = await supabase
-        .from('memory_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      if (!memories || memories.length === 0) {
-        setStats({
-          totalMemories: 0,
-          memoryByType: {},
-          topTags: [],
-          recentActivity: [],
-          totalTags: 0,
-          averageTagsPerMemory: 0
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Calculate memory by type
-      const memoryByType: Record<string, number> = {};
-      memories.forEach(m => {
-        const type = m.type || 'unknown';
-        memoryByType[type] = (memoryByType[type] || 0) + 1;
-      });
-
-      // Calculate top tags
-      const tagCounts: Record<string, number> = {};
-      let totalTagCount = 0;
-      memories.forEach(m => {
-        if (m.tags && Array.isArray(m.tags)) {
-          m.tags.forEach((tag: string) => {
-            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-            totalTagCount++;
-          });
-        }
-      });
-
-      const topTags = Object.entries(tagCounts)
-        .map(([tag, count]) => ({ tag, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      // Calculate recent activity (last 7 days)
-      const recentActivity: Array<{ date: string; count: number }> = [];
-      const today = new Date();
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
-
-        const count = memories.filter(m => {
-          const memDate = new Date(m.created_at).toISOString().split('T')[0];
-          return memDate === dateStr;
-        }).length;
-
-        recentActivity.push({ date: dateStr, count });
-      }
-
-      setStats({
-        totalMemories: memories.length,
-        memoryByType,
-        topTags,
-        recentActivity,
-        totalTags: Object.keys(tagCounts).length,
-        averageTagsPerMemory: memories.length > 0 ? totalTagCount / memories.length : 0
-      });
-    } catch (error: any) {
-      console.error('Error fetching analytics:', error);
-      toast({
-        title: 'Analytics error',
-        description: error.message || 'Could not load analytics',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsLoading(false);
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case 'increasing': return <TrendingUp className="h-4 w-4 text-green-500" />;
+      case 'decreasing': return <TrendingDown className="h-4 w-4 text-red-500" />;
+      default: return <Minus className="h-4 w-4 text-gray-500" />;
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'healthy': return 'text-green-500';
+      case 'needs_attention': return 'text-yellow-500';
+      case 'critical': return 'text-red-500';
+      default: return 'text-gray-500';
+    }
+  };
+
+  const isLoading = patternLoading || healthLoading;
+
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-center py-8">
-            <Brain className="h-8 w-8 animate-pulse text-primary" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     );
   }
 
-  if (!stats || stats.totalMemories === 0) {
+  if (!patternData || patternData.total_memories === 0) {
     return (
       <Card>
         <CardHeader>
@@ -163,7 +105,22 @@ export const MemoryAnalytics: React.FC = () => {
     );
   }
 
-  const maxActivityCount = Math.max(...stats.recentActivity.map(a => a.count), 1);
+  const typeData = Object.entries(patternData.memories_by_type).map(([name, value]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    value
+  }));
+
+  const dayData = Object.entries(patternData.memories_by_day_of_week).map(([day, count]) => ({
+    day: day.slice(0, 3),
+    count
+  }));
+
+  const radarData = healthData ? [
+    { metric: 'Embeddings', value: healthData.metrics.embedding_coverage },
+    { metric: 'Tagging', value: healthData.metrics.tagging_consistency },
+    { metric: 'Type Balance', value: healthData.metrics.type_balance },
+    { metric: 'Freshness', value: healthData.metrics.freshness }
+  ] : [];
 
   return (
     <div className="space-y-6">
@@ -174,69 +131,82 @@ export const MemoryAnalytics: React.FC = () => {
             Memory Analytics
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Insights into your memory bank usage and patterns
+            AI-powered insights into your memory bank usage and patterns
           </p>
         </div>
-        <Button onClick={fetchAnalytics} variant="outline" size="sm">
+        <Button onClick={handleRefresh} variant="outline" size="sm" data-testid="button-refresh-analytics">
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
       </div>
 
-      {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
+        <Card data-testid="card-total-memories">
+          <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <Database className="h-4 w-4" />
               Total Memories
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.totalMemories}</div>
+            <div className="text-3xl font-bold">{patternData.total_memories}</div>
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+              {getTrendIcon(patternData.creation_velocity.trend)}
+              <span>{patternData.creation_velocity.daily_average.toFixed(1)}/day</span>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
+        <Card data-testid="card-memory-types">
+          <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Memory Types
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{Object.keys(stats.memoryByType).length}</div>
+            <div className="text-3xl font-bold">{Object.keys(patternData.memories_by_type).length}</div>
+            <p className="text-sm text-muted-foreground mt-1">Unique categories</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
+        <Card data-testid="card-unique-tags">
+          <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <TagIcon className="h-4 w-4" />
               Unique Tags
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.totalTags}</div>
+            <div className="text-3xl font-bold">{patternData.most_common_tags.length}</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Top: {patternData.most_common_tags[0]?.tag || 'N/A'}
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
+        <Card data-testid="card-health-score">
+          <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Avg Tags/Memory
+              <Shield className="h-4 w-4" />
+              Health Score
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.averageTagsPerMemory.toFixed(1)}</div>
+            <div className={`text-3xl font-bold ${getStatusColor(healthData?.status || 'needs_attention')}`}>
+              {healthData?.overall_score || 0}/100
+            </div>
+            <Badge variant="outline" className="mt-1">
+              {healthData?.status === 'healthy' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+              {healthData?.status === 'needs_attention' && <AlertTriangle className="h-3 w-3 mr-1" />}
+              {healthData?.status?.replace('_', ' ') || 'Unknown'}
+            </Badge>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Memory by Type */}
-        <Card>
+        <Card data-testid="card-type-distribution">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <FileText className="h-5 w-5 text-blue-500" />
@@ -245,34 +215,27 @@ export const MemoryAnalytics: React.FC = () => {
             <CardDescription>Distribution of your memory types</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {Object.entries(stats.memoryByType)
-                .sort(([, a], [, b]) => b - a)
-                .map(([type, count]) => {
-                  const percentage = (count / stats.totalMemories) * 100;
-                  return (
-                    <div key={type} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium capitalize">{type}</span>
-                        <span className="text-muted-foreground">
-                          {count} ({percentage.toFixed(1)}%)
-                        </span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary transition-all"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
+            {typeData.length > 0 ? (
+              <div className="h-64" style={{ minHeight: '256px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={typeData} layout="vertical" margin={{ left: 60, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                    <XAxis type="number" axisLine={false} tickLine={false} />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={60} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#0088FE" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                No type data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Top Tags */}
-        <Card>
+        <Card data-testid="card-top-tags">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <TagIcon className="h-5 w-5 text-purple-500" />
@@ -281,21 +244,24 @@ export const MemoryAnalytics: React.FC = () => {
             <CardDescription>Most frequently used tags</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {stats.topTags.length > 0 ? (
-                stats.topTags.map(({ tag, count }) => (
-                  <div
-                    key={tag}
-                    className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
-                  >
-                    <Badge variant="secondary" className="font-normal">
-                      {tag}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {count} {count === 1 ? 'memory' : 'memories'}
-                    </span>
-                  </div>
-                ))
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {patternData.most_common_tags.length > 0 ? (
+                patternData.most_common_tags.map(({ tag, count }) => {
+                  const percentage = (count / patternData.total_memories) * 100;
+                  return (
+                    <div key={tag} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <Badge variant="secondary" className="font-normal">
+                          {tag}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          {count} ({percentage.toFixed(1)}%)
+                        </span>
+                      </div>
+                      <Progress value={percentage} className="h-1.5" />
+                    </div>
+                  );
+                })
               ) : (
                 <div className="text-center py-4 text-sm text-muted-foreground">
                   No tags found
@@ -306,103 +272,223 @@ export const MemoryAnalytics: React.FC = () => {
         </Card>
       </div>
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-green-500" />
-            Recent Activity (Last 7 Days)
-          </CardTitle>
-          <CardDescription>Memory creation over time</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {stats.recentActivity.map(({ date, count }) => {
-              const percentage = maxActivityCount > 0 ? (count / maxActivityCount) * 100 : 0;
-              const dateObj = new Date(date);
-              const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-
-              return (
-                <div key={date} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">
-                      {dayName}, {dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {count} {count === 1 ? 'memory' : 'memories'}
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all"
-                      style={{ width: `${percentage}%` }}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card data-testid="card-weekly-activity">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-green-500" />
+              Weekly Activity Pattern
+            </CardTitle>
+            <CardDescription>Memory creation by day of week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {dayData.length > 0 ? (
+              <div className="h-64" style={{ minHeight: '256px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dayData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorWeekly" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#00C49F" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#00C49F" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Tooltip />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#00C49F"
+                      fillOpacity={1}
+                      fill="url(#colorWeekly)"
                     />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                No activity data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-health-radar">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-5 w-5 text-orange-500" />
+              Health Metrics Radar
+            </CardTitle>
+            <CardDescription>Visual breakdown of memory organization</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {radarData.length > 0 ? (
+              <div className="h-64" style={{ minHeight: '256px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData}>
+                    <PolarGrid />
+                    <PolarAngleAxis dataKey="metric" tick={{ fontSize: 12 }} />
+                    <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                    <Radar
+                      name="Health"
+                      dataKey="value"
+                      stroke="#FF8042"
+                      fill="#FF8042"
+                      fillOpacity={0.5}
+                    />
+                    <Tooltip />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                No health data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {duplicates && duplicates.length > 0 && (
+        <Card data-testid="card-duplicates">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Copy className="h-5 w-5 text-red-500" />
+              Potential Duplicates
+            </CardTitle>
+            <CardDescription>Memories that may be duplicates</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {duplicates.map((dup, index) => (
+                <div
+                  key={index}
+                  className="flex items-start justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/20"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">"{dup.memory_1.title}"</p>
+                    <p className="text-xs text-muted-foreground">
+                      Similarity: {(dup.similarity_score * 100).toFixed(0)}% | Recommendation: {dup.recommendation.replace('_', ' ')}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-red-500 border-red-500/50">
+                    Duplicate
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card data-testid="card-insights">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Lightbulb className="h-5 w-5 text-yellow-500" />
+              AI Insights
+            </CardTitle>
+            <CardDescription>Patterns detected in your memories</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {patternData.insights.length > 0 ? (
+                patternData.insights.map((insight, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20"
+                  >
+                    <Brain className="h-5 w-5 text-blue-500 mt-0.5" />
+                    <p className="text-sm">{insight}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Keep adding memories to unlock AI insights
+                </p>
+              )}
+              
+              {insights && insights.length > 0 && insights.map((insight, index) => (
+                <div
+                  key={`extracted-${index}`}
+                  className={`flex items-start gap-3 p-3 rounded-lg border ${
+                    insight.category === 'pattern' ? 'bg-purple-500/10 border-purple-500/20' :
+                    insight.category === 'learning' ? 'bg-green-500/10 border-green-500/20' :
+                    'bg-yellow-500/10 border-yellow-500/20'
+                  }`}
+                >
+                  <Zap className={`h-5 w-5 mt-0.5 ${
+                    insight.category === 'pattern' ? 'text-purple-500' :
+                    insight.category === 'learning' ? 'text-green-500' :
+                    'text-yellow-500'
+                  }`} />
+                  <div>
+                    <p className="text-sm font-medium">{insight.title}</p>
+                    <p className="text-xs text-muted-foreground">{insight.description}</p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Insights */}
-      <Card>
+        <Card data-testid="card-recommendations">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Recommendations
+            </CardTitle>
+            <CardDescription>Actions to improve your memory bank</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {healthData?.recommendations && healthData.recommendations.length > 0 ? (
+                healthData.recommendations.map((rec, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20"
+                  >
+                    <CheckCircle2 className="h-5 w-5 text-orange-500 mt-0.5" />
+                    <p className="text-sm">{rec}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
+                  <p className="text-sm">Your memory bank is well organized! Keep it up.</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card data-testid="card-peak-hours">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
-            Insights
+            <Clock className="h-5 w-5 text-indigo-500" />
+            Peak Creation Hours
           </CardTitle>
+          <CardDescription>When you're most productive</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {stats.totalMemories > 10 && (
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                <Brain className="h-5 w-5 text-blue-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Strong memory bank</p>
-                  <p className="text-xs text-muted-foreground">
-                    You have {stats.totalMemories} memories - great for context-rich workflows!
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {stats.averageTagsPerMemory < 1 && (
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                <TagIcon className="h-5 w-5 text-yellow-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Consider adding more tags</p>
-                  <p className="text-xs text-muted-foreground">
-                    Tags help organize and find memories faster. Aim for 2-3 tags per memory.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {Object.keys(stats.memoryByType).length === 1 && (
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                <FileText className="h-5 w-5 text-purple-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Diversify memory types</p>
-                  <p className="text-xs text-muted-foreground">
-                    Try using different memory types (note, context, project, etc.) for better organization.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {stats.recentActivity.slice(-3).every(a => a.count === 0) && (
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                <Calendar className="h-5 w-5 text-orange-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Low recent activity</p>
-                  <p className="text-xs text-muted-foreground">
-                    No memories created in the last 3 days. Keep your memory bank fresh!
-                  </p>
-                </div>
-              </div>
+          <div className="flex flex-wrap gap-2">
+            {patternData.peak_creation_hours.length > 0 ? (
+              patternData.peak_creation_hours.map((hour, index) => (
+                <Badge key={hour} variant={index === 0 ? 'default' : 'secondary'} className="text-sm">
+                  {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
+                </Badge>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">Not enough data to determine peak hours</p>
             )}
           </div>
+          {patternData.peak_creation_hours.length > 0 && (
+            <p className="text-sm text-muted-foreground mt-2">
+              You tend to create most memories around these times
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
