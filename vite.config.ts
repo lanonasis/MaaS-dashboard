@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    exclude: ['@lanonasis/memory-client'],
+    exclude: ['@lanonasis/memory-client', '@lanonasis/mem-intel-sdk'],
   },
   build: {
     rollupOptions: {
