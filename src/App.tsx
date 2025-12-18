@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SupabaseAuthProvider } from "@/hooks/useSupabaseAuth";
 import { CentralAuthProvider } from "@/hooks/useCentralAuth";
+import { MemoryIntelligenceProvider } from "@/hooks/useMemoryIntelligence";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AIAssistant } from "@/components/ai/AIAssistant";
@@ -32,6 +33,7 @@ const App = () => (
       <TooltipProvider>
         <BrowserRouter>
           <SupabaseAuthProvider>
+            <MemoryIntelligenceProvider>
             <CentralAuthProvider>
               <Toaster />
               <Sonner />
@@ -63,6 +65,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </CentralAuthProvider>
+            </MemoryIntelligenceProvider>
           </SupabaseAuthProvider>
         </BrowserRouter>
       </TooltipProvider>
