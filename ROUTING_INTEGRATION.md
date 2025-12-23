@@ -17,7 +17,7 @@ The Onasis Dashboard is now fully integrated with the unified backend system. Al
                                   │
                          ┌────────▼────────┐
                          │  onasis-core    │
-                         │ api.LanOnasis.com │
+                         │ api.lanonasis.com │
                          │                 │
                          │ ✅ Unified Backend │
                          │ ✅ Central Auth   │
@@ -30,14 +30,14 @@ The Onasis Dashboard is now fully integrated with the unified backend system. Al
 ### Dashboard Configuration
 - **Type**: Client-side React SPA (no server-side routes)
 - **Build**: Static files served via Netlify
-- **API Routing**: All requests → `api.LanOnasis.com`
+- **API Routing**: All requests → `api.lanonasis.com`
 - **Authentication**: Central auth through onasis-core
 - **No Conflicts**: SPA doesn't interfere with AI client JSON responses
 
 ### Environment Variables (netlify.toml)
 ```toml
-VITE_API_URL = "https://api.LanOnasis.com/v1"
-VITE_AUTH_GATEWAY_URL = "https://api.LanOnasis.com"
+VITE_API_URL = "https://api.lanonasis.com/v1"
+VITE_AUTH_GATEWAY_URL = "https://api.lanonasis.com"
 VITE_USE_CENTRAL_AUTH = "true"
 VITE_PROJECT_SCOPE = "dashboard"
 ```
@@ -56,23 +56,23 @@ VITE_PROJECT_SCOPE = "dashboard"
 Since the dashboard is a **pure client-side SPA**:
 
 ✅ **No Server Conflicts**: Dashboard has no backend routes that could interfere with AI clients  
-✅ **JSON Response Safe**: Claude Desktop and MCP clients get JSON from api.LanOnasis.com  
+✅ **JSON Response Safe**: Claude Desktop and MCP clients get JSON from api.lanonasis.com  
 ✅ **Browser Experience**: Users get proper HTML/React interface  
 ✅ **Unified Authentication**: All platforms use same auth system  
 
 ## 🔍 **Integration Validation**
 
 ### Authentication Flow
-1. Dashboard → `api.LanOnasis.com/auth/login` (OAuth)
+1. Dashboard → `api.lanonasis.com/auth/login` (OAuth)
 2. onasis-core handles OAuth providers (GitHub, Google, etc.)
 3. Callback with tokens → Dashboard validates
 4. All API calls authenticated through same system
 
 ### API Endpoint Alignment
-- **Dashboard**: `https://api.LanOnasis.com/v1/*`
-- **CLI**: `https://api.LanOnasis.com/v1/*`  
+- **Dashboard**: `https://api.lanonasis.com/v1/*`
+- **CLI**: `https://api.lanonasis.com/v1/*`  
 - **MCP**: Routes through Core (no direct DB access)
-- **REST**: `https://api.LanOnasis.com/v1/*`
+- **REST**: `https://api.lanonasis.com/v1/*`
 
 ## 🎯 **Benefits Achieved**
 
@@ -94,7 +94,7 @@ All routing scenarios tested and validated:
 ## 📋 **Production Readiness**
 
 ✅ **Environment Configuration**: Aligned across all platforms  
-✅ **Security Headers**: CSP allows api.LanOnasis.com connections  
+✅ **Security Headers**: CSP allows api.lanonasis.com connections  
 ✅ **OAuth Integration**: Central auth redirects configured  
 ✅ **SPA Fallback**: Proper React Router handling  
 ✅ **No Breaking Changes**: Existing dashboard functionality preserved  

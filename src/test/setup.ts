@@ -44,8 +44,8 @@ delete (window as any).location;
 // Mock environment variables
 Object.defineProperty(import.meta, 'env', {
   value: {
-    VITE_AUTH_GATEWAY_URL: 'https://api.LanOnasis.com',
-    VITE_CORE_API_BASE_URL: 'https://api.LanOnasis.com',
+    VITE_AUTH_GATEWAY_URL: 'https://api.lanonasis.com',
+    VITE_CORE_API_BASE_URL: 'https://api.lanonasis.com',
     MODE: 'test'
   }
 });

@@ -35,8 +35,10 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 // Define ApiKey type locally since we're using Supabase directly
 interface ApiKey {
   id: string;
-  key: string;
-  service: string;
+  // key is only shown immediately after creation; not stored in DB
+  key?: string;
+  // optional UI hint; DB may not store this column
+  service?: string;
   user_id: string;
   name: string;
   expires_at: string | null;
@@ -46,6 +48,46 @@ interface ApiKey {
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+
+// SHA-256 helper (browser Web Crypto)
+async function sha256Hex(input: string): Promise<string> {
+  // Check if crypto.subtle is available (requires secure context/HTTPS)
+  if (!crypto || !crypto.subtle) {
+    throw new Error(
+      'Web Crypto API is not available. This feature requires HTTPS. ' +
+      'Please ensure you are accessing the site over a secure connection.'
+    );
+  }
+
+  try {
+    const data = new TextEncoder().encode(input);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  } catch (error) {
+    console.error('SHA-256 hashing error:', error);
+    throw new Error(
+      `Failed to hash API key: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
+      'Please ensure you are using a modern browser with Web Crypto API support.'
+    );
+  }
+}
+
+// Helper to get user-friendly service name
+function getServiceDisplayName(service: string): string {
+  const serviceMap: Record<string, string> = {
+    all: "All Services",
+    payment: "Payment Gateways",
+    wallet: "Wallet Service",
+    verification: "ID Verification",
+    utility: "Utility Payment",
+    trade: "Trade Financing",
+    bank: "Bank Statement API",
+    fraud: "Fraud Monitoring",
+  };
+  return serviceMap[service] || service;
+}
 
 export const ApiKeyManager = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -62,6 +104,9 @@ export const ApiKeyManager = () => {
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const { toast } = useToast();
   const { user } = useSupabaseAuth();
+
+  // Check if Web Crypto API is available
+  const isCryptoAvailable = typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined';
 
   const fetchApiKeys = useCallback(async () => {
     if (!user?.id) {
@@ -144,36 +189,122 @@ export const ApiKeyManager = () => {
       return;
     }
 
+    // Check if Web Crypto API is available
+    if (!isCryptoAvailable) {
+      toast({
+        title: "Security Error",
+        description: "Web Crypto API is not available. This feature requires HTTPS. Please ensure you are accessing the site over a secure connection.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate custom expiration date if selected
+    if (keyExpiration === "custom" && !customExpiration) {
+      toast({
+        title: "Error",
+        description: "Please select a custom expiration date",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Generate key locally and store in Supabase
+      // Generate key locally with lano_ prefix (matches oauth-client and auth-gateway)
       const randomKey = Array.from({ length: 32 }, () =>
         Math.floor(Math.random() * 36).toString(36)
       ).join("");
 
-      const formattedKey = `vx_${randomKey}`;
+      const formattedKey = `lano_${randomKey}`;
       setGeneratedKey(formattedKey);
 
-      const expirationDate =
-        keyExpiration === "never"
-          ? null
-          : keyExpiration === "custom"
-          ? new Date(customExpiration).toISOString()
-          : new Date(
-              Date.now() + parseInt(keyExpiration) * 86400000
-            ).toISOString();
+      let expirationDate: string | null = null;
+      if (keyExpiration === "custom") {
+        const customDate = new Date(customExpiration);
+        if (customDate < new Date()) {
+          throw new Error("Expiration date must be in the future");
+        }
+        expirationDate = customDate.toISOString();
+      } else if (keyExpiration !== "never") {
+        expirationDate = new Date(
+          Date.now() + parseInt(keyExpiration) * 86400000
+        ).toISOString();
+      }
 
-      const { error } = await supabase.from("api_keys").insert({
-        name: keyName.trim(),
-        key: formattedKey,
-        service: keyService,
-        user_id: user.id,
-        expires_at: expirationDate,
-        is_active: true,
-      });
+      // Hash before storing; only the hashed form goes to the database
+      const keyHash = await sha256Hex(formattedKey);
 
-      if (error) throw error;
+      // Try inserting with key_hash first (preferred method)
+      let data: any = null;
+      let error: any = null;
+      
+      try {
+        const result = await supabase
+          .from("api_keys")
+          .insert({
+            name: keyName.trim(),
+            key: formattedKey,  // Store plain key (required by schema)
+            key_hash: keyHash,   // SHA-256 hash for validation
+            service: keyService,
+            user_id: user.id,
+            expires_at: expirationDate,
+            is_active: true,
+          })
+          .select()
+          .single();
+        
+        data = result.data;
+        error = result.error;
+        
+        if (error) throw error;
+      } catch (firstError: any) {
+        // If key_hash column doesn't exist (migration not complete), try without it
+        if (firstError?.code === '42703' || 
+            firstError?.message?.includes('key_hash') || 
+            firstError?.message?.includes('column') ||
+            firstError?.code === 'PGRST116') {
+          console.log('[ApiKeyManager] key_hash column not found, inserting without it');
+          const result = await supabase
+            .from("api_keys")
+            .insert({
+              name: keyName.trim(),
+              key: formattedKey,
+              service: keyService,
+              user_id: user.id,
+              expires_at: expirationDate,
+              is_active: true,
+            })
+            .select()
+            .single();
+          
+          data = result.data;
+          error = result.error;
+          
+          if (error) throw error;
+        } else {
+          throw firstError;
+        }
+      }
+
+      if (error) {
+        console.error("Supabase insert error:", error);
+        // Provide more specific error messages
+        if (error.code === "23505") {
+          throw new Error("An API key with this name already exists");
+        } else if (error.code === "42501") {
+          throw new Error("Permission denied. Please check your account permissions.");
+        } else if (error.message) {
+          throw new Error(error.message);
+        } else {
+          throw new Error(`Failed to create API key: ${error.code || "Unknown error"}`);
+        }
+      }
+
+      if (!data) {
+        throw new Error("API key was created but no data was returned");
+      }
 
       toast({
         title: "API Key Generated",
@@ -184,13 +315,19 @@ export const ApiKeyManager = () => {
       setShowKey(true);
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error ? error.message : "Failed to generate API key";
+        error instanceof Error 
+          ? error.message 
+          : typeof error === "string"
+          ? error
+          : "Failed to generate API key. Please try again.";
       console.error("ApiKeyManager: generateApiKey error:", error);
       toast({
-        title: "Error",
+        title: "Error Generating API Key",
         description: errorMessage,
         variant: "destructive",
       });
+      // Reset generated key on error
+      setGeneratedKey("");
     } finally {
       setIsLoading(false);
     }
@@ -260,10 +397,10 @@ export const ApiKeyManager = () => {
           Manage API Keys
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] text-foreground">
         <DialogHeader>
-          <DialogTitle>API Key Management</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-foreground">API Key Management</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
             Create, view and manage your API keys for accessing LanOnasis Memory
             Service.
           </DialogDescription>
@@ -342,7 +479,7 @@ export const ApiKeyManager = () => {
                   </div>
                 )}
 
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground dark:text-muted-foreground">
                   <p>This API key will have access to the selected services.</p>
                 </div>
               </div>
@@ -386,9 +523,9 @@ export const ApiKeyManager = () => {
                     </div>
                   </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  <p className="font-medium text-destructive">Important:</p>
-                  <ul className="list-disc list-inside mt-1 space-y-1">
+                <div className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <p className="font-medium text-destructive dark:text-destructive">Important:</p>
+                  <ul className="list-disc list-inside mt-1 space-y-1 text-foreground/80">
                     <li>
                       This API key will only be displayed once and cannot be
                       retrieved later.
@@ -398,26 +535,28 @@ export const ApiKeyManager = () => {
                   </ul>
                 </div>
 
-                <div className="bg-secondary/50 p-4 rounded-md">
-                  <h4 className="text-sm font-medium mb-2">API Key Details</h4>
+                <div className="bg-secondary/50 p-4 rounded-md border border-border">
+                  <h4 className="text-sm font-medium mb-2 text-foreground">API Key Details</h4>
                   <div className="text-sm space-y-1">
-                    <p>
+                    <p className="text-foreground">
                       <span className="text-muted-foreground">Name:</span>{" "}
-                      {keyName}
+                      <span className="font-medium">{keyName}</span>
                     </p>
-                    <p>
+                    <p className="text-foreground">
                       <span className="text-muted-foreground">Services:</span>{" "}
-                      {keyService === "all" ? "All services" : keyService}
+                      <span className="font-medium">{getServiceDisplayName(keyService)}</span>
                     </p>
-                    <p>
+                    <p className="text-foreground">
                       <span className="text-muted-foreground">Expires:</span>{" "}
-                      {keyExpiration === "never"
-                        ? "Never"
-                        : keyExpiration === "custom"
-                        ? new Date(customExpiration).toLocaleDateString()
-                        : new Date(
-                            Date.now() + parseInt(keyExpiration) * 86400000
-                          ).toLocaleDateString()}
+                      <span className="font-medium">
+                        {keyExpiration === "never"
+                          ? "Never"
+                          : keyExpiration === "custom"
+                          ? new Date(customExpiration).toLocaleDateString()
+                          : new Date(
+                              Date.now() + parseInt(keyExpiration) * 86400000
+                            ).toLocaleDateString()}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -481,7 +620,7 @@ export const ApiKeyManager = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="text-sm text-muted-foreground mb-2">
+                  <div className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">
                     You have {apiKeys.length} API{" "}
                     {apiKeys.length === 1 ? "key" : "keys"}
                   </div>
@@ -498,7 +637,7 @@ export const ApiKeyManager = () => {
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h3 className="font-medium flex items-center">
+                            <h3 className="font-medium flex items-center text-foreground">
                               {key.name}
                               {isExpired(key.expires_at) && (
                                 <Badge
@@ -509,7 +648,7 @@ export const ApiKeyManager = () => {
                                 </Badge>
                               )}
                             </h3>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                               Access:{" "}
                               {key.service === "all"
                                 ? "All Services"
@@ -526,18 +665,18 @@ export const ApiKeyManager = () => {
                           </Button>
                         </div>
 
-                        <div className="text-xs text-muted-foreground grid grid-cols-2 gap-y-1">
+                        <div className="text-xs text-muted-foreground dark:text-muted-foreground grid grid-cols-2 gap-y-1">
                           <div className="flex items-center gap-1">
                             <Shield className="h-3 w-3" />
-                            <span>ID: {key.id.substring(0, 8)}...</span>
+                            <span className="text-foreground/80">ID: {key.id.substring(0, 8)}...</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            <span>Created: {formatDate(key.created_at)}</span>
+                            <span className="text-foreground/80">Created: {formatDate(key.created_at)}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            <span>Expires: {formatDate(key.expires_at)}</span>
+                            <span className="text-foreground/80">Expires: {formatDate(key.expires_at)}</span>
                           </div>
                         </div>
 

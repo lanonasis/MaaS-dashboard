@@ -81,7 +81,7 @@ describe('AuthCallback', () => {
     // Should call callback endpoint
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/v1/auth/callback',
+        'https://api.lanonasis.com/v1/auth/callback',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({

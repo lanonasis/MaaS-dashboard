@@ -9,6 +9,7 @@ import {
   centralAuth,
   type AuthSession as CentralAuthSession,
 } from "@/lib/central-auth";
+import { secureTokenStorage } from "@/lib/secure-token-storage";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 
@@ -17,9 +18,9 @@ type Profile = {
   full_name: string | null;
   company_name: string | null;
   email: string | null;
-  phone: string | null;
   avatar_url: string | null;
   role: string;
+  // Note: phone column doesn't exist in current schema
 };
 
 interface CentralAuthContextType {
@@ -65,6 +66,8 @@ export const CentralAuthProvider = ({
     let cleanup: (() => void) | undefined;
 
     const init = async () => {
+      // Initialize secure token storage (migrates from localStorage if needed)
+      secureTokenStorage.migrateFromLocalStorage();
       cleanup = await initializeAuth();
     };
 
@@ -197,7 +200,6 @@ export const CentralAuthProvider = ({
             oauthUser.user_metadata?.picture ||
             null,
           company_name: null,
-          phone: null,
           role: "user",
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any);
@@ -213,10 +215,21 @@ export const CentralAuthProvider = ({
       });
 
       setTimeout(() => {
-        const redirectPath =
-          localStorage.getItem("redirectAfterLogin") || "/dashboard";
-        localStorage.removeItem("redirectAfterLogin");
-        navigate(redirectPath);
+        // Try sessionStorage first, fallback to localStorage
+        let redirectPath = null;
+        try {
+          redirectPath = sessionStorage.getItem("redirectAfterLogin");
+          if (redirectPath) {
+            sessionStorage.removeItem("redirectAfterLogin");
+          }
+        } catch (e) {
+          // Fallback to localStorage
+          redirectPath = localStorage.getItem("redirectAfterLogin");
+          if (redirectPath) {
+            localStorage.removeItem("redirectAfterLogin");
+          }
+        }
+        navigate(redirectPath || "/dashboard");
       }, 100);
     } catch (error) {
       console.error("Error handling OAuth user:", error);
@@ -278,10 +291,21 @@ export const CentralAuthProvider = ({
           description: "Welcome back!",
         });
 
-        const redirectPath =
-          localStorage.getItem("redirectAfterLogin") || "/dashboard";
-        localStorage.removeItem("redirectAfterLogin");
-        navigate(redirectPath);
+        // Try sessionStorage first, fallback to localStorage
+        let redirectPath = null;
+        try {
+          redirectPath = sessionStorage.getItem("redirectAfterLogin");
+          if (redirectPath) {
+            sessionStorage.removeItem("redirectAfterLogin");
+          }
+        } catch (e) {
+          // Fallback to localStorage
+          redirectPath = localStorage.getItem("redirectAfterLogin");
+          if (redirectPath) {
+            localStorage.removeItem("redirectAfterLogin");
+          }
+        }
+        navigate(redirectPath || "/dashboard");
       } else {
         throw new Error("No authentication method available");
       }
