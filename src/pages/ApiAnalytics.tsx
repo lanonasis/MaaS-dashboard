@@ -399,7 +399,11 @@ const ApiAnalytics = () => {
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
-                        data={areaChartData.map(item => ({ ...item, value: (item.value / 20000) * Math.random() }))}
+                        data={areaChartData.map((item) => ({
+                          ...item,
+                          // Deterministic demo data (keep render pure by avoiding Math.random)
+                          value: item.value / 200000,
+                        }))}
                         margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                       >
                         <defs>
