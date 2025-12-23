@@ -39,7 +39,7 @@ describe('API Client', () => {
       const result = await apiClient.getMemories();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/api/v1/maas/memories',
+        'https://api.lanonasis.com/api/v1/maas/memories',
         expect.objectContaining({
           credentials: 'include',
           headers: expect.objectContaining({
@@ -67,7 +67,7 @@ describe('API Client', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/api/v1/maas/memories?page=2&limit=10&type=project&tags=important%2Cwork&search=test+query',
+        'https://api.lanonasis.com/api/v1/maas/memories?page=2&limit=10&type=project&tags=important%2Cwork&search=test+query',
         expect.any(Object)
       );
     });
@@ -114,7 +114,7 @@ describe('API Client', () => {
       const result = await apiClient.createMemory(newMemory);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/api/v1/maas/memories',
+        'https://api.lanonasis.com/api/v1/maas/memories',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(newMemory),
@@ -157,7 +157,7 @@ describe('API Client', () => {
       const result = await apiClient.searchMemories(searchQuery);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/api/v1/maas/memories/search',
+        'https://api.lanonasis.com/api/v1/maas/memories/search',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(searchQuery)
@@ -191,7 +191,7 @@ describe('API Client', () => {
       const result = await apiClient.getApiKeys();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/api/v1/maas/api-keys',
+        'https://api.lanonasis.com/api/v1/maas/api-keys',
         expect.objectContaining({
           credentials: 'include',
           headers: expect.objectContaining({
@@ -229,7 +229,7 @@ describe('API Client', () => {
       const result = await apiClient.createApiKey(keyData);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/api/v1/maas/api-keys',
+        'https://api.lanonasis.com/api/v1/maas/api-keys',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(keyData)
@@ -260,7 +260,7 @@ describe('API Client', () => {
       const result = await apiClient.healthCheck();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.LanOnasis.com/api/v1/maas/health',
+        'https://api.lanonasis.com/api/v1/maas/health',
         expect.any(Object)
       );
 

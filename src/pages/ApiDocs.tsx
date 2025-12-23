@@ -90,7 +90,7 @@ const ApiDocs = () => {
                       <div className="mt-3 p-4 bg-secondary/50 rounded-md overflow-x-auto">
                         <pre className="text-xs text-muted-foreground">
                           <code>
-{`curl -X GET "https://api.LanOnasis.com/v1/memories" \\
+{`curl -X GET "https://api.lanonasis.com/v1/memories" \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json"`}
                           </code>
@@ -137,11 +137,11 @@ const ApiDocs = () => {
                   <div className="space-y-3">
                     <div>
                       <div className="text-sm font-medium">Production</div>
-                      <code className="text-sm bg-secondary py-1 px-2 rounded">https://api.LanOnasis.com</code>
+                      <code className="text-sm bg-secondary py-1 px-2 rounded">https://api.lanonasis.com</code>
                     </div>
                     <div>
                       <div className="text-sm font-medium">Sandbox</div>
-                      <code className="text-sm bg-secondary py-1 px-2 rounded">https://sandbox-api.LanOnasis.com</code>
+                      <code className="text-sm bg-secondary py-1 px-2 rounded">https://sandbox-api.lanonasis.com</code>
                     </div>
                   </div>
                 </CardContent>
@@ -190,7 +190,7 @@ const ApiDocs = () => {
                       <pre className="text-xs text-muted-foreground">
                         <code>
 {`// Example API request with authentication header
-fetch('https://api.LanOnasis.com/v1/memories', {
+fetch('https://api.lanonasis.com/v1/memories', {
   method: 'GET',
   headers: {
     'Authorization': 'Bearer YOUR_API_KEY',
@@ -477,11 +477,11 @@ fetch('https://api.LanOnasis.com/v1/memories', {
                       <pre className="text-xs text-muted-foreground">
                         <code>
 {`// Install the package
-npm install @LanOnasis/memory-sdk
+npm install @lanonasis/sdk
 
 // Initialize and use the SDK
-const LanOnasis = require('@LanOnasis/memory-sdk');
-const client = new LanOnasis.Client({
+const { LanonasisClient } = require('@lanonasis/sdk');
+const client = new LanonasisClient({
   apiKey: 'your_api_key_here',
   environment: 'production' // or 'sandbox'
 });

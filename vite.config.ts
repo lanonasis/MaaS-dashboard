@@ -5,7 +5,7 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   // Set base path for proper asset resolution
-  base: '/', // Since we're deploying to dashboard.LanOnasis.com root
+  base: '/', // Since we're deploying to dashboard.lanonasis.com root
   server: {
     host: "0.0.0.0",
     port: 5000,
@@ -35,20 +35,11 @@ export default defineConfig(({ mode }) => ({
     exclude: ['@lanonasis/memory-client', '@lanonasis/mem-intel-sdk'],
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Separate vendor chunks to avoid circular dependencies
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          supabase: ['@supabase/supabase-js'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
-        },
-      },
-    },
-    // Reduce chunk size warnings
-    chunkSizeWarningLimit: 1000,
-    // Ensure proper module resolution
+    // Allow Rollup to determine optimal chunk boundaries to prevent
+    // accidental circular dependencies between vendor bundles
+    chunkSizeWarningLimit: 1500,
     target: 'esnext',
     minify: 'esbuild',
+    sourcemap: false,
   },
 }));

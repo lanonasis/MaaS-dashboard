@@ -2,10 +2,21 @@
  * Centralized API client for MaaS Dashboard
  * Handles all communication with Onasis-CORE Gateway
  * Replaces direct Supabase usage with Core API calls
+ * SECURITY: Uses secure in-memory token storage
  */
 
-const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || 'https://api.LanOnasis.com';
+import { secureTokenStorage } from './secure-token-storage';
+import { centralAuth } from './central-auth';
+import { getAuthGatewayAccessToken } from './token-exchange';
+import { supabase } from '@/integrations/supabase/client';
+
+const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || import.meta.env.VITE_API_URL?.replace('/v1', '') || 'https://api.lanonasis.com';
 const MAAS_API_PREFIX = '/api/v1';
+
+// Log API configuration in development only
+if (import.meta.env.DEV) {
+  console.log('[API Client] Configuration:', { apiBaseUrl: API_BASE_URL });
+}
 
 interface ApiResponse<T = any> {
   data?: T;
@@ -61,40 +72,67 @@ interface ApiKey {
 }
 
 class ApiClient {
-  private getAuthHeaders(apiKey?: string): Record<string, string> {
-    const token = localStorage.getItem('access_token');
+  /**
+   * Get authentication headers for API requests
+   * Priority: API key > Auth-gateway token > Supabase session > Legacy token
+   */
+  private async getAuthHeaders(apiKey?: string): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Platform': 'dashboard',
       'X-Project-Scope': 'maas'
     };
-    
-    // Use API key if provided, otherwise use Bearer token
+
+    // Use API key if provided
     if (apiKey) {
-      // For API keys starting with 'vx_', use as direct authorization
       if (apiKey.startsWith('vx_')) {
         headers['Authorization'] = apiKey;
         headers['X-API-Key'] = apiKey;
       } else {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
-    } else if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      return headers;
     }
-    
+
+    // Try auth-gateway token (unified token system)
+    const authGatewayToken = getAuthGatewayAccessToken();
+    if (authGatewayToken) {
+      headers['Authorization'] = `Bearer ${authGatewayToken}`;
+      return headers;
+    }
+
+    // Try Supabase session token - this is the most reliable source
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+        return headers;
+      }
+    } catch (error) {
+      console.warn('[API Client] Failed to get Supabase session:', error);
+    }
+
+    // Fallback to legacy token storage
+    const legacyToken = secureTokenStorage.getAccessToken();
+    if (legacyToken) {
+      headers['Authorization'] = `Bearer ${legacyToken}`;
+    }
+
     return headers;
   }
 
   private async makeRequest<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {},
     apiKey?: string
   ): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${MAAS_API_PREFIX}${endpoint}`;
-    
+
+    // Get auth headers (includes Supabase session check)
+    const authHeaders = await this.getAuthHeaders(apiKey);
+
     const defaultOptions: RequestInit = {
-      credentials: 'include',
-      headers: this.getAuthHeaders(apiKey),
+      headers: authHeaders,
       ...options
     };
 
@@ -108,32 +146,47 @@ class ApiClient {
 
     try {
       const response = await fetch(url, defaultOptions);
-      
-      // Handle authentication errors by redirecting to central auth
+
+      // Handle authentication errors
       if (response.status === 401) {
-        // Clear local tokens
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_data');
-        
-        // Redirect to onasis-core auth
-        const redirectUrl = `${window.location.origin}/auth/callback`;
-        const authUrl = new URL(`${API_BASE_URL}/auth/login`);
-        authUrl.searchParams.set('platform', 'dashboard');
-        authUrl.searchParams.set('redirect_url', redirectUrl);
-        
-        window.location.href = authUrl.toString();
-        throw new Error('Authentication required - redirecting to login');
+        console.warn('[API Client] 401 Unauthorized - attempting token refresh');
+        secureTokenStorage.clear();
+
+        // Try to refresh token before redirecting
+        try {
+          await centralAuth.refreshToken();
+          // Retry the request with new token
+          return this.makeRequest(endpoint, options, apiKey);
+        } catch (refreshError) {
+          console.error('[API Client] Token refresh failed:', refreshError);
+          // Refresh failed, redirect to login
+          const redirectUrl = `${window.location.origin}/auth/callback`;
+          const authUrl = new URL(`${API_BASE_URL}/auth/login`);
+          authUrl.searchParams.set('platform', 'dashboard');
+          authUrl.searchParams.set('redirect_url', redirectUrl);
+
+          window.location.href = authUrl.toString();
+          throw new Error('Authentication required - redirecting to login');
+        }
       }
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
 
-      return await response.json();
+      const jsonData = await response.json();
+      return jsonData;
     } catch (error) {
-      console.error(`API request failed for ${endpoint}:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      console.error(`[API Client] Request failed for ${endpoint}:`, error);
+
+      // Provide more helpful error messages
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        throw new Error(`Network error: Unable to reach ${API_BASE_URL}. Check your internet connection and API endpoint configuration.`);
+      }
+
       throw error;
     }
   }
@@ -149,7 +202,7 @@ class ApiClient {
     apiKey?: string;
   } = {}): Promise<ApiResponse<Memory[]>> {
     const searchParams = new URLSearchParams();
-    
+
     if (params.page) searchParams.set('page', params.page.toString());
     if (params.limit) searchParams.set('limit', params.limit.toString());
     if (params.type) searchParams.set('type', params.type);
@@ -158,7 +211,7 @@ class ApiClient {
 
     const queryString = searchParams.toString();
     const endpoint = `/memory${queryString ? `?${queryString}` : ''}`;
-    
+
     return this.makeRequest<Memory[]>(endpoint, {}, params.apiKey);
   }
 
@@ -169,9 +222,40 @@ class ApiClient {
     tags?: string[];
     metadata?: Record<string, any>;
   }): Promise<ApiResponse<Memory>> {
+    // Defensive input sanitization so the MaaS backend only ever sees valid payloads
+    const rawTitle = (memory.title ?? '').toString().trim();
+    const rawContent = (memory.content ?? '').toString().trim();
+
+    if (!rawContent) {
+      // Fail fast on the client instead of sending an invalid request to the backend
+      throw new Error('Memory content is required to create a memory.');
+    }
+
+    const safeTags = Array.isArray(memory.tags)
+      ? memory.tags
+          .filter((tag) => typeof tag === 'string')
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0)
+      : [];
+
+    const payload: Memory = {
+      id: '' as any, // id is generated by the backend; this placeholder is ignored server-side
+      title: rawTitle || rawContent.slice(0, 80) || 'Untitled',
+      content: rawContent,
+      type: memory.type || 'context',
+      tags: safeTags,
+      metadata: memory.metadata ?? {},
+      is_private: false,
+      is_archived: false,
+      access_count: 0,
+      last_accessed_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
     return this.makeRequest<Memory>('/memory', {
       method: 'POST',
-      body: JSON.stringify(memory)
+      body: JSON.stringify(payload)
     });
   }
 
@@ -290,14 +374,14 @@ class ApiClient {
     storage_used_mb: number;
   }>> {
     const searchParams = new URLSearchParams();
-    
+
     if (params.start_date) searchParams.set('start_date', params.start_date);
     if (params.end_date) searchParams.set('end_date', params.end_date);
     if (params.metric_type) searchParams.set('metric_type', params.metric_type);
 
     const queryString = searchParams.toString();
     const endpoint = `/analytics/usage${queryString ? `?${queryString}` : ''}`;
-    
+
     return this.makeRequest<any>(endpoint);
   }
 }

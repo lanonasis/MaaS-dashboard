@@ -125,7 +125,7 @@
       ],
       "env": {
         "LANONASIS_API_KEY": "sk_live_superadmin_placeholder",
-        "LANONASIS_API_URL": "https://api.LanOnasis.com"
+        "LANONASIS_API_URL": "https://api.lanonasis.com"
       }
     }
   }

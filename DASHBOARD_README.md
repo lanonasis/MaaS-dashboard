@@ -1,4 +1,4 @@
-# Dashboard.LanOnasis.com - Management Dashboard
+# Dashboard.lanonasis.com - Management Dashboard
 
 **Admin and management interface for the Lan Onasis platform ecosystem.**
 
@@ -30,16 +30,16 @@
 - **React Query** - Server state management
 
 ## 🚀 Deployment
-- **Domain**: dashboard.LanOnasis.com
+- **Domain**: dashboard.lanonasis.com
 - **Platform**: Netlify (independent deployment)
 - **Build**: `bun run build`
 - **Dev**: `bun run dev`
 
 ## 🔗 Connected Services
-- **Auth Service**: auth.LanOnasis.com
-- **API Gateway**: api.LanOnasis.com  
-- **Documentation**: docs.LanOnasis.com
-- **MCP Interface**: mcp.LanOnasis.com
+- **Auth Service**: auth.lanonasis.com
+- **API Gateway**: api.lanonasis.com  
+- **Documentation**: docs.lanonasis.com
+- **MCP Interface**: mcp.lanonasis.com
 
 ## 📱 Social Media
 - **Twitter/X**: [@LanOnasis](https://twitter.com/LanOnasis)

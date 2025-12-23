@@ -259,7 +259,7 @@ ${formData.description}
 
         {/* Footer info */}
         <div className="text-xs text-gray-500 pt-2 border-t">
-          <p>💡 <strong>Tip:</strong> For urgent issues, contact support directly at support@LanOnasis.com</p>
+          <p>💡 <strong>Tip:</strong> For urgent issues, contact support directly at support@lanonasis.com</p>
           <p>🔒 Your feedback is valuable and helps us improve the platform for everyone.</p>
         </div>
       </DialogContent>

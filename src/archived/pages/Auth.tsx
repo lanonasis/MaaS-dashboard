@@ -38,7 +38,7 @@ const Auth = () => {
   const handleSubmit = async (data: any) => {
     // Redirect to central auth page instead of handling locally
     const currentUrl = window.location.origin;
-    const authUrl = `https://api.LanOnasis.com/auth/login?platform=dashboard&redirect_url=${encodeURIComponent(currentUrl + '/dashboard')}`;
+    const authUrl = `https://api.lanonasis.com/auth/login?platform=dashboard&redirect_url=${encodeURIComponent(currentUrl + '/dashboard')}`;
     
     window.location.href = authUrl;
   };

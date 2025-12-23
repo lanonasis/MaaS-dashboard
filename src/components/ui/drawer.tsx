@@ -3,20 +3,28 @@ import { Drawer as DrawerPrimitive } from "vaul"
 
 import { cn } from "@/lib/utils"
 
-const Drawer = ({
+type DrawerComponentProps = React.PropsWithChildren<Record<string, any>> & {
+  shouldScaleBackground?: boolean
+}
+
+const Drawer: React.FC<DrawerComponentProps> = ({
   shouldScaleBackground = true,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
+}) => (
   <DrawerPrimitive.Root
     shouldScaleBackground={shouldScaleBackground}
-    {...props}
+    {...(props as any)}
   />
 )
 Drawer.displayName = "Drawer"
 
 const DrawerTrigger = DrawerPrimitive.Trigger
 
-const DrawerPortal = DrawerPrimitive.Portal
+type DrawerPortalProps = React.PropsWithChildren<Record<string, any>>
+
+const DrawerPortal: React.FC<DrawerPortalProps> = ({ children, ...props }) => (
+  <DrawerPrimitive.Portal {...(props as any)}>{children}</DrawerPrimitive.Portal>
+)
 
 const DrawerClose = DrawerPrimitive.Close
 

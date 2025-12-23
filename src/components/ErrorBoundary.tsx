@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import styles from "./ErrorBoundary.module.css";
 
 interface Props {
   children: ReactNode;
@@ -33,15 +34,28 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
-    
-    // Call optional error handler
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo);
+    // Enhanced extension error detection
+    const isExtensionError =
+      error.message?.includes("No tab with id") ||
+      error.message?.includes("chrome-extension://") ||
+      error.message?.includes("moz-extension://") ||
+      error.message?.includes("safari-extension://") ||
+      error.message?.includes("jamToggleDumpStore") ||
+      error.message?.includes("runtime.lastError") ||
+      error.message?.includes("message port closed") ||
+      error.message?.includes("mobx-state-tree") ||
+      error.message?.includes("detectedLibs") ||
+      error.message?.includes("ScreenshotMachineModel") ||
+      error.stack?.includes("chrome-extension://") ||
+      error.stack?.includes("moz-extension://") ||
+      error.stack?.includes("safari-extension://");
+
+    if (isExtensionError) {
+      // Silently ignore extension errors - they don't affect the app
+      return;
     }
 
-    // TODO: Integrate with error reporting service (e.g., Sentry)
-    // reportError(error, { errorInfo, errorId: this.state.errorId });
+    console.error("Uncaught error:", error, errorInfo);
   }
 
   private handleReset = () => {

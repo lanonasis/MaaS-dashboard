@@ -8,6 +8,8 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { getDashboardMemoryClient } from '@/lib/memory-sdk/dashboard-adapter';
+import type { Json } from '@/integrations/supabase/types';
 
 export type ToolType = 'dashboard' | 'mcp' | 'api';
 
@@ -65,8 +67,8 @@ export interface UserToolConfig {
   tool_id: string;
   enabled: boolean;
   api_key?: string;
-  config?: Record<string, any>;
-  permissions: string[]; // Which actions AI can perform
+  config?: Json;
+  permissions: string[] | null; // Which actions AI can perform
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +120,33 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     category: 'productivity',
     description: 'Search and store memories',
     icon: '🧠',
+    handler: async (action: string, params: any) => {
+      const memoryClient = getDashboardMemoryClient();
+
+      if (action === 'search') {
+        const results = await memoryClient.search({
+          query: params.query || '',
+          limit: params.limit || 10,
+          threshold: params.threshold || 0.7,
+          types: params.types,
+          tags: params.tags
+        });
+        return results;
+      }
+
+      if (action === 'create') {
+        const memory = await memoryClient.create({
+          title: params.title || '',
+          content: params.content || '',
+          type: params.type || 'context',
+          tags: params.tags || [],
+          metadata: params.metadata
+        });
+        return memory;
+      }
+
+      throw new Error(`Unknown memory action: ${action}`);
+    },
     actions: [
       {
         id: 'search',
@@ -388,7 +417,7 @@ export const PRECONFIGURED_MCP_TOOLS: ToolDefinition[] = [
 export class ToolRegistry {
   private userTools: Map<string, UserToolConfig> = new Map();
 
-  constructor(private userId: string) {}
+  constructor(private userId: string) { }
 
   /**
    * Initialize - Load user's configured tools
