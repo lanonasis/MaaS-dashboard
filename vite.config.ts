@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    exclude: ['@lanonasis/memory-client'],
+    exclude: ['@lanonasis/memory-client', '@lanonasis/mem-intel-sdk'],
   },
   build: {
     // Allow Rollup to determine optimal chunk boundaries to prevent

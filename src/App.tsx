@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SupabaseAuthProvider } from "@/hooks/useSupabaseAuth";
 import { CentralAuthProvider } from "@/hooks/useCentralAuth";
+import { MemoryIntelligenceProvider } from "@/hooks/useMemoryIntelligence";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AIAssistant } from "@/components/ai/AIAssistant";
@@ -32,37 +33,39 @@ const App = () => (
       <TooltipProvider>
         <BrowserRouter>
           <SupabaseAuthProvider>
-            <CentralAuthProvider>
-              <Toaster />
-              <Sonner />
-              <AIAssistant />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth/*" element={<SupabaseAuthRedirect />} />
-              <Route path="/login" element={<SupabaseAuthRedirect />} />
-              <Route path="/register" element={<SupabaseAuthRedirect />} />
-              <Route path="/signin" element={<SupabaseAuthRedirect />} />
-              <Route path="/signup" element={<SupabaseAuthRedirect />} />
-              <Route path="/landing" element={<Index />} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/memory-visualizer" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/memory-analytics" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/mcp-tracking" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/scheduler" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/api-keys" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/orchestrator" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/ai-tools" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/extensions" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/api-docs" element={<ApiDocs />} />
-              <Route path="/docs" element={<ApiDocs />} />
-              <Route path="/api-analytics" element={<ApiAnalytics />} />
-              <Route path="/mcp/connect" element={<Index />} />
-              <Route path="/oauth/authorize" element={<OAuthAuthorize />} />
-              <Route path="/device" element={<OAuthAuthorize />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            </CentralAuthProvider>
+            <MemoryIntelligenceProvider>
+              <CentralAuthProvider>
+                <Toaster />
+                <Sonner />
+                <AIAssistant />
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth/*" element={<SupabaseAuthRedirect />} />
+                  <Route path="/login" element={<SupabaseAuthRedirect />} />
+                  <Route path="/register" element={<SupabaseAuthRedirect />} />
+                  <Route path="/signin" element={<SupabaseAuthRedirect />} />
+                  <Route path="/signup" element={<SupabaseAuthRedirect />} />
+                  <Route path="/landing" element={<Index />} />
+                  <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard/memory-visualizer" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard/memory-analytics" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard/mcp-tracking" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard/scheduler" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard/api-keys" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard/orchestrator" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard/ai-tools" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard/extensions" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/api-docs" element={<ApiDocs />} />
+                  <Route path="/docs" element={<ApiDocs />} />
+                  <Route path="/api-analytics" element={<ApiAnalytics />} />
+                  <Route path="/mcp/connect" element={<Index />} />
+                  <Route path="/oauth/authorize" element={<OAuthAuthorize />} />
+                  <Route path="/device" element={<OAuthAuthorize />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </CentralAuthProvider>
+            </MemoryIntelligenceProvider>
           </SupabaseAuthProvider>
         </BrowserRouter>
       </TooltipProvider>

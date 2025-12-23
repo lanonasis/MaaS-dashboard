@@ -9,6 +9,8 @@ import { MemoryVisualizer } from "@/components/dashboard/MemoryVisualizer";
 import { MemoryAnalytics } from "@/components/dashboard/MemoryAnalytics";
 import { MCPToolTracker } from "@/components/mcp/MCPToolTracker";
 import { AIToolsSection } from "@/components/dashboard/AIToolsSection";
+import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
+import { MemoryWorkbench } from "@/components/dashboard/MemoryWorkbench";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -209,11 +211,13 @@ const Dashboard = () => {
             <AIToolsSection />
           </TabsContent>
 
-          <TabsContent value="memory-visualizer">
+          <TabsContent value="memory-visualizer" className="space-y-8">
+            <MemoryWorkbench />
             <MemoryVisualizer />
           </TabsContent>
 
-          <TabsContent value="memory-analytics">
+          <TabsContent value="memory-analytics" className="space-y-8">
+            <DashboardOverview />
             <MemoryAnalytics />
           </TabsContent>
 
