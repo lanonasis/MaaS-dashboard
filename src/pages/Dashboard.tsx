@@ -11,6 +11,7 @@ import { MCPToolTracker } from "@/components/mcp/MCPToolTracker";
 import { AIToolsSection } from "@/components/dashboard/AIToolsSection";
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { MemoryWorkbench } from "@/components/dashboard/MemoryWorkbench";
+import { MCPServicesPage } from "@/pages/MCPServicesPage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,7 +32,8 @@ import {
   Activity,
   Calendar,
   Brain,
-  LogOut
+  LogOut,
+  Box,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -58,6 +60,7 @@ const Dashboard = () => {
     if (path.includes('/memory-visualizer')) return 'memory-visualizer';
     if (path.includes('/memory-analytics')) return 'memory-analytics';
     if (path.includes('/mcp-tracking')) return 'mcp-tracking';
+    if (path.includes('/mcp-services')) return 'mcp-services';
     if (path.includes('/ai-tools')) return 'ai-tools';
     if (path.includes('/extensions')) return 'extensions';
     if (path.includes('/upload')) return 'upload';
@@ -133,7 +136,7 @@ const Dashboard = () => {
         </div>
         
         <Tabs value={getActiveTab()} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-2">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-2">
             <TabsTrigger value="overview" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
               <User className="h-3 w-3 md:h-4 md:w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -167,6 +170,11 @@ const Dashboard = () => {
             <TabsTrigger value="scheduler" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
               <Calendar className="h-3 w-3 md:h-4 md:w-4" />
               <span className="hidden sm:inline">Schedule</span><span className="sm:hidden">Sch</span>
+            </TabsTrigger>
+            <TabsTrigger value="mcp-services" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <Box className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Services</span><span className="sm:hidden">Svc</span>
+              <Badge variant="secondary" className="text-[10px] md:text-xs hidden md:inline">New</Badge>
             </TabsTrigger>
             <TabsTrigger value="extensions" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
               <Settings className="h-3 w-3 md:h-4 md:w-4" />
@@ -227,6 +235,10 @@ const Dashboard = () => {
 
           <TabsContent value="scheduler">
             <WorkflowScheduler />
+          </TabsContent>
+
+          <TabsContent value="mcp-services">
+            <MCPServicesPage />
           </TabsContent>
 
           <TabsContent value="extensions">
