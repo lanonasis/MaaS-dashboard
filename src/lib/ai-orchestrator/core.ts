@@ -2,17 +2,18 @@
  * AI Orchestrator Core - The Brain of the Dashboard Assistant
  *
  * Handles:
- * - Intent detection
- * - Memory recall
- * - Workflow planning
- * - Context management
- * - Personalization
+ * - Intent detection (AI-powered)
+ * - Memory recall (semantic search)
+ * - Workflow planning (LLM-generated)
+ * - Context management (personalized)
+ * - Personalization (user data integration)
  * - Tool execution via ToolRegistry
  */
 
 import { getDashboardMemoryClient } from '@/lib/memory-sdk/dashboard-adapter';
 import type { MemorySearchResult, MemoryType } from '@lanonasis/memory-client';
 import { createToolRegistry, type ToolRegistry } from '@/lib/ai-orchestrator/tool-registry';
+import { createAIService, type AIService, type AICompletionResponse } from '@/lib/ai-orchestrator/ai-service';
 
 export interface UserContext {
   user_id: string;
@@ -57,12 +58,24 @@ export interface AIMessage {
 export class AIOrchestrator {
   private memoryClient = getDashboardMemoryClient();
   private toolRegistry: ToolRegistry | null = null;
+  private aiService: AIService;
   private conversationHistory: AIMessage[] = [];
   private userContext: UserContext | null = null;
+  private authToken: string | null = null;
 
-  constructor(userContext: UserContext) {
+  constructor(userContext: UserContext, authToken?: string) {
     this.userContext = userContext;
+    this.authToken = authToken || null;
+    this.aiService = createAIService(authToken);
     this.initializeToolRegistry();
+  }
+
+  /**
+   * Set the authentication token for API calls
+   */
+  setAuthToken(token: string) {
+    this.authToken = token;
+    this.aiService.setAuthToken(token);
   }
 
   /**
@@ -152,7 +165,7 @@ export class AIOrchestrator {
   }
 
   /**
-   * Detect user intent from input
+   * Detect user intent from input using AI service
    */
   private async detectIntent(
     userInput: string,
@@ -163,6 +176,37 @@ export class AIOrchestrator {
     params?: Record<string, any>;
     confidence: number;
   }> {
+    // Try AI-powered intent detection first
+    if (this.authToken && this.userContext) {
+      try {
+        const result = await this.aiService.detectIntent(
+          userInput,
+          {
+            userId: this.userContext.user_id,
+            email: this.userContext.user_email,
+            name: this.userContext.user_name
+          },
+          this.conversationHistory
+        );
+        return result;
+      } catch (error) {
+        console.warn('AI intent detection failed, using fallback:', error);
+      }
+    }
+
+    // Fallback to keyword-based detection
+    return this.fallbackIntentDetection(userInput);
+  }
+
+  /**
+   * Fallback keyword-based intent detection
+   */
+  private fallbackIntentDetection(userInput: string): {
+    type: 'create_workflow' | 'query_information' | 'store_context' | 'execute_action' | 'general';
+    action?: string;
+    params?: Record<string, any>;
+    confidence: number;
+  } {
     const lowerInput = userInput.toLowerCase();
 
     // Keywords for tool execution
@@ -268,24 +312,60 @@ export class AIOrchestrator {
   }
 
   /**
-   * Create a workflow plan
+   * Create a workflow plan using AI backend
    */
   private async createWorkflow(
     goal: string,
     memories: MemorySearchResult[]
   ): Promise<WorkflowPlan> {
-    // This will call the AI backend to generate the workflow
-    // For now, return a structured plan
+    // Try to use the AI service for workflow generation
+    if (this.authToken && this.userContext) {
+      try {
+        const workflowResponse = await this.aiService.generateWorkflow({
+          goal,
+          userContext: {
+            userId: this.userContext.user_id,
+            email: this.userContext.user_email,
+            name: this.userContext.user_name
+          },
+          memories
+        });
 
+        return {
+          id: workflowResponse.id || `wf_${Date.now()}`,
+          goal: workflowResponse.goal || goal,
+          summary: workflowResponse.summary,
+          priority: workflowResponse.priority,
+          suggestedTimeframe: workflowResponse.suggestedTimeframe,
+          steps: workflowResponse.steps.map(step => ({
+            ...step,
+            status: 'pending' as const
+          })),
+          risks: workflowResponse.risks || [],
+          missingInfo: workflowResponse.missingInfo || [],
+          usedMemories: workflowResponse.usedMemories || memories.map(m => m.id),
+          context: {
+            userContext: this.userContext,
+            timestamp: new Date().toISOString(),
+            notes: workflowResponse.notes
+          },
+          createdAt: workflowResponse.createdAt || new Date().toISOString()
+        };
+      } catch (error) {
+        console.warn('AI workflow generation failed, using fallback:', error);
+      }
+    }
+
+    // Fallback to local generation
     const workflowId = `wf_${Date.now()}`;
 
     return {
       id: workflowId,
       goal,
-      summary: `AI-generated plan for: ${goal}`,
+      summary: `Plan for: ${goal}`,
       priority: this.assessPriority(goal),
       suggestedTimeframe: this.estimateTimeframe(goal),
-      steps: await this.generateSteps(goal, memories),
+      steps: await this.generateStepsFallback(goal, memories),
       risks: this.identifyRisks(goal),
       missingInfo: this.identifyMissingInfo(goal, memories),
       usedMemories: memories.map(m => m.id),
@@ -298,60 +378,114 @@ export class AIOrchestrator {
   }
 
   /**
-   * Generate workflow steps using AI
+   * Fallback workflow step generation when AI is unavailable
    */
-  private async generateSteps(
+  private async generateStepsFallback(
     goal: string,
     memories: MemorySearchResult[]
   ): Promise<WorkflowStep[]> {
-    // Call AI service to generate steps
-    // For now, return example steps
-    return [
-      {
-        id: 'step_1',
-        label: 'Gather requirements',
-        detail: 'Collect all necessary information and context',
-        dependsOnStepIds: [],
-        suggestedTool: 'memory.search',
-        expectedOutcome: 'Complete list of requirements'
-      },
-      {
+    // Generate contextual steps based on goal keywords
+    const steps: WorkflowStep[] = [];
+    const lowerGoal = goal.toLowerCase();
+
+    // Step 1: Always start with gathering context
+    steps.push({
+      id: 'step_1',
+      label: 'Gather relevant context',
+      detail: `Review existing memories and gather information related to: ${goal}`,
+      dependsOnStepIds: [],
+      suggestedTool: 'memory.search',
+      expectedOutcome: 'Complete understanding of relevant context and requirements'
+    });
+
+    // Step 2: Main action based on goal type
+    if (lowerGoal.includes('analyz') || lowerGoal.includes('review') || lowerGoal.includes('assess')) {
+      steps.push({
         id: 'step_2',
-        label: 'Execute main task',
-        detail: 'Perform the primary action',
+        label: 'Perform analysis',
+        detail: 'Analyze the gathered information to extract insights',
         dependsOnStepIds: ['step_1'],
         suggestedTool: 'dashboard',
-        expectedOutcome: 'Task completed successfully'
-      },
-      {
-        id: 'step_3',
-        label: 'Verify and document',
-        detail: 'Confirm results and store for future reference',
-        dependsOnStepIds: ['step_2'],
-        suggestedTool: 'memory.create',
-        expectedOutcome: 'Documentation stored in memory'
-      }
-    ];
+        expectedOutcome: 'Analysis complete with key insights identified'
+      });
+    } else if (lowerGoal.includes('create') || lowerGoal.includes('build') || lowerGoal.includes('develop')) {
+      steps.push({
+        id: 'step_2',
+        label: 'Create deliverable',
+        detail: 'Build the requested item based on gathered requirements',
+        dependsOnStepIds: ['step_1'],
+        suggestedTool: 'dashboard',
+        expectedOutcome: 'Deliverable created and ready for review'
+      });
+    } else {
+      steps.push({
+        id: 'step_2',
+        label: 'Execute main task',
+        detail: 'Perform the primary action to achieve the goal',
+        dependsOnStepIds: ['step_1'],
+        suggestedTool: 'dashboard',
+        expectedOutcome: 'Main task completed successfully'
+      });
+    }
+
+    // Step 3: Verification and documentation
+    steps.push({
+      id: 'step_3',
+      label: 'Verify and document',
+      detail: 'Confirm results are correct and save for future reference',
+      dependsOnStepIds: ['step_2'],
+      suggestedTool: 'memory.create',
+      expectedOutcome: 'Results verified and documentation stored'
+    });
+
+    return steps;
   }
 
   /**
-   * Answer information queries
+   * Answer information queries using AI
    */
   private async answerQuery(
     query: string,
     memories: MemorySearchResult[]
   ): Promise<string> {
+    // Try AI-powered response generation
+    if (this.authToken && this.userContext) {
+      try {
+        const response = await this.aiService.chat({
+          messages: [
+            ...this.conversationHistory.map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content
+            })),
+            { role: 'user' as const, content: query }
+          ],
+          userContext: {
+            userId: this.userContext.user_id,
+            email: this.userContext.user_email,
+            name: this.userContext.user_name,
+            preferences: this.userContext.preferences
+          },
+          memories
+        });
+
+        return response.content;
+      } catch (error) {
+        console.warn('AI query response failed, using fallback:', error);
+      }
+    }
+
+    // Fallback response
     if (memories.length === 0) {
-      return "I don't have any relevant information stored yet. Could you provide more context?";
+      return "I don't have any relevant information stored yet. Could you provide more context or try asking in a different way?";
     }
 
     // Use memories to construct answer
     const context = memories
       .slice(0, 3)
-      .map(m => m.content)
-      .join('\n\n');
+      .map(m => `- ${m.content.substring(0, 150)}${m.content.length > 150 ? '...' : ''}`)
+      .join('\n');
 
-    return `Based on what I remember:\n\n${context}\n\nIs this helpful? I can provide more details if needed.`;
+    return `Based on your stored context:\n\n${context}\n\nWould you like me to elaborate on any of these points?`;
   }
 
   /**
@@ -504,13 +638,47 @@ export class AIOrchestrator {
   }
 
   /**
-   * Helper: Generate general response
+   * Helper: Generate general response using AI
    */
   private async generateGeneralResponse(
     input: string,
     memories: MemorySearchResult[]
   ): Promise<string> {
-    return `I understand. ${memories.length > 0 ? 'Based on previous context, I can help you with that.' : 'How can I assist you further?'}`;
+    // Try AI-powered response generation
+    if (this.authToken && this.userContext) {
+      try {
+        const response = await this.aiService.chat({
+          messages: [
+            ...this.conversationHistory.map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content
+            })),
+            { role: 'user' as const, content: input }
+          ],
+          userContext: {
+            userId: this.userContext.user_id,
+            email: this.userContext.user_email,
+            name: this.userContext.user_name,
+            preferences: this.userContext.preferences
+          },
+          memories
+        });
+
+        return response.content;
+      } catch (error) {
+        console.warn('AI general response failed, using fallback:', error);
+      }
+    }
+
+    // Fallback response with personalization
+    const userName = this.userContext?.user_name?.split(' ')[0] || '';
+    const greeting = userName ? `${userName}, ` : '';
+
+    if (memories.length > 0) {
+      return `${greeting}I understand. Based on your previous context, I can help you with that. What would you like me to do?`;
+    }
+
+    return `${greeting}I'm here to help! You can ask me questions, create workflows, or save important context for later. What would you like to do?`;
   }
 
   /**
@@ -545,6 +713,6 @@ export class AIOrchestrator {
 /**
  * Create an AI Orchestrator instance
  */
-export function createAIOrchestrator(userContext: UserContext): AIOrchestrator {
-  return new AIOrchestrator(userContext);
+export function createAIOrchestrator(userContext: UserContext, authToken?: string): AIOrchestrator {
+  return new AIOrchestrator(userContext, authToken);
 }
