@@ -1,5 +1,6 @@
 
 import { Layout } from "@/components/layout/Layout";
+import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 import { ApiDashboard } from "@/components/dashboard/ApiDashboard";
 import MCPServerManager from "@/components/mcp/MCPServerManager";
 import { UserProfile } from "@/components/dashboard/UserProfile";
@@ -16,46 +17,37 @@ import { APIKeysPage } from "@/pages/APIKeysPage";
 import { MCPUsagePage } from "@/pages/MCPUsagePage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import {
-  Home,
   Sun,
   Moon,
   Laptop,
-  User,
   Key,
   Zap,
-  Settings,
-  Database,
-  Upload,
-  Eye,
-  BarChart3,
-  Activity,
-  Calendar,
-  Brain,
   LogOut,
-  Box,
-  TrendingUp,
+  Menu,
+  X,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 const Dashboard = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useSupabaseAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Determine active tab based on route
-  const getActiveTab = () => {
+  // Determine active page based on route
+  const getActivePage = () => {
     const path = location.pathname;
     if (path.includes('/api-keys')) return 'api-keys';
     if (path.includes('/orchestrator')) return 'orchestrator';
@@ -67,16 +59,7 @@ const Dashboard = () => {
     if (path.includes('/mcp-usage')) return 'mcp-usage';
     if (path.includes('/ai-tools')) return 'ai-tools';
     if (path.includes('/extensions')) return 'extensions';
-    if (path.includes('/upload')) return 'upload';
     return 'overview';
-  };
-
-  const handleTabChange = (value: string) => {
-    if (value === 'overview') {
-      navigate('/dashboard');
-    } else {
-      navigate(`/dashboard/${value}`);
-    }
   };
 
   const handleLogout = async () => {
@@ -84,128 +67,29 @@ const Dashboard = () => {
     navigate('/auth');
   };
 
-  return (
-    <Layout>
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-6">
-          <Button asChild variant="outline" size="sm" className="gap-2">
-            <a href="https://www.lanonasis.com">
-              <Home className="h-4 w-4" />
-              Return to Homepage
-            </a>
-          </Button>
+  const activePage = getActivePage();
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="gap-2"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full"
-                  aria-label="Theme settings"
-                >
-                  {resolvedTheme === "dark" ? (
-                    <Moon className="h-5 w-5" />
-                  ) : (
-                    <Sun className="h-5 w-5" />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme("light")}>
-                  <Sun className="h-4 w-4 mr-2" />
-                  Light
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("dark")}>
-                  <Moon className="h-4 w-4 mr-2" />
-                  Dark
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("system")}>
-                  <Laptop className="h-4 w-4 mr-2" />
-                  System
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-        
-        <Tabs value={getActiveTab()} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-2">
-            <TabsTrigger value="overview" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <User className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="api-keys" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <Key className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">API</span><span className="sm:hidden">Keys</span><span className="hidden sm:inline"> Keys</span>
-            </TabsTrigger>
-            <TabsTrigger value="orchestrator" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <Zap className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden md:inline">Orchestrator</span><span className="md:hidden">Orch</span>
-              <Badge variant="secondary" className="text-[10px] md:text-xs hidden md:inline">New</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="ai-tools" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <Brain className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">AI Tools</span><span className="sm:hidden">AI</span>
-              <Badge variant="secondary" className="text-[10px] md:text-xs hidden md:inline">New</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="memory-visualizer" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <Eye className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Memory</span><span className="sm:hidden">Mem</span>
-            </TabsTrigger>
-            <TabsTrigger value="memory-analytics" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <BarChart3 className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Analytics</span><span className="sm:hidden">Ana</span>
-            </TabsTrigger>
-            <TabsTrigger value="mcp-tracking" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <Activity className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Tracking</span><span className="sm:hidden">Trk</span>
-            </TabsTrigger>
-            <TabsTrigger value="scheduler" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <Calendar className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Schedule</span><span className="sm:hidden">Sch</span>
-            </TabsTrigger>
-            <TabsTrigger value="mcp-services" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <Box className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Services</span><span className="sm:hidden">Svc</span>
-              <Badge variant="secondary" className="text-[10px] md:text-xs hidden md:inline">New</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="mcp-usage" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Usage</span><span className="sm:hidden">Use</span>
-            </TabsTrigger>
-            <TabsTrigger value="extensions" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
-              <Settings className="h-3 w-3 md:h-4 md:w-4" />
-              MCP
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-8">
+  // Render the active page content
+  const renderContent = () => {
+    switch (activePage) {
+      case 'overview':
+        return (
+          <div className="space-y-8">
             <UserProfile />
             <ApiDashboard />
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center space-y-4">
                   <h3 className="text-lg font-semibold">Welcome to Your Dashboard</h3>
-                  <p className="text-gray-600">
+                  <p className="text-muted-foreground">
                     Manage your API keys, configure MCP servers, and orchestrate intelligent workflows.
                   </p>
                   <div className="flex justify-center gap-4">
-                    <Button onClick={() => handleTabChange('orchestrator')} className="gap-2">
+                    <Button onClick={() => navigate('/dashboard/orchestrator')} className="gap-2">
                       <Zap className="h-4 w-4" />
                       Try AI Orchestrator
                     </Button>
-                    <Button onClick={() => handleTabChange('api-keys')} variant="outline" className="gap-2">
+                    <Button onClick={() => navigate('/dashboard/api-keys')} variant="outline" className="gap-2">
                       <Key className="h-4 w-4" />
                       Manage API Keys
                     </Button>
@@ -213,50 +97,134 @@ const Dashboard = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="api-keys">
-            <APIKeysPage />
-          </TabsContent>
-
-          <TabsContent value="orchestrator">
-            <WorkflowOrchestrator />
-          </TabsContent>
-
-          <TabsContent value="ai-tools">
-            <AIToolsSection />
-          </TabsContent>
-
-          <TabsContent value="memory-visualizer" className="space-y-8">
+          </div>
+        );
+      case 'api-keys':
+        return <APIKeysPage />;
+      case 'orchestrator':
+        return <WorkflowOrchestrator />;
+      case 'ai-tools':
+        return <AIToolsSection />;
+      case 'memory-visualizer':
+        return (
+          <div className="space-y-8">
             <MemoryWorkbench />
             <MemoryVisualizer />
-          </TabsContent>
-
-          <TabsContent value="memory-analytics" className="space-y-8">
+          </div>
+        );
+      case 'memory-analytics':
+        return (
+          <div className="space-y-8">
             <DashboardOverview />
             <MemoryAnalytics />
-          </TabsContent>
+          </div>
+        );
+      case 'mcp-tracking':
+        return <MCPToolTracker />;
+      case 'scheduler':
+        return <WorkflowScheduler />;
+      case 'mcp-services':
+        return <MCPServicesPage />;
+      case 'mcp-usage':
+        return <MCPUsagePage />;
+      case 'extensions':
+        return <MCPServerManager />;
+      default:
+        return <div>Page not found</div>;
+    }
+  };
 
-          <TabsContent value="mcp-tracking">
-            <MCPToolTracker />
-          </TabsContent>
+  return (
+    <Layout>
+      <div className="flex h-[calc(100vh-4rem)]">
+        {/* Mobile Sidebar Toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed top-20 left-4 z-50 lg:hidden"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+          {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </Button>
 
-          <TabsContent value="scheduler">
-            <WorkflowScheduler />
-          </TabsContent>
+        {/* Sidebar */}
+        <DashboardSidebar
+          className={cn(
+            "fixed lg:relative inset-y-0 left-0 z-40 transform transition-transform duration-200 ease-in-out lg:transform-none",
+            "top-16 h-[calc(100vh-4rem)]",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          )}
+          onNavigate={() => {
+            // Close sidebar on mobile after navigation
+            if (window.innerWidth < 1024) {
+              setSidebarOpen(false);
+            }
+          }}
+        />
 
-          <TabsContent value="mcp-services">
-            <MCPServicesPage />
-          </TabsContent>
+        {/* Mobile Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-          <TabsContent value="mcp-usage">
-            <MCPUsagePage />
-          </TabsContent>
+        {/* Main Content */}
+        <main className="flex-1 overflow-auto">
+          {/* Top Bar */}
+          <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
+            <div className="flex justify-end items-center px-6 py-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden sm:inline">Logout</span>
+                </Button>
 
-          <TabsContent value="extensions">
-            <MCPServerManager />
-          </TabsContent>
-        </Tabs>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full"
+                      aria-label="Theme settings"
+                    >
+                      {resolvedTheme === "dark" ? (
+                        <Moon className="h-5 w-5" />
+                      ) : (
+                        <Sun className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setTheme("light")}>
+                      <Sun className="h-4 w-4 mr-2" />
+                      Light
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme("dark")}>
+                      <Moon className="h-4 w-4 mr-2" />
+                      Dark
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme("system")}>
+                      <Laptop className="h-4 w-4 mr-2" />
+                      System
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
+
+          {/* Page Content */}
+          <div className="p-6 lg:p-8">
+            {renderContent()}
+          </div>
+        </main>
       </div>
     </Layout>
   );

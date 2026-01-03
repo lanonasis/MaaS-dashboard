@@ -283,7 +283,67 @@ export class AIOrchestrator {
   private parseToolAction(input: string): { action: string; params: Record<string, any> } | null {
     const lowerInput = input.toLowerCase();
 
-    // API Keys patterns
+    // MCP Services patterns
+    if (lowerInput.includes('service') && !lowerInput.includes('api key')) {
+      if (lowerInput.includes('list') || lowerInput.includes('show') || lowerInput.includes('get')) {
+        if (lowerInput.includes('configured') || lowerInput.includes('my')) {
+          return { action: 'dashboard.mcp_services.list_configured', params: {} };
+        }
+        return { action: 'dashboard.mcp_services.list', params: {} };
+      }
+      if (lowerInput.includes('configure') || lowerInput.includes('setup') || lowerInput.includes('set up')) {
+        const serviceMatch = lowerInput.match(/(?:configure|setup|set up)\s+(\w+)/);
+        const serviceKey = serviceMatch ? serviceMatch[1] : '';
+        return { action: 'dashboard.mcp_services.configure', params: { service_key: serviceKey } };
+      }
+      if (lowerInput.includes('enable')) {
+        const serviceMatch = lowerInput.match(/enable\s+(\w+)/);
+        const serviceKey = serviceMatch ? serviceMatch[1] : '';
+        return { action: 'dashboard.mcp_services.enable', params: { service_key: serviceKey } };
+      }
+      if (lowerInput.includes('disable')) {
+        const serviceMatch = lowerInput.match(/disable\s+(\w+)/);
+        const serviceKey = serviceMatch ? serviceMatch[1] : '';
+        return { action: 'dashboard.mcp_services.disable', params: { service_key: serviceKey } };
+      }
+      if (lowerInput.includes('test')) {
+        const serviceMatch = lowerInput.match(/test\s+(\w+)/);
+        const serviceKey = serviceMatch ? serviceMatch[1] : '';
+        return { action: 'dashboard.mcp_services.test', params: { service_key: serviceKey } };
+      }
+    }
+
+    // MCP Usage patterns
+    if (lowerInput.includes('mcp') && (lowerInput.includes('usage') || lowerInput.includes('analytics'))) {
+      return { action: 'dashboard.mcp_usage.get_stats', params: {} };
+    }
+    if (lowerInput.includes('request') && lowerInput.includes('log')) {
+      return { action: 'dashboard.mcp_usage.get_logs', params: {} };
+    }
+    if (lowerInput.includes('top action') || lowerInput.includes('most used')) {
+      return { action: 'dashboard.mcp_usage.get_top_actions', params: {} };
+    }
+    if (lowerInput.includes('breakdown') && lowerInput.includes('service')) {
+      return { action: 'dashboard.mcp_usage.get_service_breakdown', params: {} };
+    }
+
+    // MCP API Keys patterns (enhanced)
+    if (lowerInput.includes('mcp') && (lowerInput.includes('api key') || lowerInput.includes('key'))) {
+      if (lowerInput.includes('list') || lowerInput.includes('show')) {
+        return { action: 'dashboard.mcp_api_keys.list', params: {} };
+      }
+      if (lowerInput.includes('create') || lowerInput.includes('generate') || lowerInput.includes('new')) {
+        return { action: 'dashboard.mcp_api_keys.create', params: {} };
+      }
+      if (lowerInput.includes('revoke') || lowerInput.includes('delete')) {
+        return { action: 'dashboard.mcp_api_keys.revoke', params: {} };
+      }
+      if (lowerInput.includes('rotate')) {
+        return { action: 'dashboard.mcp_api_keys.rotate', params: {} };
+      }
+    }
+
+    // Legacy API Keys patterns
     if (lowerInput.includes('list') && (lowerInput.includes('api key') || lowerInput.includes('keys'))) {
       return { action: 'dashboard.api_keys.list', params: {} };
     }
@@ -303,7 +363,7 @@ export class AIOrchestrator {
       return { action: 'dashboard.workflow.list', params: {} };
     }
 
-    // Analytics patterns
+    // Generic Analytics patterns
     if (lowerInput.includes('usage') || lowerInput.includes('analytics') || lowerInput.includes('stats')) {
       return { action: 'dashboard.analytics.get_usage', params: {} };
     }
