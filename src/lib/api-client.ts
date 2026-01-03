@@ -324,6 +324,102 @@ class ApiClient {
     });
   }
 
+  // Intelligence API Methods (Supabase Edge Functions)
+  // These use the Supabase project URL directly with X-API-Key auth
+
+  private async makeIntelligenceRequest<T>(
+    functionName: string,
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lanonasis.supabase.co';
+    const url = `${supabaseUrl}/functions/v1/${functionName}`;
+
+    // Get API key for intelligence endpoints
+    const apiKey = import.meta.env.VITE_MEMORY_API_KEY || '';
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(apiKey && { 'X-API-Key': apiKey }),
+    };
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: { ...headers, ...(options.headers as Record<string, string>) },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { error: data.error || `Request failed with status ${response.status}` };
+      }
+
+      return { data };
+    } catch (error: any) {
+      return { error: error.message || 'Intelligence API request failed' };
+    }
+  }
+
+  async intelligenceHealthCheck(): Promise<ApiResponse<any>> {
+    return this.makeIntelligenceRequest<any>('intelligence-health-check', {
+      method: 'GET',
+    });
+  }
+
+  async intelligenceSuggestTags(params: {
+    content: string;
+    existing_tags?: string[];
+    max_suggestions?: number;
+  }): Promise<ApiResponse<any>> {
+    return this.makeIntelligenceRequest<any>('intelligence-suggest-tags', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async intelligenceFindRelated(params: {
+    memory_id: string;
+    limit?: number;
+    threshold?: number;
+  }): Promise<ApiResponse<any>> {
+    return this.makeIntelligenceRequest<any>('intelligence-find-related', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async intelligenceDetectDuplicates(params: {
+    threshold?: number;
+    include_archived?: boolean;
+  }): Promise<ApiResponse<any>> {
+    return this.makeIntelligenceRequest<any>('intelligence-detect-duplicates', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async intelligenceExtractInsights(params: {
+    content?: string;
+    memory_ids?: string[];
+    insight_types?: string[];
+    topic_filter?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.makeIntelligenceRequest<any>('intelligence-extract-insights', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async intelligenceAnalyzePatterns(params: {
+    time_range_days?: number;
+    include_content_analysis?: boolean;
+  }): Promise<ApiResponse<any>> {
+    return this.makeIntelligenceRequest<any>('intelligence-analyze-patterns', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
   // Health and Status
 
   async healthCheck(): Promise<ApiResponse<{
