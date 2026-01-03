@@ -397,7 +397,7 @@ export const ApiKeyManager = () => {
           Manage API Keys
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] text-foreground">
+      <DialogContent className="sm:max-w-[600px] text-foreground bg-card border-border shadow-xl">
         <DialogHeader>
           <DialogTitle className="text-foreground">API Key Management</DialogTitle>
           <DialogDescription className="text-muted-foreground">

@@ -113,6 +113,16 @@ export function MemoryVisualizer() {
 
     setIsLoading(true);
 
+    // Set up timeout to prevent infinite loading states
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "Request Timeout",
+        description: "Memory loading took too long. Please try again.",
+        variant: "destructive",
+      });
+    }, 15000); // 15 second timeout
+
     try {
       const params: any = {
         limit: 20,
@@ -265,6 +275,7 @@ export function MemoryVisualizer() {
       });
       setMemories([]);
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
     }
   }, [
