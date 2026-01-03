@@ -215,9 +215,9 @@ export function APIKeysPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">API Keys</h1>
+          <h1 className="text-3xl font-bold text-foreground">MCP Router Keys</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your LanOnasis API keys for external applications
+            Scoped API keys for accessing MCP Router services and external integrations
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -328,7 +328,7 @@ export function APIKeysPage() {
       {/* API Keys List */}
       <Card>
         <CardHeader>
-          <CardTitle>Your API Keys</CardTitle>
+          <CardTitle>Your Router Keys</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

@@ -62,7 +62,7 @@ const NAV_SECTIONS: NavSection[] = [
     defaultOpen: true,
     items: [
       { id: 'mcp-services', label: 'Services', icon: Box, path: '/dashboard/mcp-services', badge: 'New' },
-      { id: 'api-keys', label: 'API Keys', icon: Key, path: '/dashboard/api-keys' },
+      { id: 'api-keys', label: 'Router Keys', icon: Key, path: '/dashboard/api-keys' },
       { id: 'mcp-usage', label: 'Usage Analytics', icon: TrendingUp, path: '/dashboard/mcp-usage' },
       { id: 'mcp-tracking', label: 'Request Tracking', icon: Activity, path: '/dashboard/mcp-tracking' },
       { id: 'extensions', label: 'MCP Extensions', icon: Settings, path: '/dashboard/extensions' },
@@ -132,7 +132,7 @@ export function DashboardSidebar({ onNavigate, className }: DashboardSidebarProp
   };
 
   return (
-    <aside className={cn("w-64 border-r border-border bg-card/50 flex flex-col", className)}>
+    <aside className={cn("w-64 min-h-full border-r border-border bg-card flex flex-col shadow-lg", className)}>
       <ScrollArea className="flex-1 py-4">
         <nav className="px-3 space-y-1">
           {NAV_SECTIONS.map((section) => {
