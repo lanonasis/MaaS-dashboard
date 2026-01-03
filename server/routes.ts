@@ -5,6 +5,90 @@ import crypto from "crypto";
 
 type AuthenticatedRequest = Request & { user?: { id: string; email: string } };
 
+/**
+ * Extract suggested actions from AI response text
+ */
+function extractSuggestedActions(text: string): string[] {
+  const actions: string[] = [];
+
+  // Look for action-oriented phrases
+  const actionPatterns = [
+    /(?:you (?:can|could|might|should)|try|consider)\s+([^.!?\n]+)/gi,
+    /(?:would you like to|want me to)\s+([^.!?\n]+)/gi
+  ];
+
+  for (const pattern of actionPatterns) {
+    let match;
+    while ((match = pattern.exec(text)) !== null && actions.length < 3) {
+      const action = match[1].trim();
+      if (action.length > 10 && action.length < 60) {
+        actions.push(action.charAt(0).toUpperCase() + action.slice(1));
+      }
+    }
+  }
+
+  // Default suggestions if none found
+  if (actions.length === 0) {
+    return ['Tell me more', 'Create a workflow', 'Search memories'];
+  }
+
+  return actions;
+}
+
+/**
+ * Keyword-based intent detection fallback
+ */
+function keywordIntentDetection(message: string): {
+  type: 'create_workflow' | 'query_information' | 'store_context' | 'execute_action' | 'general';
+  action?: string;
+  params?: Record<string, unknown>;
+  confidence: number;
+} {
+  const lowerMessage = message.toLowerCase();
+
+  // Workflow creation patterns
+  const workflowPatterns = [
+    'create workflow', 'plan workflow', 'help me', 'i need to',
+    'build plan', 'set up workflow', 'make a plan', 'create a plan'
+  ];
+  if (workflowPatterns.some(p => lowerMessage.includes(p))) {
+    return { type: 'create_workflow', confidence: 0.8 };
+  }
+
+  // Query patterns
+  const queryPatterns = ['what', 'how', 'why', 'when', 'where', 'who', 'explain', 'tell me'];
+  if (queryPatterns.some(p => lowerMessage.startsWith(p))) {
+    return { type: 'query_information', confidence: 0.7 };
+  }
+
+  // Store context patterns
+  const storePatterns = ['remember', 'save this', 'note', 'store', 'keep in mind'];
+  if (storePatterns.some(p => lowerMessage.includes(p))) {
+    return { type: 'store_context', confidence: 0.9 };
+  }
+
+  // Action patterns with specific action extraction
+  if (lowerMessage.includes('list') && (lowerMessage.includes('api key') || lowerMessage.includes('keys'))) {
+    return { type: 'execute_action', action: 'dashboard.api_keys.list', params: {}, confidence: 0.85 };
+  }
+  if (lowerMessage.includes('search') && lowerMessage.includes('memor')) {
+    const queryMatch = lowerMessage.match(/search (?:for |in |my )?(?:memor(?:y|ies) )?(?:for |about )?(.+)/);
+    return {
+      type: 'execute_action',
+      action: 'dashboard.memory.search',
+      params: { query: queryMatch?.[1] || '' },
+      confidence: 0.85
+    };
+  }
+
+  const actionPatterns = ['list my', 'show my', 'get my', 'create a', 'search for'];
+  if (actionPatterns.some(p => lowerMessage.includes(p))) {
+    return { type: 'execute_action', confidence: 0.75 };
+  }
+
+  return { type: 'general', confidence: 0.5 };
+}
+
 export function registerRoutes(app: Express, storage: IStorage) {
   
   app.get("/api/profile", async (req: AuthenticatedRequest, res: Response) => {
@@ -300,6 +384,241 @@ Return your response as JSON with this exact structure:
     }
   });
   
+  // AI Chat Completion Endpoint
+  app.post("/api/ai/chat", async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { messages, userContext, memories, temperature = 0.7, maxTokens = 1024 } = req.body;
+
+      if (!messages || !Array.isArray(messages)) {
+        return res.status(400).json({ message: "Messages array is required" });
+      }
+
+      // Get API key from environment
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+
+      if (!openaiApiKey && !anthropicApiKey) {
+        return res.status(500).json({
+          message: "LLM service not configured. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY."
+        });
+      }
+
+      // Fetch additional context from user's memories
+      const recentMemories = await storage.getRecentMemories(req.user.id, 10);
+      const memoryContext = [...(memories || []), ...recentMemories.map(m => ({
+        id: m.id,
+        content: m.content.substring(0, 300),
+        type: m.type,
+        tags: m.tags
+      }))];
+
+      // Build system prompt with user context
+      const systemPrompt = `You are the LanOnasis AI Assistant, a helpful and personalized AI embedded in the user's dashboard.
+
+About the user:
+- Name: ${userContext?.name || 'User'}
+- Email: ${userContext?.email || req.user.email}
+
+${memoryContext.length > 0 ? `User's relevant context:\n${memoryContext.map(m => `- [${m.type || 'note'}] ${m.content}`).join('\n')}` : ''}
+
+Your capabilities:
+1. Answer questions using the user's stored memories and context
+2. Help create workflow plans for complex tasks
+3. Provide personalized recommendations based on user history
+4. Execute actions on connected tools (GitHub, ClickUp, etc.)
+5. Remember important context for future conversations
+
+Guidelines:
+- Be concise but helpful (2-4 sentences for simple questions, more for complex ones)
+- Reference specific memories when relevant
+- Suggest follow-up actions when appropriate
+- Use the user's name occasionally for a personal touch
+- If you don't know something, say so and offer alternatives`;
+
+      // Prefer Anthropic if available, fallback to OpenAI
+      if (anthropicApiKey) {
+        const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': anthropicApiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-haiku-20240307',
+            max_tokens: maxTokens,
+            system: systemPrompt,
+            messages: messages.filter((m: { role: string }) => m.role !== 'system').map((m: { role: string; content: string }) => ({
+              role: m.role === 'user' ? 'user' : 'assistant',
+              content: m.content
+            }))
+          })
+        });
+
+        if (!anthropicResponse.ok) {
+          throw new Error(`Anthropic API error: ${anthropicResponse.statusText}`);
+        }
+
+        const anthropicData = await anthropicResponse.json();
+
+        return res.json({
+          content: anthropicData.content[0].text,
+          suggestedActions: extractSuggestedActions(anthropicData.content[0].text),
+          metadata: {
+            model: 'claude-3-haiku-20240307',
+            tokensUsed: anthropicData.usage?.input_tokens + anthropicData.usage?.output_tokens
+          }
+        });
+      }
+
+      // OpenAI fallback
+      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages
+          ],
+          temperature,
+          max_tokens: maxTokens
+        })
+      });
+
+      if (!openaiResponse.ok) {
+        throw new Error(`OpenAI API error: ${openaiResponse.statusText}`);
+      }
+
+      const openaiData = await openaiResponse.json();
+      const responseContent = openaiData.choices[0].message.content;
+
+      res.json({
+        content: responseContent,
+        suggestedActions: extractSuggestedActions(responseContent),
+        metadata: {
+          model: 'gpt-4o-mini',
+          tokensUsed: openaiData.usage?.total_tokens
+        }
+      });
+
+    } catch (error) {
+      console.error("Error in AI chat:", error);
+      res.status(500).json({
+        message: "Failed to process AI request",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // AI Intent Detection Endpoint
+  app.post("/api/ai/detect-intent", async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { message, userContext, conversationHistory } = req.body;
+
+      if (!message) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+
+      if (!openaiApiKey && !anthropicApiKey) {
+        // Fallback to keyword-based detection
+        return res.json(keywordIntentDetection(message));
+      }
+
+      const intentPrompt = `Analyze the user's message and determine their intent. Respond with ONLY a JSON object.
+
+User message: "${message}"
+
+Recent conversation context:
+${conversationHistory?.slice(-3).map((m: { role: string; content: string }) => `${m.role}: ${m.content}`).join('\n') || 'No recent messages'}
+
+Classify the intent as one of:
+- "create_workflow": User wants to create a plan, workflow, or multi-step process
+- "query_information": User is asking a question or seeking information
+- "store_context": User wants to save/remember something
+- "execute_action": User wants to perform an action (list items, search, create something)
+- "general": General conversation or unclear intent
+
+If "execute_action", also extract:
+- action: The specific action (e.g., "dashboard.api_keys.list", "dashboard.memory.search")
+- params: Any parameters extracted from the message
+
+Response format:
+{"type": "intent_type", "action": "optional_action", "params": {}, "confidence": 0.0-1.0}`;
+
+      const apiKey = anthropicApiKey || openaiApiKey;
+      const isAnthropic = !!anthropicApiKey;
+
+      if (isAnthropic) {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey!,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-haiku-20240307',
+            max_tokens: 256,
+            messages: [{ role: 'user', content: intentPrompt }]
+          })
+        });
+
+        if (!response.ok) {
+          return res.json(keywordIntentDetection(message));
+        }
+
+        const data = await response.json();
+        try {
+          const intentResult = JSON.parse(data.content[0].text);
+          return res.json(intentResult);
+        } catch {
+          return res.json(keywordIntentDetection(message));
+        }
+      }
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: intentPrompt }],
+          temperature: 0.3,
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!response.ok) {
+        return res.json(keywordIntentDetection(message));
+      }
+
+      const data = await response.json();
+      const intentResult = JSON.parse(data.choices[0].message.content);
+      res.json(intentResult);
+
+    } catch (error) {
+      console.error("Error detecting intent:", error);
+      res.json(keywordIntentDetection(req.body.message || ''));
+    }
+  });
+
   // Get workflow history
   app.get("/api/orchestrator/runs", async (req: AuthenticatedRequest, res: Response) => {
     try {
