@@ -1,6 +1,7 @@
 /**
  * IntelligencePanel - AI-powered memory insights panel
  * Displays health score, duplicate detection, and tag suggestions
+ * Uses the Memory Intelligence SDK with local fallback processing
  */
 
 import React, { useState, useEffect } from 'react';
@@ -11,10 +12,10 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import {
-  useIntelligenceClient,
+  useMemoryIntelligence,
   type HealthCheckResult,
-  type DuplicateGroup
-} from '@/hooks/useIntelligenceClient';
+  type DuplicatePair
+} from '@/hooks/useMemoryIntelligence';
 import {
   Brain,
   Copy,
@@ -42,26 +43,26 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({
   onMergeMemories
 }) => {
   const [healthCheck, setHealthCheck] = useState<HealthCheckResult | null>(null);
-  const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
+  const [duplicates, setDuplicates] = useState<DuplicatePair[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('health');
   const { user } = useSupabaseAuth();
-  const intelligence = useIntelligenceClient();
+  const { getHealthCheck, detectDuplicates, isReady, isKeyLoading } = useMemoryIntelligence();
 
   useEffect(() => {
-    if (user) {
+    if (user && isReady && !isKeyLoading) {
       fetchData();
     }
-  }, [user]);
+  }, [user, isReady, isKeyLoading]);
 
   const fetchData = async () => {
-    if (!user) return;
+    if (!user || !isReady) return;
 
     setIsLoading(true);
     try {
       const [healthData, duplicateData] = await Promise.all([
-        showHealthScore ? intelligence.getHealthCheck() : Promise.resolve(null),
-        showDuplicates ? intelligence.detectDuplicates(0.8) : Promise.resolve([])
+        showHealthScore ? getHealthCheck() : Promise.resolve(null),
+        showDuplicates ? detectDuplicates(0.8) : Promise.resolve([])
       ]);
 
       setHealthCheck(healthData);
@@ -85,7 +86,8 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({
     return 'from-red-500 to-rose-500';
   };
 
-  const healthScore = healthCheck?.health_score?.overall || 0;
+  // SDK uses overall_score instead of health_score.overall
+  const healthScore = healthCheck?.overall_score || 0;
 
   if (compact) {
     return (
@@ -169,54 +171,42 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({
                   <Progress value={healthScore} className="h-2 mt-3" />
                 </div>
 
-                {/* Breakdown */}
-                <div className="grid grid-cols-5 gap-2 mt-4">
-                  {healthCheck.health_score?.breakdown && Object.entries(healthCheck.health_score.breakdown).map(([key, value]) => (
+                {/* Metrics Breakdown */}
+                <div className="grid grid-cols-4 gap-2 mt-4">
+                  {healthCheck.metrics && Object.entries(healthCheck.metrics).map(([key, value]) => (
                     <div key={key} className="text-center p-2 rounded-lg bg-muted/50">
                       <div className={`text-sm font-bold ${getHealthColor(value)}`}>{value}%</div>
-                      <div className="text-xs text-muted-foreground capitalize">{key}</div>
+                      <div className="text-xs text-muted-foreground capitalize">
+                        {key.replace(/_/g, ' ')}
+                      </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Statistics */}
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <div className="text-lg font-bold">{healthCheck.statistics?.total_memories || 0}</div>
-                    <div className="text-xs text-muted-foreground">Total Memories</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <div className="text-lg font-bold">{healthCheck.statistics?.memories_with_tags || 0}</div>
-                    <div className="text-xs text-muted-foreground">With Tags</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <div className="text-lg font-bold">{healthCheck.statistics?.unique_tags || 0}</div>
-                    <div className="text-xs text-muted-foreground">Unique Tags</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <div className="text-lg font-bold">{healthCheck.statistics?.recent_memories_30d || 0}</div>
-                    <div className="text-xs text-muted-foreground">Last 30 Days</div>
-                  </div>
+                {/* Status Badge */}
+                <div className="flex justify-center mt-4">
+                  <Badge
+                    variant={healthCheck.status === 'healthy' ? 'default' :
+                             healthCheck.status === 'needs_attention' ? 'secondary' : 'destructive'}
+                    className="px-3 py-1"
+                  >
+                    {healthCheck.status === 'healthy' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                    {healthCheck.status === 'needs_attention' && <AlertTriangle className="h-3 w-3 mr-1" />}
+                    {healthCheck.status?.replace(/_/g, ' ').toUpperCase() || 'UNKNOWN'}
+                  </Badge>
                 </div>
 
-                {/* Issues */}
-                {healthCheck.issues && healthCheck.issues.length > 0 && (
+                {/* Recommendations */}
+                {healthCheck.recommendations && healthCheck.recommendations.length > 0 && (
                   <div className="mt-4">
                     <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
-                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                      Issues to Address
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      Recommendations
                     </h4>
                     <div className="space-y-2">
-                      {healthCheck.issues.map((issue, idx) => (
-                        <div key={idx} className={`p-2 rounded-lg text-sm ${
-                          issue.severity === 'high' ? 'bg-red-500/10 border border-red-500/20' :
-                          issue.severity === 'medium' ? 'bg-yellow-500/10 border border-yellow-500/20' :
-                          'bg-blue-500/10 border border-blue-500/20'
-                        }`}>
-                          <div className="font-medium">{issue.description}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {issue.recommendation}
-                          </div>
+                      {healthCheck.recommendations.map((recommendation, idx) => (
+                        <div key={idx} className="p-2 rounded-lg text-sm bg-primary/5 border border-primary/10">
+                          <div className="text-muted-foreground">{recommendation}</div>
                         </div>
                       ))}
                     </div>
@@ -239,50 +229,63 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({
               <>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Found {duplicates.reduce((acc, g) => acc + g.duplicates.length, 0)} potential duplicates in {duplicates.length} groups
+                    Found {duplicates.length} potential duplicate pairs
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  {duplicates.map((group, idx) => (
+                  {duplicates.map((pair, idx) => (
                     <div key={idx} className="p-3 rounded-lg border bg-muted/30">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="font-medium">{group.primary_title}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Primary memory
-                          </div>
-                        </div>
+                      <div className="flex items-center justify-between mb-3">
                         <Badge variant="outline">
-                          {(group.similarity_score * 100).toFixed(0)}% match
+                          {(pair.similarity_score * 100).toFixed(0)}% match
+                        </Badge>
+                        <Badge
+                          variant={pair.recommendation === 'merge' ? 'default' : 'secondary'}
+                          className="capitalize"
+                        >
+                          {pair.recommendation?.replace(/_/g, ' ') || 'review'}
                         </Badge>
                       </div>
 
-                      <div className="mt-3 space-y-2">
-                        {group.duplicates.map((dup) => (
-                          <div key={dup.id} className="flex items-center justify-between p-2 rounded bg-background">
-                            <div>
-                              <div className="text-sm">{dup.title}</div>
-                              <div className="text-xs text-muted-foreground">
-                                Created: {new Date(dup.created_at).toLocaleDateString()}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="secondary">
-                                {(dup.similarity * 100).toFixed(0)}%
-                              </Badge>
-                              {onMergeMemories && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => onMergeMemories(group.primary_id, [dup.id])}
-                                >
-                                  <Merge className="h-4 w-4" />
-                                </Button>
-                              )}
+                      <div className="space-y-2">
+                        {/* Memory 1 */}
+                        <div className="flex items-center justify-between p-2 rounded bg-background">
+                          <div>
+                            <div className="text-sm font-medium">{pair.memory_1.title}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Created: {new Date(pair.memory_1.created_at).toLocaleDateString()}
                             </div>
                           </div>
-                        ))}
+                          {onMergeMemories && pair.recommendation === 'keep_newer' && (
+                            <Badge variant="outline" className="text-green-500">Keep</Badge>
+                          )}
+                        </div>
+
+                        {/* Memory 2 */}
+                        <div className="flex items-center justify-between p-2 rounded bg-background">
+                          <div>
+                            <div className="text-sm font-medium">{pair.memory_2.title}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Created: {new Date(pair.memory_2.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {onMergeMemories && pair.recommendation === 'keep_older' && (
+                              <Badge variant="outline" className="text-green-500">Keep</Badge>
+                            )}
+                            {onMergeMemories && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onMergeMemories(pair.memory_1.id, [pair.memory_2.id])}
+                                title="Merge memories"
+                              >
+                                <Merge className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}

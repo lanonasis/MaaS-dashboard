@@ -1,35 +1,57 @@
 /**
  * React Hook for AI Orchestrator
  * Provides easy access to the AI assistant in any component
+ *
+ * Features:
+ * - AI-powered responses using LLM backend
+ * - Personalized context from user data and memories
+ * - Workflow planning and generation
+ * - Tool execution via MCP integration
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createAIOrchestrator, AIOrchestrator } from '@/lib/ai-orchestrator/core';
 import type { WorkflowPlan, AIMessage, UserContext } from '@/lib/ai-orchestrator/core';
 import { useSupabaseAuth } from './useSupabaseAuth';
 import { useToast } from './use-toast';
 
 export function useAIOrchestrator() {
-  const { user } = useSupabaseAuth();
+  const { user, session } = useSupabaseAuth();
   const { toast } = useToast();
   const [orchestrator, setOrchestrator] = useState<AIOrchestrator | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<AIMessage[]>([]);
+  const sessionTokenRef = useRef<string | null>(null);
 
   // Initialize orchestrator when user is available
   useEffect(() => {
     if (user) {
+      const authToken = session?.access_token || null;
+      sessionTokenRef.current = authToken;
+
       const userContext: UserContext = {
         user_id: user.id,
         user_email: user.email || '',
-        user_name: user.user_metadata?.full_name,
+        user_name: user.user_metadata?.full_name || user.user_metadata?.name,
+        preferences: user.user_metadata?.preferences,
         current_session_id: `session_${Date.now()}`
       };
 
-      const aiOrchestrator = createAIOrchestrator(userContext);
+      const aiOrchestrator = createAIOrchestrator(userContext, authToken || undefined);
       setOrchestrator(aiOrchestrator);
+    } else {
+      setOrchestrator(null);
+      sessionTokenRef.current = null;
     }
-  }, [user]);
+  }, [user, session?.access_token]);
+
+  // Update auth token when session changes
+  useEffect(() => {
+    if (orchestrator && session?.access_token && session.access_token !== sessionTokenRef.current) {
+      orchestrator.setAuthToken(session.access_token);
+      sessionTokenRef.current = session.access_token;
+    }
+  }, [orchestrator, session?.access_token]);
 
   /**
    * Send a message to the AI assistant
