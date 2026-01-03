@@ -13,6 +13,7 @@ import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { MemoryWorkbench } from "@/components/dashboard/MemoryWorkbench";
 import { MCPServicesPage } from "@/pages/MCPServicesPage";
 import { APIKeysPage } from "@/pages/APIKeysPage";
+import { MCPUsagePage } from "@/pages/MCPUsagePage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +36,7 @@ import {
   Brain,
   LogOut,
   Box,
+  TrendingUp,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -62,6 +64,7 @@ const Dashboard = () => {
     if (path.includes('/memory-analytics')) return 'memory-analytics';
     if (path.includes('/mcp-tracking')) return 'mcp-tracking';
     if (path.includes('/mcp-services')) return 'mcp-services';
+    if (path.includes('/mcp-usage')) return 'mcp-usage';
     if (path.includes('/ai-tools')) return 'ai-tools';
     if (path.includes('/extensions')) return 'extensions';
     if (path.includes('/upload')) return 'upload';
@@ -177,6 +180,10 @@ const Dashboard = () => {
               <span className="hidden sm:inline">Services</span><span className="sm:hidden">Svc</span>
               <Badge variant="secondary" className="text-[10px] md:text-xs hidden md:inline">New</Badge>
             </TabsTrigger>
+            <TabsTrigger value="mcp-usage" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+              <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Usage</span><span className="sm:hidden">Use</span>
+            </TabsTrigger>
             <TabsTrigger value="extensions" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
               <Settings className="h-3 w-3 md:h-4 md:w-4" />
               MCP
@@ -240,6 +247,10 @@ const Dashboard = () => {
 
           <TabsContent value="mcp-services">
             <MCPServicesPage />
+          </TabsContent>
+
+          <TabsContent value="mcp-usage">
+            <MCPUsagePage />
           </TabsContent>
 
           <TabsContent value="extensions">

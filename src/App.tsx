@@ -56,6 +56,7 @@ const App = () => (
                   <Route path="/dashboard/ai-tools" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                   <Route path="/dashboard/extensions" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                   <Route path="/dashboard/mcp-services" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/dashboard/mcp-usage" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                   <Route path="/api-docs" element={<ApiDocs />} />
                   <Route path="/docs" element={<ApiDocs />} />
                   <Route path="/api-analytics" element={<ApiAnalytics />} />
