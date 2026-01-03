@@ -84,7 +84,7 @@ export function AIAssistant() {
       {isOpen && (
         <Card
           className={cn(
-            "fixed bottom-6 right-6 shadow-2xl z-50 transition-all duration-300",
+            "fixed bottom-6 right-6 shadow-2xl z-50 transition-all duration-300 bg-card/95 backdrop-blur-sm border-border",
             isMinimized ? "w-80 h-16" : "w-96 h-[600px]"
           )}
         >
@@ -127,7 +127,7 @@ export function AIAssistant() {
           {!isMinimized && (
             <CardContent className="p-0 flex flex-col h-[calc(600px-73px)]">
               {/* Messages */}
-              <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+              <ScrollArea className="flex-1 p-4 bg-card" ref={scrollRef}>
                 {conversationHistory.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                     <div className="p-4 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900">
@@ -203,7 +203,7 @@ export function AIAssistant() {
               </ScrollArea>
 
               {/* Input Area */}
-              <div className="p-4 border-t bg-muted/20">
+              <div className="p-4 border-t bg-card">
                 <div className="flex items-center gap-2">
                   <Input
                     placeholder="Ask me anything..."
