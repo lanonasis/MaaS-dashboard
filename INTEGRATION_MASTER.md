@@ -12,16 +12,23 @@ This document consolidates all refinement plans for the MaaS Dashboard, includin
 
 ## Source Repositories
 
-### MaaS Dashboard (Current)
+### Environment Setup
+```bash
+# Set these environment variables or use the defaults
+export DASHBOARD_PATH="${DASHBOARD_PATH:-./apps/dashboard}"
+export VSECURE_PATH="${VSECURE_PATH:-../v-secure/vortex-secure}"
 ```
-/Users/seyederick/DevOps/_project_folders/lan-onasis-monorepo/apps/dashboard
+
+### MaaS Dashboard (Current)
+```bash
+# $DASHBOARD_PATH (apps/dashboard in monorepo)
 Branch: claude/refine-ai-dashboard-S3fMK
 ```
 
 ### v-secure Reference (Source for MCP Router)
-```
-/Users/seyederick/DevOps/_project_folders/v-secure
-Branch: claude/mcp-router-platform-UbyGf  <-- IMPORTANT: Must checkout this branch
+```bash
+# $VSECURE_PATH (external v-secure repo)
+Branch: claude/mcp-router-platform-UbyGf  # IMPORTANT: Must checkout this branch
 Subfolder: vortex-secure/
 ```
 
@@ -256,7 +263,7 @@ export function useCachedMemories(params: MemoryParams = {}) {
     queryFn: () => fetchMemoriesFromSupabase(user?.id, params),
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes (renamed from cacheTime in React Query v5)
   });
 }
 ```

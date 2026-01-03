@@ -15,6 +15,7 @@ import { MemoryWorkbench } from "@/components/dashboard/MemoryWorkbench";
 import { MCPServicesPage } from "@/pages/MCPServicesPage";
 import { APIKeysPage } from "@/pages/APIKeysPage";
 import { MCPUsagePage } from "@/pages/MCPUsagePage";
+import { IntelligencePanel } from "@/components/dashboard/IntelligencePanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -76,7 +77,14 @@ const Dashboard = () => {
         return (
           <div className="space-y-8">
             <UserProfile />
-            <ApiDashboard />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <ApiDashboard />
+              </div>
+              <div className="lg:col-span-1">
+                <IntelligencePanel compact />
+              </div>
+            </div>
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center space-y-4">
@@ -115,8 +123,15 @@ const Dashboard = () => {
       case 'memory-analytics':
         return (
           <div className="space-y-8">
-            <DashboardOverview />
-            <MemoryAnalytics />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <DashboardOverview />
+                <MemoryAnalytics />
+              </div>
+              <div className="lg:col-span-1">
+                <IntelligencePanel />
+              </div>
+            </div>
           </div>
         );
       case 'mcp-tracking':
@@ -150,8 +165,8 @@ const Dashboard = () => {
         {/* Sidebar */}
         <DashboardSidebar
           className={cn(
-            "fixed lg:relative inset-y-0 left-0 z-40 transform transition-transform duration-200 ease-in-out lg:transform-none",
-            "top-16 h-[calc(100vh-4rem)]",
+            "fixed lg:static left-0 top-16 bottom-0 z-40 transform transition-transform duration-200 ease-in-out lg:transform-none",
+            "lg:h-auto",
             sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           )}
           onNavigate={() => {

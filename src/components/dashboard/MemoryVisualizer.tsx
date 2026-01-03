@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -12,6 +12,14 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
   Database,
   Tag,
   RefreshCw,
@@ -23,6 +31,9 @@ import {
   StickyNote,
   FileCode,
   FileText,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
 } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,6 +106,19 @@ export function MemoryVisualizer() {
   });
   const { toast } = useToast();
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
+  // Detail dialog state
+  const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  // Ref to track if fetch has completed (prevents timeout toast after success)
+  const fetchCompletedRef = useRef(false);
+
   // Fetch memories from the API or Supabase directly
   const fetchMemories = useCallback(async () => {
     // Don't fetch if auth is still loading
@@ -112,21 +136,25 @@ export function MemoryVisualizer() {
     }
 
     setIsLoading(true);
+    fetchCompletedRef.current = false;
 
     // Set up timeout to prevent infinite loading states
+    // Only show timeout toast if the fetch hasn't completed yet
     const timeoutId = setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Request Timeout",
-        description: "Memory loading took too long. Please try again.",
-        variant: "destructive",
-      });
+      if (!fetchCompletedRef.current) {
+        setIsLoading(false);
+        toast({
+          title: "Request Timeout",
+          description: "Memory loading took too long. Please try again.",
+          variant: "destructive",
+        });
+      }
     }, 15000); // 15 second timeout
 
     try {
       const params: any = {
-        limit: 20,
-        page: 1,
+        limit: ITEMS_PER_PAGE,
+        page: page,
       };
 
       if (selectedType !== "all") {
@@ -220,6 +248,12 @@ export function MemoryVisualizer() {
       if (response.data) {
         setMemories(response.data);
 
+        // Update pagination info
+        if (response.pagination) {
+          setTotalCount(response.pagination.total || response.data.length);
+          setTotalPages(response.pagination.total_pages || 1);
+        }
+
         // Calculate stats
         const uniqueTags = new Set(response.data.flatMap((m) => m.tags || []));
         const totalAccess = response.data.reduce(
@@ -229,14 +263,14 @@ export function MemoryVisualizer() {
 
         setStats((prev) => ({
           ...prev,
-          totalMemories: response.data.length,
+          totalMemories: response.pagination?.total || response.data.length,
           totalTags: uniqueTags.size,
           totalAccess,
         }));
 
         toast({
           title: "Memories loaded successfully",
-          description: "Found " + response.data.length + " memory entries",
+          description: `Showing ${response.data.length} of ${response.pagination?.total || response.data.length} memories`,
         });
       } else if (response.error) {
         toast({
@@ -275,6 +309,7 @@ export function MemoryVisualizer() {
       });
       setMemories([]);
     } finally {
+      fetchCompletedRef.current = true;
       clearTimeout(timeoutId);
       setIsLoading(false);
     }
@@ -284,6 +319,7 @@ export function MemoryVisualizer() {
     selectedType,
     useCustomApiKey,
     customApiKey,
+    page,
     toast,
   ]);
 
@@ -312,6 +348,11 @@ export function MemoryVisualizer() {
     }
   }, [authUser]);
 
+  // Reset page when type filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [selectedType]);
+
   // Effect to fetch data when auth state changes
   useEffect(() => {
     if (!authLoading && (authUser || useCustomApiKey)) {
@@ -326,9 +367,29 @@ export function MemoryVisualizer() {
     selectedType,
     useCustomApiKey,
     customApiKey,
+    page,
     fetchMemories,
     fetchApiKeys,
   ]);
+
+  // Pagination handlers
+  const handlePreviousPage = () => {
+    if (page > 1) {
+      setPage(p => p - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (page < totalPages) {
+      setPage(p => p + 1);
+    }
+  };
+
+  // Open memory detail dialog
+  const handleOpenDetail = (memory: Memory) => {
+    setSelectedMemory(memory);
+    setIsDetailOpen(true);
+  };
 
   // Show loading state while auth is initializing
   if (authLoading) {
@@ -471,11 +532,13 @@ export function MemoryVisualizer() {
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              {memories.map((memory) => (
+            <>
+              <div className="space-y-3">
+                {memories.map((memory) => (
                 <Card
                   key={memory.id}
-                  className="hover:shadow-md transition-shadow border-l-4 border-l-transparent hover:border-l-primary"
+                  className="hover:shadow-md transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-primary group"
+                  onClick={() => handleOpenDetail(memory)}
                 >
                   <CardContent className="p-4">
                     <div className="space-y-3">
@@ -493,11 +556,14 @@ export function MemoryVisualizer() {
                             {memory.type}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          <span>
-                            {safeFormatDistanceToNow(memory.created_at)}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            <span>
+                              {safeFormatDistanceToNow(memory.created_at)}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -524,9 +590,126 @@ export function MemoryVisualizer() {
                 </Card>
               ))}
             </div>
+
+            {/* Pagination */}
+            {memories.length > 0 && (
+              <div className="flex items-center justify-between pt-4 border-t mt-4">
+                <span className="text-sm text-muted-foreground">
+                  Showing {((page - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(page * ITEMS_PER_PAGE, totalCount)} of {totalCount} memories
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 1 || isLoading}
+                    onClick={handlePreviousPage}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    Page {page} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages || isLoading}
+                    onClick={handleNextPage}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* Memory Detail Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] bg-card border-border">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-md bg-muted">
+                {selectedMemory && getTypeIcon(selectedMemory.type)}
+              </div>
+              <div>
+                <DialogTitle className="text-lg">
+                  {selectedMemory?.title || 'Memory Details'}
+                </DialogTitle>
+                <DialogDescription className="flex items-center gap-2 mt-1">
+                  <Badge
+                    variant="outline"
+                    className={selectedMemory ? getTypeBadgeColor(selectedMemory.type) + " text-xs" : ""}
+                  >
+                    {selectedMemory?.type}
+                  </Badge>
+                  <span className="text-xs">
+                    Created {selectedMemory && safeFormatDistanceToNow(selectedMemory.created_at)}
+                  </span>
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <ScrollArea className="max-h-[50vh] pr-4">
+            <div className="space-y-4">
+              {/* Content */}
+              <div>
+                <h4 className="text-sm font-medium mb-2 text-muted-foreground">Content</h4>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed bg-muted/50 p-4 rounded-lg">
+                  {selectedMemory?.content}
+                </p>
+              </div>
+
+              {/* Tags */}
+              {selectedMemory?.tags && selectedMemory.tags.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Tags</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedMemory.tags.map((tag, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-sm">
+                        <Tag className="h-3 w-3 mr-1" />
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Metadata */}
+              {selectedMemory?.metadata && Object.keys(selectedMemory.metadata).length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Metadata</h4>
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <pre className="text-xs overflow-x-auto">
+                      {JSON.stringify(selectedMemory.metadata, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                <div>
+                  <span className="text-xs text-muted-foreground">Access Count</span>
+                  <p className="text-sm font-medium">{selectedMemory?.access_count || 0}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground">Last Accessed</span>
+                  <p className="text-sm font-medium">
+                    {selectedMemory?.last_accessed_at
+                      ? safeFormatDistanceToNow(selectedMemory.last_accessed_at)
+                      : 'Never'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

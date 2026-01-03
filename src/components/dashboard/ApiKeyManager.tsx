@@ -394,22 +394,22 @@ export const ApiKeyManager = () => {
       <DialogTrigger asChild>
         <Button variant="outline">
           <Key className="h-4 w-4 mr-2" />
-          Manage API Keys
+          Memory API Keys
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] text-foreground bg-card border-border shadow-xl">
         <DialogHeader>
-          <DialogTitle className="text-foreground">API Key Management</DialogTitle>
+          <DialogTitle className="text-foreground">Memory Service API Keys</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Create, view and manage your API keys for accessing LanOnasis Memory
-            Service.
+            Create and manage API keys for accessing the LanOnasis Memory Service API.
+            These keys are different from MCP Router Keys.
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-2 mb-4">
-            <TabsTrigger value="create">Create API Key</TabsTrigger>
-            <TabsTrigger value="manage">Manage API Keys</TabsTrigger>
+            <TabsTrigger value="create">Create Key</TabsTrigger>
+            <TabsTrigger value="manage">Your Keys</TabsTrigger>
           </TabsList>
 
           <TabsContent value="create">

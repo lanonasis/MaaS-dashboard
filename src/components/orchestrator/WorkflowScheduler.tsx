@@ -61,6 +61,7 @@ export const WorkflowScheduler: React.FC = () => {
   const [scheduledWorkflows, setScheduledWorkflows] = useState<ScheduledWorkflow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [featureAvailable, setFeatureAvailable] = useState(true);
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
 
@@ -88,8 +89,9 @@ export const WorkflowScheduler: React.FC = () => {
         .order('next_run_at', { ascending: true });
 
       if (error) {
-        // If table doesn't exist, show empty state
-        if (error.code === '42P01') {
+        // If table doesn't exist or schema cache issue, show "Coming Soon"
+        if (error.code === '42P01' || error.message?.includes('schema cache')) {
+          setFeatureAvailable(false);
           setScheduledWorkflows([]);
           setIsLoading(false);
           return;
@@ -97,6 +99,7 @@ export const WorkflowScheduler: React.FC = () => {
         throw error;
       }
 
+      setFeatureAvailable(true);
       const normalized = (data || []).map((workflow) => ({
         ...workflow,
         schedule_type: isScheduleType(workflow.schedule_type) ? workflow.schedule_type : 'once'
@@ -105,11 +108,17 @@ export const WorkflowScheduler: React.FC = () => {
       setScheduledWorkflows(normalized);
     } catch (error: any) {
       console.error('Error fetching scheduled workflows:', error);
-      toast({
-        title: 'Load error',
-        description: error.message || 'Could not load scheduled workflows',
-        variant: 'destructive'
-      });
+      // Check for table not found errors
+      if (error.message?.includes('scheduled_workflow') || error.code === 'PGRST116') {
+        setFeatureAvailable(false);
+        setScheduledWorkflows([]);
+      } else {
+        toast({
+          title: 'Load error',
+          description: error.message || 'Could not load scheduled workflows',
+          variant: 'destructive'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -259,6 +268,112 @@ export const WorkflowScheduler: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+    );
+  }
+
+  // Feature not yet available - show Coming Soon state
+  if (!featureAvailable) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Calendar className="h-6 w-6" />
+              Workflow Scheduler
+              <Badge variant="secondary" className="ml-2 text-xs">Coming Soon</Badge>
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Schedule workflows to run automatically at specific times
+            </p>
+          </div>
+        </div>
+
+        <Card className="border-dashed">
+          <CardContent className="pt-6">
+            <div className="text-center py-12 space-y-4">
+              <div className="relative inline-block">
+                <Calendar className="h-16 w-16 mx-auto text-muted-foreground/50" />
+                <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-1">
+                  <Clock className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold">Workflow Scheduling Coming Soon</h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  We're building automated workflow scheduling to help you run AI workflows
+                  on a schedule. This feature will allow you to:
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto mt-6">
+                <div className="p-4 rounded-lg bg-muted/50 text-left">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">One-time Schedules</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Run workflows at a specific date and time
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50 text-left">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Repeat className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">Recurring Tasks</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Daily, weekly, or monthly automation
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50 text-left">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Play className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">Auto Execution</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Hands-free workflow automation
+                  </p>
+                </div>
+              </div>
+              <div className="pt-4">
+                <Badge variant="outline" className="text-xs">
+                  🚀 In Development
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Preview of what's coming */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              What to Expect
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <div className="flex items-start gap-3">
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
+                  1
+                </div>
+                <p>Define your workflow goal and select a schedule type</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
+                  2
+                </div>
+                <p>Set the date and time for execution</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
+                  3
+                </div>
+                <p>The system will automatically run your workflow and notify you of results</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
