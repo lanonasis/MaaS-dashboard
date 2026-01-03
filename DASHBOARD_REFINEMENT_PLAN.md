@@ -7,6 +7,22 @@ This plan addresses UI/UX issues in the MaaS dashboard, focusing on:
 2. Integration of the IntelligencePanel
 3. Memory loading performance and UX
 4. Data caching for better user experience
+5. **NEW: Integration of enhanced components from v-secure reference repo**
+
+---
+
+## Reference Repository: v-secure/vortex-secure
+
+The `v-secure` repository contains production-ready components that complete the MaaS dashboard:
+
+| Source File | Target Integration | Key Features |
+|-------------|-------------------|--------------|
+| `APIKeysPage.tsx` | Enhance ApiKeyManager | Service scoping, rate limits, stats cards, better UX |
+| `MCPServicesPage.tsx` | Replace MCPServerManager | Service catalog, health status, config modals |
+| `MCPUsagePage.tsx` | New Analytics tab | Charts (recharts), usage trends, request logs |
+| `MCPAccessMonitor.tsx` | MCP Tracking tab | Real-time sessions, activity logs, risk distribution |
+| `MemoriesPage.tsx` | Enhance MemoryVisualizer | Grid view, detail modal, filtering, pin/archive |
+| `mcp-router.ts` | Add to types | Complete TypeScript types for MCP router |
 
 ---
 
@@ -399,3 +415,175 @@ const { data: memories = [], isLoading, refetch } = useCachedMemories({
 - [ ] Memory detail dialog opens on click
 - [ ] Loading spinner has timeout fallback
 - [ ] Data persists across tab switches (caching)
+
+---
+
+## Phase 4: v-secure Component Integration (Major Overhaul)
+
+### 4.1 Enhanced API Keys Management
+
+**Source:** `/tmp/v-secure/vortex-secure/src/pages/APIKeysPage.tsx`
+
+**Key Features to Port:**
+- Stats cards (Total, Active, Revoked, Expiring Soon)
+- Service scoping (all services vs specific)
+- Environment restrictions (production, staging, development)
+- Rate limiting (per minute, per day)
+- Create modal with full configuration
+- Edit modal for updating keys
+- Newly created key alert with copy functionality
+- Better key list with metadata display
+
+**Integration Steps:**
+1. Copy types from `mcp-router.ts` to `src/types/mcp-router.ts`
+2. Update `ApiKeyManager.tsx` to use new UI structure
+3. Add stats calculation logic
+4. Implement service scope selection
+5. Add environment selector
+6. Connect to existing API endpoints
+
+### 4.2 MCP Services Catalog (Replace MCPServerManager)
+
+**Source:** `/tmp/v-secure/vortex-secure/src/pages/MCPServicesPage.tsx`
+
+**Key Features to Port:**
+- Service catalog grid with categories
+- Category icons and colors (payment, devops, AI, communication, storage, analytics)
+- Health status indicators (healthy, degraded, unhealthy, unknown)
+- Configure modal for credentials
+- Enable/disable toggle per service
+- Test connection functionality
+- Search and category filtering
+
+**Integration Steps:**
+1. Create `src/pages/MCPServicesPage.tsx`
+2. Port `ServiceConfigureModal.tsx` component
+3. Update routing in Dashboard.tsx
+4. Connect to user_tool_configs table
+5. Implement credential encryption storage
+
+### 4.3 MCP Usage Analytics
+
+**Source:** `/tmp/v-secure/vortex-secure/src/pages/MCPUsagePage.tsx`
+
+**Key Features to Port:**
+- Stats cards with trend indicators (% change vs last period)
+- Area chart for calls over time (using recharts)
+- Pie chart for service breakdown
+- Line chart for response time
+- Top actions bar chart
+- Recent requests table with status badges
+- Full request logs with pagination
+- Date range filter (7d, 30d, 90d)
+- Export functionality
+
+**Integration Steps:**
+1. Install `recharts` if not present
+2. Create `src/pages/MCPUsagePage.tsx`
+3. Create mock data generators for development
+4. Add to dashboard routing
+5. Connect to usage logging API
+
+### 4.4 MCP Access Monitoring
+
+**Source:** `/tmp/v-secure/vortex-secure/src/components/dashboard/MCPAccessMonitor.tsx`
+
+**Key Features to Port:**
+- Real-time stats (active sessions, tools, secrets accessed, avg duration)
+- Active MCP sessions list with risk badges
+- Session detail expansion
+- Revoke session functionality
+- Recent activity feed with severity icons
+- Risk level distribution chart
+- Supabase real-time subscriptions
+
+**Integration Steps:**
+1. Create `src/components/dashboard/MCPAccessMonitor.tsx`
+2. Set up Supabase tables (mcp_active_sessions, mcp_audit_log, mcp_tools)
+3. Implement real-time subscriptions
+4. Add to MCP Tracking tab
+5. Create session revocation API
+
+### 4.5 Enhanced Memories Page
+
+**Source:** `/tmp/v-secure/vortex-secure/src/pages/MemoriesPage.tsx`
+
+**Key Features to Port:**
+- Stats cards (Total, Active, Pinned, Encrypted, Storage)
+- Grid layout with category icons
+- Category and status filtering
+- Search by title, content, tags
+- Memory detail modal with full content
+- Pin/Archive/Delete actions
+- Tag display and management
+- Access count and last accessed tracking
+
+**Integration Steps:**
+1. Update `MemoryVisualizer.tsx` with new grid layout
+2. Add filtering UI
+3. Implement detail modal
+4. Add pin/archive/delete functionality
+5. Connect to memory API endpoints
+
+---
+
+## Revised Implementation Priority
+
+### Phase 1: Critical UI Fixes (Immediate - 1 hour)
+1. Fix AI Assistant transparency
+2. Fix Dialog transparency
+3. Add loading timeout for Memory Explorer
+
+### Phase 2: Feature Integration (Short-term - 2 hours)
+1. Integrate IntelligencePanel into Dashboard
+2. Add pagination to Memory Explorer
+3. Add memory detail/expand view
+
+### Phase 3: Performance (Medium-term - 1 hour)
+1. Implement React Query caching hooks
+2. Migrate components to use cached hooks
+3. Add prefetching for common routes
+
+### Phase 4: v-secure Integration (Major - 4-6 hours)
+1. Port types from mcp-router.ts
+2. Enhance API Keys management
+3. Create MCP Services page
+4. Create MCP Usage Analytics page
+5. Create MCP Access Monitoring component
+6. Enhance Memories page
+
+---
+
+## Dependencies to Add
+
+```bash
+bun add recharts @types/recharts
+```
+
+---
+
+## New Files to Create
+
+```
+src/types/mcp-router.ts              # Types from v-secure
+src/pages/MCPServicesPage.tsx        # Service catalog
+src/pages/MCPUsagePage.tsx           # Usage analytics
+src/components/dashboard/MCPAccessMonitor.tsx  # Access monitoring
+src/components/mcp-router/ServiceConfigureModal.tsx  # Config modal
+src/hooks/useCachedMemories.ts       # Cached memory hook
+src/hooks/useCachedProfile.ts        # Cached profile hook
+src/hooks/useCachedApiKeys.ts        # Cached API keys hook
+```
+
+---
+
+## Database Schema Additions (Supabase)
+
+Refer to: `/tmp/v-secure/vortex-secure/mcp-router-schema.sql`
+
+Key tables:
+- `mcp_service_catalog` - Available services
+- `user_mcp_services` - User's configured services
+- `mcp_usage_logs` - Request logs
+- `mcp_active_sessions` - Active MCP sessions
+- `mcp_audit_log` - Audit trail
