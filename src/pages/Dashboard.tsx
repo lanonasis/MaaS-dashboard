@@ -12,6 +12,7 @@ import { AIToolsSection } from "@/components/dashboard/AIToolsSection";
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { MemoryWorkbench } from "@/components/dashboard/MemoryWorkbench";
 import { MCPServicesPage } from "@/pages/MCPServicesPage";
+import { APIKeysPage } from "@/pages/APIKeysPage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -208,7 +209,7 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="api-keys">
-            <ApiDashboard />
+            <APIKeysPage />
           </TabsContent>
 
           <TabsContent value="orchestrator">
