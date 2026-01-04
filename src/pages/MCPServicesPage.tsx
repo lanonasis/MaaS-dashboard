@@ -345,12 +345,7 @@ export function MCPServicesPage() {
 
   const formatLastUsed = (date?: string) => {
     if (!date) return 'Never';
-    const d = new Date(date);
-    const diff = Date.now() - d.getTime();
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} mins ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
-    return d.toLocaleDateString();
+    return new Date(date).toLocaleDateString();
   };
 
   return (

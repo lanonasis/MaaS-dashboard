@@ -141,14 +141,15 @@ export function APIKeysPage() {
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<{ key: APIKey; fullKey: string } | null>(null);
 
-  // Stats
+  // Stats - use state to cache current time for purity
+  const [renderTime] = useState(() => Date.now());
   const stats = {
     total: apiKeys.length,
     active: apiKeys.filter(k => k.is_active).length,
     revoked: apiKeys.filter(k => !k.is_active).length,
     expiringSoon: apiKeys.filter(k => {
       if (!k.expires_at) return false;
-      const expiresIn = new Date(k.expires_at).getTime() - Date.now();
+      const expiresIn = new Date(k.expires_at).getTime() - renderTime;
       return expiresIn > 0 && expiresIn < 7 * 24 * 60 * 60 * 1000; // 7 days
     }).length,
   };
@@ -161,7 +162,7 @@ export function APIKeysPage() {
   const formatRelativeTime = (date?: string) => {
     if (!date) return 'Never';
     const d = new Date(date);
-    const diff = Date.now() - d.getTime();
+    const diff = renderTime - d.getTime();
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)} mins ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;

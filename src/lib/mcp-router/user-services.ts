@@ -506,7 +506,7 @@ export class UserServicesManager {
           headers['Notion-Version'] = '2022-06-28';
         }
         break;
-      default:
+      default: {
         // Generic Bearer token
         const token =
           credentials.api_key ||
@@ -515,6 +515,7 @@ export class UserServicesManager {
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
+      }
     }
 
     return headers;
