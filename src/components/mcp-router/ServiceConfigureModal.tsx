@@ -165,12 +165,12 @@ export function ServiceConfigureModal({
     return (
       <div key={field.key} className="space-y-2">
         <label className="block">
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-gray-700">
             {field.label}
             {field.required && <span className="text-red-500 ml-1">*</span>}
           </span>
           {field.description && (
-            <span className="block text-xs text-muted-foreground mt-0.5">{field.description}</span>
+            <span className="block text-xs text-gray-500 mt-0.5">{field.description}</span>
           )}
         </label>
 
@@ -179,9 +179,9 @@ export function ServiceConfigureModal({
             value={value}
             onChange={(e) => handleCredentialChange(field.key, e.target.value)}
             placeholder={field.placeholder}
-            className={`w-full px-3 py-2 border rounded-md text-sm font-mono bg-background ${
-              error ? 'border-red-500' : 'border-input'
-            } focus:outline-none focus:ring-2 focus:ring-ring`}
+            className={`w-full px-3 py-2 border rounded-md text-sm font-mono ${
+              error ? 'border-red-500' : 'border-gray-300'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
             rows={4}
           />
         ) : (
@@ -197,7 +197,7 @@ export function ServiceConfigureModal({
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility(field.key)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -220,23 +220,23 @@ export function ServiceConfigureModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-card rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-border">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="flex items-center space-x-3">
-            <h2 className="text-xl font-bold text-foreground">
+            <h2 className="text-xl font-bold text-gray-900">
               {existingConfig ? 'Update' : 'Configure'} {service.display_name}
             </h2>
             {service.is_beta && (
-              <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
                 Beta
               </Badge>
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-gray-400 hover:text-gray-600"
           >
             <X className="h-5 w-5" />
           </button>
@@ -245,11 +245,11 @@ export function ServiceConfigureModal({
         {/* Content */}
         <div className="px-6 py-4 overflow-y-auto max-h-[60vh]">
           {/* Service Info */}
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
             <div className="flex items-start space-x-3">
-              <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <Info className="h-5 w-5 text-blue-600 mt-0.5" />
               <div>
-                <p className="text-sm text-blue-800 dark:text-blue-200">
+                <p className="text-sm text-blue-800">
                   {service.description}
                 </p>
                 {service.documentation_url && (
@@ -257,7 +257,7 @@ export function ServiceConfigureModal({
                     href={service.documentation_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-2"
+                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mt-2"
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
                     View API Documentation
@@ -269,15 +269,15 @@ export function ServiceConfigureModal({
 
           {/* Existing Config Warning */}
           {existingConfig && (
-            <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+            <div className="mb-6 p-4 bg-yellow-50 rounded-lg">
               <div className="flex items-start space-x-3">
-                <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
                 <div>
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="text-sm text-yellow-800">
                     This service is already configured. Enter new credentials to update.
                     Leave fields empty to keep existing values.
                   </p>
-                  <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                  <p className="text-xs text-yellow-600 mt-1">
                     Last updated: {new Date(existingConfig.updated_at).toLocaleString()}
                   </p>
                 </div>
@@ -292,10 +292,10 @@ export function ServiceConfigureModal({
 
           {/* Environment Selection */}
           <div className="mt-6">
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Environment
             </label>
-            <select className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm">
+            <select className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
               <option value="production">Production</option>
               <option value="staging">Staging</option>
               <option value="development">Development</option>
@@ -308,9 +308,9 @@ export function ServiceConfigureModal({
               <input
                 type="checkbox"
                 defaultChecked={true}
-                className="rounded border-input"
+                className="rounded border-gray-300"
               />
-              <span className="text-sm text-foreground">Enable immediately after saving</span>
+              <span className="text-sm text-gray-700">Enable immediately after saving</span>
             </label>
           </div>
 
@@ -319,15 +319,15 @@ export function ServiceConfigureModal({
             <div
               className={`mt-4 p-4 rounded-lg ${
                 testResult.success
-                  ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-200'
-                  : 'bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200'
+                  ? 'bg-green-50 text-green-800'
+                  : 'bg-red-50 text-red-800'
               }`}
             >
               <div className="flex items-center space-x-2">
                 {testResult.success ? (
-                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <CheckCircle className="h-5 w-5 text-green-600" />
                 ) : (
-                  <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  <XCircle className="h-5 w-5 text-red-600" />
                 )}
                 <span className="text-sm font-medium">{testResult.message}</span>
               </div>
@@ -336,7 +336,7 @@ export function ServiceConfigureModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/50">
+        <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-50">
           <Button
             variant="outline"
             onClick={handleTestConnection}
