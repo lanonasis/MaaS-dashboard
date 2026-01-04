@@ -62,13 +62,6 @@ export function VPSManagementPage() {
   const [command, setCommand] = useState('');
   const [executingCommand, setExecutingCommand] = useState(false);
 
-  useEffect(() => {
-    loadVPSData();
-    // Refresh every 30 seconds
-    const interval = setInterval(loadVPSData, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   const loadVPSData = async () => {
     setLoading(true);
     // Mock VPS data - replace with actual API calls
@@ -118,6 +111,17 @@ export function VPSManagementPage() {
       setLoading(false);
     }, 1000);
   };
+
+  // Load VPS data on mount and refresh every 30 seconds
+  useEffect(() => {
+    // Use timeout to avoid synchronous setState in effect
+    const timeoutId = setTimeout(loadVPSData, 0);
+    const interval = setInterval(loadVPSData, 30000);
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(interval);
+    };
+  }, []);
 
   const executeCommand = async (serverId: string, cmd: string) => {
     if (!cmd.trim()) return;
