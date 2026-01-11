@@ -13,14 +13,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ReactNode } from 'react';
-import { CentralAuthProvider, useCentralAuth } from '../useCentralAuth';
+
+type CentralAuthModule = typeof import('../useCentralAuth');
+
+let CentralAuthProvider: CentralAuthModule['CentralAuthProvider'];
+let useCentralAuth: CentralAuthModule['useCentralAuth'];
 
 // Mock central auth client
-const mockHealthCheck = vi.fn();
-const mockGetCurrentSession = vi.fn();
-const mockLogin = vi.fn();
-const mockLogout = vi.fn();
-const mockHandleCallback = vi.fn();
+const {
+  mockHealthCheck,
+  mockGetCurrentSession,
+  mockLogin,
+  mockLogout,
+  mockHandleCallback,
+} = vi.hoisted(() => ({
+  mockHealthCheck: vi.fn(),
+  mockGetCurrentSession: vi.fn(),
+  mockLogin: vi.fn(),
+  mockLogout: vi.fn(),
+  mockHandleCallback: vi.fn(),
+}));
 
 vi.mock('@/lib/central-auth', () => ({
   centralAuth: {
@@ -43,23 +55,42 @@ vi.mock('@/lib/secure-token-storage', () => ({
 }));
 
 // Mock Supabase fallback
-const mockSupabaseAuth = {
+const mockProfileResponse = vi.hoisted(() => ({
+  data: null as unknown,
+  error: null as unknown,
+}));
+
+const mockSupabaseFrom = vi.hoisted(() =>
+  vi.fn(() => {
+    const builder = {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      maybeSingle: vi.fn(() => Promise.resolve(mockProfileResponse)),
+      insert: vi.fn(() => Promise.resolve({ error: null })),
+    };
+    return builder;
+  })
+);
+
+const mockSupabaseAuth = vi.hoisted(() => ({
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(() => ({
     data: { subscription: { unsubscribe: vi.fn() } },
   })),
   signInWithPassword: vi.fn(),
+  signUp: vi.fn(),
   signOut: vi.fn(),
-};
+}));
 
-vi.mock('@/lib/supabase', () => ({
+vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     auth: mockSupabaseAuth,
+    from: mockSupabaseFrom,
   },
 }));
 
 // Mock router
-const mockNavigate = vi.fn();
+const mockNavigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
@@ -69,9 +100,10 @@ vi.mock('react-router-dom', async () => {
 });
 
 // Mock toast
+const mockToast = vi.hoisted(() => vi.fn());
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
-    toast: vi.fn(),
+    toast: mockToast,
   }),
 }));
 
@@ -82,10 +114,30 @@ const createWrapper = ({ children }: { children: ReactNode }) => (
 );
 
 describe('useCentralAuth Hook', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
     process.env.VITE_USE_CENTRAL_AUTH = 'true';
     process.env.VITE_USE_FALLBACK_AUTH = 'true';
+    mockProfileResponse.data = null;
+    mockProfileResponse.error = null;
+    mockSupabaseAuth.getSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+    mockSupabaseAuth.signOut.mockResolvedValue({ error: null });
+
+    const mod = await import('../useCentralAuth');
+    CentralAuthProvider = mod.CentralAuthProvider;
+    useCentralAuth = mod.useCentralAuth;
   });
 
   describe('Initialization', () => {
@@ -155,15 +207,9 @@ describe('useCentralAuth Hook', () => {
   });
 
   describe('Login', () => {
-    it('should login with email and password', async () => {
-      const mockSession = {
-        access_token: 'token-123',
-        user: { id: 'user-123', email: 'test@example.com' },
-      };
-
+    it('should sign in with Supabase when no central session', async () => {
       mockHealthCheck.mockResolvedValue(true);
       mockGetCurrentSession.mockResolvedValue(null);
-      mockLogin.mockResolvedValue(mockSession);
 
       const { result } = renderHook(() => useCentralAuth(), {
         wrapper: createWrapper,
@@ -173,16 +219,23 @@ describe('useCentralAuth Hook', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      await result.current.login('test@example.com', 'password123');
+      await result.current.signIn('test@example.com', 'password123');
 
-      expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
-      expect(result.current.session).toEqual(mockSession);
+      expect(mockSupabaseAuth.signInWithPassword).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'password123',
+      });
+      expect(mockLogin).not.toHaveBeenCalled();
     });
 
-    it('should handle login errors', async () => {
+    it('should surface sign-in errors via toast', async () => {
+      const error = new Error('Invalid credentials');
       mockHealthCheck.mockResolvedValue(true);
       mockGetCurrentSession.mockResolvedValue(null);
-      mockLogin.mockRejectedValue(new Error('Invalid credentials'));
+      mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+        data: { session: null },
+        error,
+      });
 
       const { result } = renderHook(() => useCentralAuth(), {
         wrapper: createWrapper,
@@ -192,9 +245,19 @@ describe('useCentralAuth Hook', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      await expect(
-        result.current.login('test@example.com', 'wrongpassword')
-      ).rejects.toThrow('Invalid credentials');
+      await result.current.signIn('test@example.com', 'wrongpassword');
+
+      expect(mockSupabaseAuth.signInWithPassword).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'wrongpassword',
+      });
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Error signing in',
+          description: 'Invalid credentials',
+          variant: 'destructive',
+        })
+      );
     });
   });
 
@@ -217,11 +280,13 @@ describe('useCentralAuth Hook', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      await result.current.logout();
+      await result.current.signOut();
 
       expect(mockLogout).toHaveBeenCalled();
-      expect(result.current.session).toBeNull();
-      expect(result.current.user).toBeNull();
+      await waitFor(() => {
+        expect(result.current.session).toBeNull();
+        expect(result.current.user).toBeNull();
+      });
     });
   });
 
@@ -236,16 +301,14 @@ describe('useCentralAuth Hook', () => {
         id: 'user-123',
         email: 'test@example.com',
         full_name: 'Test User',
+        company_name: null,
+        avatar_url: null,
+        role: 'user',
       };
 
       mockHealthCheck.mockResolvedValue(true);
       mockGetCurrentSession.mockResolvedValue(mockSession);
-
-      // Mock profile fetch
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockProfile),
-      });
+      mockProfileResponse.data = mockProfile;
 
       const { result } = renderHook(() => useCentralAuth(), {
         wrapper: createWrapper,
@@ -256,7 +319,7 @@ describe('useCentralAuth Hook', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.profile).toBeDefined();
+        expect(result.current.profile).toEqual(mockProfile);
       });
     });
   });
@@ -267,10 +330,22 @@ describe('useCentralAuth Hook', () => {
         access_token: 'token-123',
         user: { id: 'user-123', email: 'test@example.com' },
       };
+      const mockProfile = {
+        id: 'user-123',
+        email: 'test@example.com',
+        full_name: 'Test User',
+        company_name: null,
+        avatar_url: null,
+        role: 'user',
+      };
 
       mockHealthCheck.mockResolvedValue(true);
       mockGetCurrentSession.mockResolvedValue(null);
-      mockHandleCallback.mockResolvedValue(mockSession);
+      mockSupabaseAuth.getSession.mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+      mockProfileResponse.data = mockProfile;
 
       const { result } = renderHook(() => useCentralAuth(), {
         wrapper: createWrapper,
@@ -282,7 +357,7 @@ describe('useCentralAuth Hook', () => {
 
       await result.current.handleAuthCallback();
 
-      expect(mockHandleCallback).toHaveBeenCalled();
+      expect(mockSupabaseAuth.getSession).toHaveBeenCalled();
       expect(result.current.session).toEqual(mockSession);
     });
   });
