@@ -12,40 +12,46 @@ const mockSupabaseQuery = vi.fn();
 const mockSupabaseInsert = vi.fn();
 const mockSupabaseUpdate = vi.fn();
 
+// Create a chainable mock builder that properly handles Supabase query chaining
+// The query builder returns itself for all chainable methods and is thenable
+const createChainableMock = (finalFn: typeof mockSupabaseQuery) => {
+  const chainable: any = {};
+
+  // All chainable methods return the same chainable object
+  chainable.select = vi.fn().mockReturnValue(chainable);
+  chainable.eq = vi.fn().mockReturnValue(chainable);
+  chainable.or = vi.fn().mockReturnValue(chainable);
+  chainable.order = vi.fn().mockReturnValue(chainable);
+  chainable.single = vi.fn().mockImplementation(() => finalFn());
+
+  // Make the chainable thenable so it can be awaited
+  chainable.then = (resolve: any, reject?: any) => finalFn().then(resolve, reject);
+
+  return chainable;
+};
+
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
-    from: (table: string) => {
+    from: vi.fn().mockImplementation(() => {
+      const queryChain = createChainableMock(mockSupabaseQuery);
+
       return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockImplementation(() => mockSupabaseQuery()),
-              single: vi.fn().mockImplementation(() => mockSupabaseQuery()),
-            }),
-            order: vi.fn().mockImplementation(() => mockSupabaseQuery()),
-            single: vi.fn().mockImplementation(() => mockSupabaseQuery()),
-          }),
-          or: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockImplementation(() => mockSupabaseQuery()),
-            }),
-          }),
-          order: vi.fn().mockImplementation(() => mockSupabaseQuery()),
-        }),
+        select: vi.fn().mockReturnValue(queryChain),
         insert: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
             single: vi.fn().mockImplementation(() => mockSupabaseInsert()),
           }),
         }),
         update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockImplementation(() => ({
             select: vi.fn().mockReturnValue({
               single: vi.fn().mockImplementation(() => mockSupabaseUpdate()),
             }),
-          }),
+            then: (resolve: any) => mockSupabaseUpdate().then(resolve),
+          })),
         }),
       };
-    },
+    }),
   },
 }));
 
@@ -509,22 +515,23 @@ describe('ServiceCatalogManager', () => {
 
     describe('disableService', () => {
       it('disables a service', async () => {
-        const mockUpdate = vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ error: null }),
-        });
+        // The mock for update().eq() returns successfully from mockSupabaseUpdate
+        mockSupabaseUpdate.mockResolvedValue({ error: null });
 
-        vi.doMock('@/integrations/supabase/client', () => ({
-          supabase: {
-            from: () => ({
-              update: mockUpdate,
-            }),
-          },
-        }));
-
-        // Re-import to get fresh mock
+        // This should not throw since mockSupabaseUpdate resolves without error
         await expect(
           ServiceCatalogManager.disableService('github')
         ).resolves.not.toThrow();
+      });
+
+      it('throws error on failure', async () => {
+        mockSupabaseUpdate.mockResolvedValue({
+          error: { message: 'Service not found' }
+        });
+
+        await expect(
+          ServiceCatalogManager.disableService('invalid-key')
+        ).rejects.toThrow('Failed to disable service: Service not found');
       });
     });
   });

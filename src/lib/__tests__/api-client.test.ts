@@ -159,8 +159,9 @@ describe('ApiClient', () => {
           search: 'test',
         });
 
+        // URLSearchParams encodes commas as %2C
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringMatching(/page=2.*limit=10.*type=context.*tags=tag1,tag2.*search=test/),
+          expect.stringMatching(/page=2.*limit=10.*type=context.*tags=tag1(%2C|,)tag2.*search=test/),
           expect.any(Object)
         );
       });
