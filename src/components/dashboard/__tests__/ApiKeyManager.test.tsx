@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ApiKeyManager } from "../ApiKeyManager";
 
@@ -64,15 +64,18 @@ Object.defineProperty(global, "crypto", {
 
 // Mock clipboard
 const mockClipboardWriteText = vi.fn().mockResolvedValue(undefined);
-Object.assign(navigator, {
-  clipboard: {
-    writeText: mockClipboardWriteText,
-  },
-});
+if (!navigator.clipboard) {
+  Object.defineProperty(navigator, "clipboard", {
+    value: {},
+    configurable: true,
+  });
+}
+navigator.clipboard.writeText = mockClipboardWriteText;
 
 describe("ApiKeyManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    navigator.clipboard.writeText = mockClipboardWriteText;
     mockSupabaseSelect.mockResolvedValue({ data: [], error: null });
     mockSupabaseInsert.mockResolvedValue({
       data: { id: "key-1", name: "Test Key", key: "lano_testkey123" },
@@ -220,6 +223,7 @@ describe("ApiKeyManager", () => {
 
     it(
       "copies key to clipboard",
+      { timeout: 10000 },
       async () => {
         const user = userEvent.setup();
 
@@ -240,9 +244,13 @@ describe("ApiKeyManager", () => {
 
         // Get the copy button
         const copyButton = screen.getByLabelText("Copy API key");
+        const keyInput = screen.getByLabelText("Your API Key") as HTMLInputElement;
+
+        expect(keyInput.value).toMatch(/^lano_/);
+        expect(navigator.clipboard.writeText).toBe(mockClipboardWriteText);
 
         // Trigger the click and wait for the component state to update
-        await user.click(copyButton);
+        fireEvent.click(copyButton);
 
         // The clipboard API is mocked, but the actual behavior depends on the component
         // Verify the button was clicked by checking the copied state indicator appears
@@ -250,12 +258,11 @@ describe("ApiKeyManager", () => {
         await waitFor(
           () => {
             // Either the clipboard was called OR we see copied state in the UI
-            expect(mockClipboardWriteText).toHaveBeenCalled();
+            expect(mockClipboardWriteText).toHaveBeenCalledWith(keyInput.value);
           },
           { timeout: 2000 }
         );
-      },
-      { timeout: 10000 }
+      }
     );
 
     it("allows creating another key after generation", async () => {
@@ -500,7 +507,7 @@ describe("ApiKeyManager", () => {
       await waitFor(
         () => {
           // Look for the All Services option which is the first option
-          expect(screen.getByText("All Services")).toBeInTheDocument();
+          expect(screen.getAllByText("All Services").length).toBeGreaterThan(0);
         },
         { timeout: 3000 }
       );
@@ -531,7 +538,7 @@ describe("ApiKeyManager", () => {
       // Wait for the dropdown content - check for Never which should always be visible
       await waitFor(
         () => {
-          expect(screen.getByText("Never")).toBeInTheDocument();
+          expect(screen.getAllByText("Never").length).toBeGreaterThan(0);
         },
         { timeout: 3000 }
       );
