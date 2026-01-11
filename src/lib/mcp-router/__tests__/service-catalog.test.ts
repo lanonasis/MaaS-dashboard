@@ -12,10 +12,29 @@ const mockSupabaseQuery = vi.fn();
 const mockSupabaseInsert = vi.fn();
 const mockSupabaseUpdate = vi.fn();
 
+// Type for Supabase query response
+interface SupabaseResponse<T = unknown> {
+  data: T | null;
+  error: Error | null;
+}
+
+// Type for chainable Supabase query builder
+interface ChainableQuery {
+  select: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+  or: ReturnType<typeof vi.fn>;
+  order: ReturnType<typeof vi.fn>;
+  single: ReturnType<typeof vi.fn>;
+  then: <TResult = SupabaseResponse>(
+    onfulfilled?: ((value: SupabaseResponse) => TResult | PromiseLike<TResult>) | null,
+    onrejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null
+  ) => Promise<TResult>;
+}
+
 // Create a chainable mock builder that properly handles Supabase query chaining
 // The query builder returns itself for all chainable methods and is thenable
-const createChainableMock = (finalFn: typeof mockSupabaseQuery) => {
-  const chainable: any = {};
+const createChainableMock = (finalFn: typeof mockSupabaseQuery): ChainableQuery => {
+  const chainable = {} as ChainableQuery;
 
   // All chainable methods return the same chainable object
   chainable.select = vi.fn().mockReturnValue(chainable);
@@ -25,7 +44,10 @@ const createChainableMock = (finalFn: typeof mockSupabaseQuery) => {
   chainable.single = vi.fn().mockImplementation(() => finalFn());
 
   // Make the chainable thenable so it can be awaited
-  chainable.then = (resolve: any, reject?: any) => finalFn().then(resolve, reject);
+  chainable.then = <TResult = SupabaseResponse>(
+    onfulfilled?: ((value: SupabaseResponse) => TResult | PromiseLike<TResult>) | null,
+    onrejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null
+  ): Promise<TResult> => finalFn().then(onfulfilled, onrejected);
 
   return chainable;
 };
@@ -47,7 +69,9 @@ vi.mock('@/integrations/supabase/client', () => ({
             select: vi.fn().mockReturnValue({
               single: vi.fn().mockImplementation(() => mockSupabaseUpdate()),
             }),
-            then: (resolve: any) => mockSupabaseUpdate().then(resolve),
+            then: <TResult = SupabaseResponse>(
+              onfulfilled?: ((value: SupabaseResponse) => TResult | PromiseLike<TResult>) | null
+            ): Promise<TResult> => mockSupabaseUpdate().then(onfulfilled),
           })),
         }),
       };
