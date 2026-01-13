@@ -221,49 +221,38 @@ describe("ApiKeyManager", () => {
       );
     });
 
-    it(
-      "copies key to clipboard",
-      { timeout: 10000 },
-      async () => {
-        const user = userEvent.setup();
+    it("copies key to clipboard", async () => {
+      const user = userEvent.setup();
 
-        render(<ApiKeyManager />);
+      render(<ApiKeyManager />);
 
-        await user.click(
-          screen.getByRole("button", { name: /memory api keys/i })
-        );
+      await user.click(
+        screen.getByRole("button", { name: /memory api keys/i })
+      );
 
-        await user.type(screen.getByLabelText("Key Name"), "Test Key");
-        await user.click(
-          screen.getByRole("button", { name: /generate api key/i })
-        );
+      await user.type(screen.getByLabelText("Key Name"), "Test Key");
+      await user.click(
+        screen.getByRole("button", { name: /generate api key/i })
+      );
 
-        await waitFor(() => {
-          expect(screen.getByLabelText("Copy API key")).toBeInTheDocument();
-        });
+      await waitFor(() => {
+        expect(screen.getByLabelText("Copy API key")).toBeInTheDocument();
+      });
 
-        // Get the copy button
-        const copyButton = screen.getByLabelText("Copy API key");
-        const keyInput = screen.getByLabelText("Your API Key") as HTMLInputElement;
+      // Get the copy button and key input
+      const copyButton = screen.getByLabelText("Copy API key");
+      const keyInput = screen.getByLabelText("Your API Key") as HTMLInputElement;
 
-        expect(keyInput.value).toMatch(/^lano_/);
-        expect(navigator.clipboard.writeText).toBe(mockClipboardWriteText);
+      expect(keyInput.value).toMatch(/^lano_/);
 
-        // Trigger the click and wait for the component state to update
-        fireEvent.click(copyButton);
+      // Click copy button
+      await user.click(copyButton);
 
-        // The clipboard API is mocked, but the actual behavior depends on the component
-        // Verify the button was clicked by checking the copied state indicator appears
-        // If the copy succeeded, the component would show a "Copied!" state
-        await waitFor(
-          () => {
-            // Either the clipboard was called OR we see copied state in the UI
-            expect(mockClipboardWriteText).toHaveBeenCalledWith(keyInput.value);
-          },
-          { timeout: 2000 }
-        );
-      }
-    );
+      // Verify clipboard was called with the key value
+      await waitFor(() => {
+        expect(mockClipboardWriteText).toHaveBeenCalledWith(keyInput.value);
+      });
+    });
 
     it("allows creating another key after generation", async () => {
       const user = userEvent.setup();
