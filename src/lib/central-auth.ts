@@ -360,6 +360,54 @@ class CentralAuthClient {
     return session;
   }
 
+  // Exchange Supabase token for cross-domain SSO cookies
+  // This sets the lanonasis_session and lanonasis_user cookies on .lanonasis.com
+  async exchangeSupabaseToken(supabaseAccessToken: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/v1/auth/token/exchange`, {
+        method: 'POST',
+        credentials: 'include', // Important: include cookies in request/response
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAccessToken}`,
+          'X-Platform': PLATFORM,
+          'X-Project-Scope': PROJECT_SCOPE,
+        },
+      });
+
+      if (response.ok) {
+        console.log('CentralAuth: SSO cookies set successfully');
+        return true;
+      }
+
+      console.warn('CentralAuth: Token exchange failed', {
+        status: response.status,
+        statusText: response.statusText,
+      });
+      return false;
+    } catch (error) {
+      console.warn('CentralAuth: Token exchange error', error);
+      return false;
+    }
+  }
+
+  // Clear SSO cookies on logout
+  async clearSSOCookies(): Promise<void> {
+    try {
+      await fetch(`${API_BASE_URL}/v1/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'X-Platform': PLATFORM,
+          'X-Project-Scope': PROJECT_SCOPE,
+        },
+      });
+      console.log('CentralAuth: SSO cookies cleared');
+    } catch (error) {
+      console.warn('CentralAuth: Failed to clear SSO cookies', error);
+    }
+  }
+
   // Health check to verify central auth is available
   async healthCheck(): Promise<boolean> {
     try {
