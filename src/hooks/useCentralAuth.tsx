@@ -135,6 +135,12 @@ export const CentralAuthProvider = ({
           setUser(supabaseSession.user);
           setIsUsingCentralAuth(false);
           await fetchProfile(supabaseSession.user.id);
+
+          // Sync SSO cookies on page load with existing session
+          if (supabaseSession.access_token) {
+            centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
+              .catch((err) => console.warn("SSO cookie sync on load failed:", err));
+          }
         }
 
         // Set up Supabase auth state listener
@@ -151,6 +157,12 @@ export const CentralAuthProvider = ({
 
           if (supabaseSession?.user) {
             await fetchProfile(supabaseSession.user.id);
+
+            // Sync SSO cookies for cross-subdomain authentication
+            if (event === "SIGNED_IN" && supabaseSession.access_token) {
+              centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
+                .catch((err) => console.warn("SSO cookie sync failed:", err));
+            }
 
             // Handle OAuth callback
             if (
@@ -381,6 +393,9 @@ export const CentralAuthProvider = ({
 
   const signOut = async () => {
     try {
+      // Clear SSO cookies for cross-subdomain logout
+      await centralAuth.clearSSOCookies();
+
       if (isUsingCentralAuth) {
         await centralAuth.logout();
       } else {
