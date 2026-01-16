@@ -16,6 +16,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@lanonasis/mem-intel-sdk": "^1.0.1",
     "@lanonasis/memory-client": "^2.0.0",
+    "@lanonasis/shared-auth": "workspace:*",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
