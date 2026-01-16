@@ -1,11 +1,13 @@
 // Direct Supabase Auth Hook
 // This hook provides a simplified interface for working directly with Supabase auth
+// Updated to sync with auth-gateway SSO cookies for cross-subdomain authentication
 
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
+import { centralAuth } from "@/lib/central-auth";
 
 type Profile = {
   id: string;
@@ -47,6 +49,9 @@ export const SupabaseAuthProvider = ({
 
   // Add error state to track initialization issues
   const [initError, setInitError] = useState<string | null>(null);
+
+  // Track last synced token to avoid duplicate SSO syncs
+  const lastSyncedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     console.log("SupabaseAuthProvider: Initializing auth");
@@ -128,6 +133,17 @@ export const SupabaseAuthProvider = ({
         fetchProfile(supabaseSession.user.id).catch((err) => {
           console.error("Error fetching profile (non-blocking):", err);
         });
+
+        // Sync SSO cookies if we have a session but haven't synced yet
+        // This handles page reload scenarios where Supabase session exists but SSO cookies may not
+        const accessToken = supabaseSession.access_token;
+        if (accessToken && accessToken !== lastSyncedTokenRef.current) {
+          lastSyncedTokenRef.current = accessToken;
+          console.log("SupabaseAuthProvider: Initial SSO sync on session restore");
+          centralAuth.exchangeSupabaseToken(accessToken).catch((error) => {
+            console.warn("SupabaseAuthProvider: Initial SSO sync failed (non-critical):", error);
+          });
+        }
       } else {
         console.log("SupabaseAuthProvider: No session found");
       }
@@ -165,6 +181,27 @@ export const SupabaseAuthProvider = ({
             // Fetch user profile when signed in
             await fetchProfile(supabaseSession.user.id);
 
+            // Sync with auth-gateway to set SSO cookies for cross-subdomain auth
+            // This enables seamless authentication across dashboard, API, MCP, etc.
+            const accessToken = supabaseSession.access_token;
+            if (accessToken && accessToken !== lastSyncedTokenRef.current) {
+              lastSyncedTokenRef.current = accessToken;
+              console.log("SupabaseAuthProvider: Syncing SSO cookies with auth-gateway");
+
+              // Non-blocking SSO sync - don't wait for it to complete
+              centralAuth.exchangeSupabaseToken(accessToken)
+                .then((success) => {
+                  if (success) {
+                    console.log("SupabaseAuthProvider: SSO cookies synced successfully");
+                  } else {
+                    console.warn("SupabaseAuthProvider: SSO cookie sync failed (non-critical)");
+                  }
+                })
+                .catch((error) => {
+                  console.warn("SupabaseAuthProvider: SSO sync error (non-critical):", error);
+                });
+            }
+
             // Show welcome toast
             toast({
               title: "Welcome!",
@@ -186,8 +223,15 @@ export const SupabaseAuthProvider = ({
           setSession(null);
           setUser(null);
           setProfile(null);
+          lastSyncedTokenRef.current = null;
 
           if (event === "SIGNED_OUT") {
+            // Clear SSO cookies from auth-gateway (non-blocking)
+            console.log("SupabaseAuthProvider: Clearing SSO cookies");
+            centralAuth.clearSSOCookies().catch((error) => {
+              console.warn("SupabaseAuthProvider: Failed to clear SSO cookies:", error);
+            });
+
             // Redirect to home page on sign out
             navigate("/");
 
