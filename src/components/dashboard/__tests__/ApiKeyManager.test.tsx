@@ -56,7 +56,7 @@ const mockCryptoSubtle = {
   digest: vi.fn().mockResolvedValue(new ArrayBuffer(32)),
 };
 
-Object.defineProperty(global, "crypto", {
+Object.defineProperty(globalThis, "crypto", {
   value: {
     subtle: mockCryptoSubtle,
   },
@@ -241,7 +241,9 @@ describe("ApiKeyManager", () => {
 
       // Get the copy button and key input
       const copyButton = screen.getByLabelText("Copy API key");
-      const keyInput = screen.getByLabelText("Your API Key") as HTMLInputElement;
+      const keyInput = screen.getByLabelText(
+        "Your API Key"
+      ) as HTMLInputElement;
 
       expect(keyInput.value).toMatch(/^lano_/);
 
