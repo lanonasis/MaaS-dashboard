@@ -262,6 +262,20 @@ export function MemoryVisualizer() {
   // Update memory mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Memory> }) => {
+      // Use API client for custom API key users
+      if (useCustomApiKey && customApiKey) {
+        const response = await apiClient.updateMemory(id, {
+          title: updates.title,
+          content: updates.content,
+          type: updates.type,
+          tags: updates.tags,
+        }, customApiKey);
+
+        if (response.error) throw new Error(response.error);
+        return { id, updates };
+      }
+
+      // Use Supabase directly for authenticated users
       const { error } = await supabase
         .from("memory_entries")
         .update({
@@ -299,6 +313,14 @@ export function MemoryVisualizer() {
   // Delete memory mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Use API client for custom API key users
+      if (useCustomApiKey && customApiKey) {
+        const response = await apiClient.deleteMemory(id, customApiKey);
+        if (response.error) throw new Error(response.error);
+        return id;
+      }
+
+      // Use Supabase directly for authenticated users
       const { error } = await supabase
         .from("memory_entries")
         .delete()
