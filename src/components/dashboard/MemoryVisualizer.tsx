@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -11,13 +11,32 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Database,
@@ -34,15 +53,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Pencil,
+  Trash2,
+  Save,
+  X,
 } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, type Memory } from "@/lib/api-client";
-import type { Database as SupabaseDatabase } from "@/integrations/supabase/types";
-
-type SupabaseApiKey = SupabaseDatabase["public"]["Tables"]["api_keys"]["Row"];
 
 const getTypeIcon = (type: string) => {
   const iconMap: Record<string, any> = {
@@ -89,306 +110,278 @@ const safeFormatDistanceToNow = (value: string | Date | null | undefined) => {
   }
 };
 
+// Content formatter - clean up raw content for display
+const formatContent = (content: string): string => {
+  if (!content) return '';
+
+  // Try to detect and format JSON
+  if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(content);
+      // If it's valid JSON, return a cleaner representation
+      if (typeof parsed === 'object') {
+        // Check for common memory structures
+        if (parsed.trigger || parsed.actions) {
+          return `Workflow: ${parsed.trigger || 'Automated task'}\n${parsed.actions?.length || 0} action(s) defined`;
+        }
+        if (parsed.content) {
+          return parsed.content;
+        }
+        // Return pretty printed JSON with truncation
+        const formatted = JSON.stringify(parsed, null, 2);
+        return formatted.length > 500 ? formatted.slice(0, 500) + '...' : formatted;
+      }
+    } catch {
+      // Not valid JSON, continue with normal processing
+    }
+  }
+
+  // Clean up common formatting issues
+  let cleaned = content
+    .replace(/\\n/g, '\n')  // Fix escaped newlines
+    .replace(/\\t/g, '  ')  // Fix escaped tabs
+    .replace(/\r\n/g, '\n') // Normalize line endings
+    .trim();
+
+  return cleaned;
+};
+
+// Valid memory types for editing
+const MEMORY_TYPES = ['context', 'project', 'knowledge', 'reference', 'personal', 'workflow'];
+
+// Query keys
+const memoryKeys = {
+  all: ['memories'] as const,
+  list: (params: { page: number; type: string; userId: string }) =>
+    [...memoryKeys.all, 'list', params] as const,
+};
+
 export function MemoryVisualizer() {
-  // Use the auth hook for consistent auth state - this prevents race conditions
   const { user: authUser, isLoading: authLoading } = useSupabaseAuth();
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [apiKeys, setApiKeys] = useState<SupabaseApiKey[]>([]);
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [isLoading, setIsLoading] = useState(false);
-  const [customApiKey, setCustomApiKey] = useState("");
-  const [useCustomApiKey, setUseCustomApiKey] = useState(false);
-  const [stats, setStats] = useState({
-    totalMemories: 0,
-    totalTags: 0,
-    totalAccess: 0,
-    activeKeys: 0,
-  });
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Pagination state
+  // State
+  const [selectedType, setSelectedType] = useState<string>("all");
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [useCustomApiKey, setUseCustomApiKey] = useState(false);
   const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  // Detail dialog state
+  // Dialog states
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    content: '',
+    type: 'context',
+    tags: '',
+  });
 
-  // Ref to track if fetch has completed (prevents timeout toast after success)
-  const fetchCompletedRef = useRef(false);
-
-  // Fetch memories from the API or Supabase directly
-  const fetchMemories = useCallback(async () => {
-    // Don't fetch if auth is still loading
-    if (authLoading) {
-      console.log("[MemoryVisualizer] Auth still loading, skipping fetch");
-      return;
-    }
-
-    // Don't fetch if no user (unless using custom API key)
-    if (!authUser && !useCustomApiKey) {
-      console.log(
-        "[MemoryVisualizer] No user and no custom API key, skipping fetch"
-      );
-      return;
-    }
-
-    setIsLoading(true);
-    fetchCompletedRef.current = false;
-
-    // Set up timeout to prevent infinite loading states
-    // Only show timeout toast if the fetch hasn't completed yet
-    const timeoutId = setTimeout(() => {
-      if (!fetchCompletedRef.current) {
-        setIsLoading(false);
-        toast({
-          title: "Request Timeout",
-          description: "Memory loading took too long. Please try again.",
-          variant: "destructive",
-        });
+  // React Query - fetch memories with caching
+  const {
+    data: memoriesData,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery({
+    queryKey: memoryKeys.list({ page, type: selectedType, userId: authUser?.id || '' }),
+    queryFn: async () => {
+      if (!authUser?.id && !useCustomApiKey) {
+        return { memories: [], total: 0, totalPages: 1 };
       }
-    }, 15000); // 15 second timeout
 
-    try {
+      // Use Supabase directly for authenticated users without custom API key
+      if (!useCustomApiKey) {
+        let query = supabase
+          .from("memory_entries")
+          .select("*", { count: "exact" })
+          .eq("user_id", authUser!.id)
+          .order("created_at", { ascending: false })
+          .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+
+        if (selectedType !== "all") {
+          query = query.or(`memory_type.eq.${selectedType},type.eq.${selectedType}`);
+        }
+
+        const { data, error, count } = await query;
+
+        if (error) throw error;
+
+        const memories = (data || []).map((m: any) => ({
+          id: m.id,
+          title: m.title || m.content?.substring(0, 50) || "Untitled",
+          content: m.content,
+          type: m.memory_type || m.type || "context",
+          tags: m.tags || [],
+          metadata: m.metadata || {},
+          is_private: false,
+          is_archived: false,
+          access_count: m.access_count || 0,
+          last_accessed_at: m.last_accessed || null,
+          created_at: m.created_at,
+          updated_at: m.updated_at || m.created_at,
+        })) as Memory[];
+
+        return {
+          memories,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / ITEMS_PER_PAGE),
+        };
+      }
+
+      // Use API client for custom API key
       const params: any = {
         limit: ITEMS_PER_PAGE,
-        page: page,
+        page,
+        apiKey: customApiKey,
       };
-
       if (selectedType !== "all") {
         params.type = selectedType;
       }
 
-      // Use custom API key if enabled
-      if (useCustomApiKey && customApiKey) {
-        params.apiKey = customApiKey;
-        console.log(
-          "[MemoryVisualizer] Using custom API key:",
-          customApiKey.substring(0, 8) + "..."
-        );
-      }
+      const response = await apiClient.getMemories(params);
 
-      console.log("[MemoryVisualizer] Fetching memories with params:", params);
+      if (response.error) throw new Error(response.error);
 
-      let response;
+      return {
+        memories: response.data || [],
+        total: response.pagination?.total || response.data?.length || 0,
+        totalPages: response.pagination?.total_pages || 1,
+      };
+    },
+    enabled: !authLoading && (!!authUser?.id || (useCustomApiKey && !!customApiKey)),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnWindowFocus: false, // Prevent refetch on focus
+    refetchOnReconnect: false, // Prevent refetch on reconnect
+  });
 
-      // If API key is provided, use API client for scoped access
-      if (useCustomApiKey && customApiKey) {
-        try {
-          response = await apiClient.getMemories(params);
-          console.log("[MemoryVisualizer] API client success:", {
-            hasData: !!response.data,
-            count: response.data?.length,
-          });
-        } catch (apiError: any) {
-          console.error(
-            "[MemoryVisualizer] API client failed:",
-            apiError?.message
-          );
-          throw apiError;
-        }
-      } else {
-        // Use Supabase directly when no API key (user's own memories)
-        if (!authUser?.id) {
-          throw new Error("User not authenticated");
-        }
-
-        console.log(
-          "[MemoryVisualizer] Using Supabase directly for user:",
-          authUser.id
-        );
-
-        let query = supabase
-          .from("memory_entries")
-          .select("*", { count: "exact" })
-          .eq("user_id", authUser.id)
-          .order("created_at", { ascending: false })
-          .range(
-            ((params.page || 1) - 1) * (params.limit || 20),
-            (params.page || 1) * (params.limit || 20) - 1
-          );
-
-        if (params.type && selectedType !== "all") {
-          query = query.eq("memory_type", params.type);
-        }
-
-        const { data: supabaseData, error: supabaseError, count } = await query;
-
-        if (supabaseError) {
-          throw supabaseError;
-        }
-
-        // Transform Supabase data to match API response format
-        response = {
-          data: (supabaseData || []).map((m: any) => ({
-            id: m.id,
-            title: m.title || m.content?.substring(0, 50) || "Untitled",
-            content: m.content,
-            type: m.memory_type || m.type || "context",
-            tags: m.tags || [],
-            metadata: m.metadata || {},
-            is_private: false,
-            is_archived: false,
-            access_count: m.access_count || 0,
-            last_accessed_at: m.last_accessed || null,
-            created_at: m.created_at,
-            updated_at: m.updated_at || m.created_at,
-          })) as Memory[],
-          pagination: {
-            page: params.page || 1,
-            limit: params.limit || 20,
-            total: count || 0,
-            total_pages: Math.ceil((count || 0) / (params.limit || 20)),
-          },
-        };
-      }
-
-      if (response.data) {
-        setMemories(response.data);
-
-        // Update pagination info
-        if (response.pagination) {
-          setTotalCount(response.pagination.total || response.data.length);
-          setTotalPages(response.pagination.total_pages || 1);
-        }
-
-        // Calculate stats
-        const uniqueTags = new Set(response.data.flatMap((m) => m.tags || []));
-        const totalAccess = response.data.reduce(
-          (sum, m) => sum + (m.access_count || 0),
-          0
-        );
-
-        setStats((prev) => ({
-          ...prev,
-          totalMemories: response.pagination?.total || response.data.length,
-          totalTags: uniqueTags.size,
-          totalAccess,
-        }));
-
-        toast({
-          title: "Memories loaded successfully",
-          description: `Showing ${response.data.length} of ${response.pagination?.total || response.data.length} memories`,
-        });
-      } else if (response.error) {
-        toast({
-          title: "API Error",
-          description:
-            response.error + " (" + (response.code || "Unknown") + ")",
-          variant: "destructive",
-        });
-        setMemories([]);
-      } else {
-        setMemories([]);
-      }
-    } catch (error: any) {
-      console.error("[MemoryVisualizer] Error fetching memories:", error);
-
-      const errorMessage = error?.message || String(error);
-      let userFacingMessage = "Could not fetch memory data";
-
-      if (errorMessage.includes("fetch") || errorMessage.includes("Network")) {
-        userFacingMessage = "Network error - check API connectivity";
-      } else if (
-        errorMessage.includes("401") ||
-        errorMessage.includes("Authentication")
-      ) {
-        userFacingMessage = "Authentication failed - check API key";
-      } else if (errorMessage.includes("404")) {
-        userFacingMessage = "API endpoint not found";
-      } else if (errorMessage.includes("CORS")) {
-        userFacingMessage = "CORS error - API may not allow this origin";
-      }
-
-      toast({
-        title: "Failed to load memories",
-        description: userFacingMessage + ": " + errorMessage,
-        variant: "destructive",
-      });
-      setMemories([]);
-    } finally {
-      fetchCompletedRef.current = true;
-      clearTimeout(timeoutId);
-      setIsLoading(false);
-    }
-  }, [
-    authUser,
-    authLoading,
-    selectedType,
-    useCustomApiKey,
-    customApiKey,
-    page,
-    toast,
-  ]);
-
-  // Fetch API keys from Supabase
-  const fetchApiKeys = useCallback(async () => {
-    if (!authUser?.id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("api_keys")
-        .select("*")
-        .eq("user_id", authUser.id)
-        .order("created_at", { ascending: false });
+  // Update memory mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Memory> }) => {
+      const { error } = await supabase
+        .from("memory_entries")
+        .update({
+          title: updates.title,
+          content: updates.content,
+          type: updates.type,
+          memory_type: updates.type,
+          tags: updates.tags,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("user_id", authUser!.id);
 
       if (error) throw error;
+      return { id, updates };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: memoryKeys.all });
+      setIsEditOpen(false);
+      setSelectedMemory(null);
+      toast({
+        title: "Memory updated",
+        description: "Your changes have been saved.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "Could not update memory.",
+        variant: "destructive",
+      });
+    },
+  });
 
-      if (data) {
-        setApiKeys(data);
-        setStats((prev) => ({
-          ...prev,
-          activeKeys: data.filter((k) => k.is_active).length,
-        }));
-      }
-    } catch (error: any) {
-      console.error("[MemoryVisualizer] Error fetching API keys:", error);
-    }
-  }, [authUser]);
+  // Delete memory mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("memory_entries")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", authUser!.id);
 
-  // Reset page when type filter changes
-  useEffect(() => {
-    setPage(1);
-  }, [selectedType]);
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: memoryKeys.all });
+      setIsDeleteOpen(false);
+      setIsDetailOpen(false);
+      setSelectedMemory(null);
+      toast({
+        title: "Memory deleted",
+        description: "The memory has been permanently removed.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete failed",
+        description: error.message || "Could not delete memory.",
+        variant: "destructive",
+      });
+    },
+  });
 
-  // Effect to fetch data when auth state changes
-  useEffect(() => {
-    if (!authLoading && (authUser || useCustomApiKey)) {
-      fetchMemories();
-      if (authUser) {
-        fetchApiKeys();
-      }
-    }
-  }, [
-    authUser,
-    authLoading,
-    selectedType,
-    useCustomApiKey,
-    customApiKey,
-    page,
-    fetchMemories,
-    fetchApiKeys,
-  ]);
+  // Handlers
+  const handleOpenDetail = (memory: Memory) => {
+    setSelectedMemory(memory);
+    setIsDetailOpen(true);
+  };
 
-  // Pagination handlers
+  const handleOpenEdit = (memory: Memory) => {
+    setSelectedMemory(memory);
+    setEditForm({
+      title: memory.title || '',
+      content: memory.content || '',
+      type: memory.type || 'context',
+      tags: (memory.tags || []).join(', '),
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedMemory) return;
+
+    const tags = editForm.tags
+      .split(',')
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
+    updateMutation.mutate({
+      id: selectedMemory.id,
+      updates: {
+        title: editForm.title,
+        content: editForm.content,
+        type: editForm.type as Memory['type'],
+        tags,
+      },
+    });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!selectedMemory) return;
+    deleteMutation.mutate(selectedMemory.id);
+  };
+
   const handlePreviousPage = () => {
-    if (page > 1) {
-      setPage(p => p - 1);
-    }
+    if (page > 1) setPage(p => p - 1);
   };
 
   const handleNextPage = () => {
-    if (page < totalPages) {
+    if (memoriesData && page < memoriesData.totalPages) {
       setPage(p => p + 1);
     }
   };
 
-  // Open memory detail dialog
-  const handleOpenDetail = (memory: Memory) => {
-    setSelectedMemory(memory);
-    setIsDetailOpen(true);
+  // Stats calculation
+  const stats = {
+    totalMemories: memoriesData?.total || 0,
+    totalTags: new Set((memoriesData?.memories || []).flatMap(m => m.tags || [])).size,
   };
 
   // Show loading state while auth is initializing
@@ -440,10 +433,10 @@ export function MemoryVisualizer() {
                   onChange={(e) => setCustomApiKey(e.target.value)}
                   className="flex-1"
                 />
-                <Button onClick={fetchMemories} disabled={isLoading}>
+                <Button onClick={() => refetch()} disabled={isLoading || isRefetching}>
                   <RefreshCw
                     className={
-                      "h-4 w-4 mr-2 " + (isLoading ? "animate-spin" : "")
+                      "h-4 w-4 mr-2 " + (isLoading || isRefetching ? "animate-spin" : "")
                     }
                   />
                   Test & Load
@@ -499,16 +492,31 @@ export function MemoryVisualizer() {
                 Recent memories from your vector knowledge base
               </CardDescription>
             </div>
-            <Button
-              onClick={fetchMemories}
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
-            >
-              <RefreshCw
-                className={"h-4 w-4 " + (isLoading ? "animate-spin" : "")}
-              />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setPage(1); }}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {MEMORY_TYPES.map(type => (
+                    <SelectItem key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => refetch()}
+                variant="outline"
+                size="sm"
+                disabled={isLoading || isRefetching}
+              >
+                <RefreshCw
+                  className={"h-4 w-4 " + (isLoading || isRefetching ? "animate-spin" : "")}
+                />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -521,7 +529,7 @@ export function MemoryVisualizer() {
                 </p>
               </div>
             </div>
-          ) : memories.length === 0 ? (
+          ) : !memoriesData?.memories?.length ? (
             <div className="text-center space-y-4 py-12">
               <Database className="h-12 w-12 mx-auto text-muted-foreground" />
               <div>
@@ -534,94 +542,119 @@ export function MemoryVisualizer() {
           ) : (
             <>
               <div className="space-y-3">
-                {memories.map((memory) => (
-                <Card
-                  key={memory.id}
-                  className="hover:shadow-md transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-primary group"
-                  onClick={() => handleOpenDetail(memory)}
-                >
-                  <CardContent className="p-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <div className="p-2 rounded-md bg-muted">
-                            {getTypeIcon(memory.type)}
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className={
-                              getTypeBadgeColor(memory.type) + " text-xs"
-                            }
-                          >
-                            {memory.type}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>
-                              {safeFormatDistanceToNow(memory.created_at)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        {memory.content || memory.title}
-                      </p>
-
-                      {memory.tags && memory.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {memory.tags.map((tag, idx) => (
+                {memoriesData.memories.map((memory) => (
+                  <Card
+                    key={memory.id}
+                    className="hover:shadow-md transition-all border-l-4 border-l-transparent hover:border-l-primary group"
+                  >
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-md bg-muted">
+                              {getTypeIcon(memory.type)}
+                            </div>
                             <Badge
-                              key={idx}
-                              variant="secondary"
-                              className="text-xs font-normal"
+                              variant="outline"
+                              className={getTypeBadgeColor(memory.type) + " text-xs"}
                             >
-                              <Tag className="h-3 w-3 mr-1" />
-                              {tag}
+                              {memory.type}
                             </Badge>
-                          ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => { e.stopPropagation(); handleOpenEdit(memory); }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedMemory(memory);
+                                setIsDeleteOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleOpenDetail(memory)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span>
+                                {safeFormatDistanceToNow(memory.created_at)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
 
-            {/* Pagination */}
-            {memories.length > 0 && (
-              <div className="flex items-center justify-between pt-4 border-t mt-4">
-                <span className="text-sm text-muted-foreground">
-                  Showing {((page - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(page * ITEMS_PER_PAGE, totalCount)} of {totalCount} memories
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page === 1 || isLoading}
-                    onClick={handlePreviousPage}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground px-2">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= totalPages || isLoading}
-                    onClick={handleNextPage}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
+                        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed whitespace-pre-wrap">
+                          {formatContent(memory.content || memory.title)}
+                        </p>
+
+                        {memory.tags && memory.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {memory.tags.map((tag, idx) => (
+                              <Badge
+                                key={idx}
+                                variant="secondary"
+                                className="text-xs font-normal"
+                              >
+                                <Tag className="h-3 w-3 mr-1" />
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            )}
+
+              {/* Pagination */}
+              {memoriesData.memories.length > 0 && (
+                <div className="flex items-center justify-between pt-4 border-t mt-4">
+                  <span className="text-sm text-muted-foreground">
+                    Showing {((page - 1) * ITEMS_PER_PAGE) + 1}-
+                    {Math.min(page * ITEMS_PER_PAGE, memoriesData.total)} of {memoriesData.total} memories
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page === 1 || isLoading}
+                      onClick={handlePreviousPage}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground px-2">
+                      Page {page} of {memoriesData.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page >= memoriesData.totalPages || isLoading}
+                      onClick={handleNextPage}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </CardContent>
@@ -635,7 +668,7 @@ export function MemoryVisualizer() {
               <div className="p-2 rounded-md bg-muted">
                 {selectedMemory && getTypeIcon(selectedMemory.type)}
               </div>
-              <div>
+              <div className="flex-1">
                 <DialogTitle className="text-lg">
                   {selectedMemory?.title || 'Memory Details'}
                 </DialogTitle>
@@ -659,9 +692,9 @@ export function MemoryVisualizer() {
               {/* Content */}
               <div>
                 <h4 className="text-sm font-medium mb-2 text-muted-foreground">Content</h4>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed bg-muted/50 p-4 rounded-lg">
-                  {selectedMemory?.content}
-                </p>
+                <pre className="text-sm whitespace-pre-wrap leading-relaxed bg-muted/50 p-4 rounded-lg font-mono text-xs overflow-x-auto">
+                  {formatContent(selectedMemory?.content || '')}
+                </pre>
               </div>
 
               {/* Tags */}
@@ -708,8 +741,122 @@ export function MemoryVisualizer() {
               </div>
             </div>
           </ScrollArea>
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => selectedMemory && handleOpenEdit(selectedMemory)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setIsDetailOpen(false);
+                setIsDeleteOpen(true);
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Memory Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-lg bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Edit Memory</DialogTitle>
+            <DialogDescription>
+              Make changes to your memory entry.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editForm.title}
+                onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="Memory title"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-type">Type</Label>
+              <Select
+                value={editForm.type}
+                onValueChange={(v) => setEditForm(f => ({ ...f, type: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MEMORY_TYPES.map(type => (
+                    <SelectItem key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-content">Content</Label>
+              <Textarea
+                id="edit-content"
+                value={editForm.content}
+                onChange={(e) => setEditForm(f => ({ ...f, content: e.target.value }))}
+                rows={6}
+                className="font-mono text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-tags">Tags (comma-separated)</Label>
+              <Input
+                id="edit-tags"
+                value={editForm.tags}
+                onChange={(e) => setEditForm(f => ({ ...f, tags: e.target.value }))}
+                placeholder="tag1, tag2, tag3"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
+              <Save className="h-4 w-4 mr-2" />
+              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Memory</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this memory? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
