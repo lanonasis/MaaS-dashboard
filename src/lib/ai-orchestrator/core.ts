@@ -534,18 +534,33 @@ export class AIOrchestrator {
       }
     }
 
-    // Fallback response
+    // Enhanced fallback response based on query type and context
+    const lowerQuery = query.toLowerCase();
+    const userName = this.userContext?.user_name?.split(' ')[0] || '';
+    const greeting = userName ? `${userName}, ` : '';
+
+    // No memories found - provide helpful guidance
     if (memories.length === 0) {
-      return "I don't have any relevant information stored yet. Could you provide more context or try asking in a different way?";
+      // Detect query type for contextual response
+      if (lowerQuery.includes('api') || lowerQuery.includes('key')) {
+        return `${greeting}I don't have any stored context about your API keys or configurations yet. You can:\n\n1. Navigate to the **API Keys** section to manage your keys\n2. Save important API notes using the Quick Memory Store\n3. Ask me to "remember" any API-related information for future reference`;
+      }
+      if (lowerQuery.includes('workflow') || lowerQuery.includes('plan')) {
+        return `${greeting}I don't have workflow history to reference yet. Try creating a workflow by saying something like "help me plan [your goal]" and I'll generate an actionable plan for you.`;
+      }
+      if (lowerQuery.includes('memory') || lowerQuery.includes('memor')) {
+        return `${greeting}Your memory bank is ready to use! You can:\n\n1. Use the **Quick Memory Store** to save notes, context, or insights\n2. Search for memories using semantic search\n3. Ask me to "remember" something and I'll store it for you`;
+      }
+      return `${greeting}I don't have relevant stored context for that question yet. You can save information by telling me to "remember" something, or use the Memory Workbench to store notes and context that I can reference in future conversations.`;
     }
 
-    // Use memories to construct answer
+    // Use memories to construct a more informative answer
     const context = memories
       .slice(0, 3)
-      .map(m => `- ${m.content.substring(0, 150)}${m.content.length > 150 ? '...' : ''}`)
-      .join('\n');
+      .map((m, i) => `${i + 1}. **${m.type || 'note'}**: ${m.content.substring(0, 200)}${m.content.length > 200 ? '...' : ''}`)
+      .join('\n\n');
 
-    return `Based on your stored context:\n\n${context}\n\nWould you like me to elaborate on any of these points?`;
+    return `${greeting}Based on your stored memories, here's what I found:\n\n${context}\n\n${memories.length > 3 ? `(${memories.length - 3} more relevant memories available)\n\n` : ''}Would you like me to:\n- Elaborate on any of these points?\n- Search for more specific information?\n- Create a workflow based on this context?`;
   }
 
   /**
@@ -730,15 +745,54 @@ export class AIOrchestrator {
       }
     }
 
-    // Fallback response with personalization
+    // Enhanced fallback response with personalization and context-awareness
     const userName = this.userContext?.user_name?.split(' ')[0] || '';
     const greeting = userName ? `${userName}, ` : '';
+    const lowerInput = input.toLowerCase();
+    const historyLength = this.conversationHistory.length;
 
-    if (memories.length > 0) {
-      return `${greeting}I understand. Based on your previous context, I can help you with that. What would you like me to do?`;
+    // Greetings
+    if (lowerInput.match(/^(hi|hello|hey|good morning|good afternoon|good evening)/i)) {
+      const timeGreeting = new Date().getHours() < 12 ? 'morning' : (new Date().getHours() < 18 ? 'afternoon' : 'evening');
+      return `Good ${timeGreeting}${userName ? `, ${userName}` : ''}! I'm your AI assistant. I can help you:\n\n- **Create workflows** for complex tasks\n- **Search your memories** for relevant context\n- **Store important information** for future reference\n- **Answer questions** about your stored data\n\nWhat would you like to work on today?`;
     }
 
-    return `${greeting}I'm here to help! You can ask me questions, create workflows, or save important context for later. What would you like to do?`;
+    // Thanks/acknowledgment
+    if (lowerInput.match(/^(thanks|thank you|thx|ty|appreciate)/i)) {
+      return `You're welcome${userName ? `, ${userName}` : ''}! Let me know if there's anything else I can help with.`;
+    }
+
+    // Help request
+    if (lowerInput.includes('help') || lowerInput.includes('what can you do')) {
+      return `${greeting}Here's what I can help you with:\n\n**Workflows & Planning**\n- Say "help me plan [goal]" to create an actionable workflow\n- I'll break down complex tasks into manageable steps\n\n**Memory Management**\n- "Remember [information]" to store context\n- "Search memories for [topic]" to find relevant info\n\n**Dashboard Actions**\n- "List my API keys" to see your keys\n- "Show my workflows" to view past plans\n\n**Questions**\n- Ask me anything and I'll use your stored context to help\n\nWhat would you like to try?`;
+    }
+
+    // Context-aware response based on conversation history
+    if (historyLength > 2) {
+      const lastAssistantMsg = this.conversationHistory
+        .filter(m => m.role === 'assistant')
+        .slice(-1)[0];
+
+      if (lastAssistantMsg?.content.includes('workflow')) {
+        return `${greeting}I can help you refine that workflow further. Would you like to:\n- Break down a specific step?\n- Add more context to the plan?\n- Execute one of the steps?`;
+      }
+    }
+
+    // Response with memories context
+    if (memories.length > 0) {
+      const topMemoryType = memories[0].type || 'context';
+      return `${greeting}I found ${memories.length} relevant ${memories.length === 1 ? 'memory' : 'memories'} related to your message (mostly ${topMemoryType} type). Would you like me to:\n\n- Search for more specific information?\n- Create a workflow based on this context?\n- Store additional notes about this topic?`;
+    }
+
+    // Default varied responses
+    const defaultResponses = [
+      `${greeting}I'm ready to help! Try asking me to:\n- Create a workflow for a project\n- Search your memories\n- Remember important context`,
+      `${greeting}How can I assist you today? I can create workflows, search your memories, or help you organize your thoughts.`,
+      `${greeting}I'm here to help you work smarter. Would you like to create a plan, store some context, or search your memory bank?`
+    ];
+
+    // Use conversation history length to vary response
+    return defaultResponses[historyLength % defaultResponses.length];
   }
 
   /**
