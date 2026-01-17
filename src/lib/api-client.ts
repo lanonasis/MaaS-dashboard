@@ -269,17 +269,17 @@ class ApiClient {
     type?: string;
     tags?: string[];
     metadata?: Record<string, any>;
-  }): Promise<ApiResponse<Memory>> {
+  }, apiKey?: string): Promise<ApiResponse<Memory>> {
     return this.makeRequest<Memory>(`/memory/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates)
-    });
+    }, apiKey);
   }
 
-  async deleteMemory(id: string): Promise<ApiResponse<void>> {
+  async deleteMemory(id: string, apiKey?: string): Promise<ApiResponse<void>> {
     return this.makeRequest<void>(`/memory/${id}`, {
       method: 'DELETE'
-    });
+    }, apiKey);
   }
 
   async searchMemories(query: {
