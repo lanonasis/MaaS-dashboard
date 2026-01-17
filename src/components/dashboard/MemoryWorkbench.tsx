@@ -33,7 +33,8 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-const enumMemoryTypes = new Set([
+// Valid Supabase memory_type enum values
+const VALID_MEMORY_TYPES = new Set([
   'context',
   'project',
   'knowledge',
@@ -41,6 +42,12 @@ const enumMemoryTypes = new Set([
   'personal',
   'workflow',
 ]);
+
+// Map display types to valid enum types (for types not in enum)
+const typeToEnumMap: Record<string, string> = {
+  'note': 'context',
+  'document': 'reference',
+};
 
 const normalizeTags = (tags: unknown) => {
   if (!Array.isArray(tags)) return [];
@@ -104,7 +111,7 @@ export const MemoryWorkbench: React.FC = () => {
 
   // Quick memory creation states
   const [newMemoryContent, setNewMemoryContent] = useState('');
-  const [newMemoryType, setNewMemoryType] = useState('note');
+  const [newMemoryType, setNewMemoryType] = useState('context');
   const [newMemoryTags, setNewMemoryTags] = useState('');
   const [isSavingMemory, setIsSavingMemory] = useState(false);
   const [showQuickMemory, setShowQuickMemory] = useState(false);
@@ -226,18 +233,24 @@ export const MemoryWorkbench: React.FC = () => {
 
       const title = newMemoryContent.split('\n')[0]?.slice(0, 80) || 'Untitled';
 
-      const insertPayload: any = {
+      // Map display type to valid enum type
+      const enumType = VALID_MEMORY_TYPES.has(newMemoryType)
+        ? newMemoryType
+        : (typeToEnumMap[newMemoryType] || 'context');
+
+      const insertPayload = {
         user_id: user.id,
         title,
         content: newMemoryContent.trim(),
-        type: newMemoryType,
+        type: newMemoryType, // Keep original type for display
+        memory_type: enumType as any, // Use valid enum type for DB
         tags,
-        metadata: { source: 'dashboard_quick_add' },
+        metadata: {
+          source: 'dashboard_quick_add',
+          display_type: newMemoryType, // Store original type selection
+          created_via: 'memory_workbench'
+        },
       };
-
-      if (enumMemoryTypes.has(newMemoryType)) {
-        insertPayload.memory_type = newMemoryType;
-      }
 
       const { error } = await supabase
         .from('memory_entries')
@@ -254,9 +267,10 @@ export const MemoryWorkbench: React.FC = () => {
       setNewMemoryTags('');
       setShowQuickMemory(false);
     } catch (error: any) {
+      console.error('[MemoryWorkbench] Save error:', error);
       toast({
         title: 'Save failed',
-        description: error.message || 'Could not save memory.',
+        description: error.message || 'Could not save memory. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -403,10 +417,9 @@ export const MemoryWorkbench: React.FC = () => {
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="note">📝 Note</SelectItem>
-                      <SelectItem value="context">📄 Context</SelectItem>
-                      <SelectItem value="project">💼 Project</SelectItem>
+                      <SelectItem value="context">📄 Context (Default)</SelectItem>
                       <SelectItem value="knowledge">📚 Knowledge</SelectItem>
+                      <SelectItem value="project">💼 Project</SelectItem>
                       <SelectItem value="reference">🔗 Reference</SelectItem>
                       <SelectItem value="personal">👤 Personal</SelectItem>
                       <SelectItem value="workflow">⚙️ Workflow</SelectItem>
