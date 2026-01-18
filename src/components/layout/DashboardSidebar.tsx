@@ -81,7 +81,7 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Server,
     defaultOpen: true,
     items: [
-      { id: 'mcp-services', label: 'Services', icon: Box, path: '/dashboard/mcp-services', badge: 'New', shortcut: 'G S' },
+      { id: 'mcp-services', label: 'API Services', icon: Box, path: '/dashboard/mcp-services', badge: 'New', shortcut: 'G S' },
       { id: 'api-keys', label: 'Router Keys', icon: Key, path: '/dashboard/api-keys', shortcut: 'G K' },
       { id: 'mcp-usage', label: 'Usage Analytics', icon: TrendingUp, path: '/dashboard/mcp-usage' },
       { id: 'mcp-tracking', label: 'Request Tracking', icon: Activity, path: '/dashboard/mcp-tracking' },
@@ -100,13 +100,13 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    id: 'memory',
-    title: 'Memory',
+    id: 'context',
+    title: 'Context Store',
     icon: Database,
     defaultOpen: false,
     items: [
-      { id: 'memory-visualizer', label: 'Visualizer', icon: Eye, path: '/dashboard/memory-visualizer', shortcut: 'G M' },
-      { id: 'memory-analytics', label: 'Analytics', icon: BarChart3, path: '/dashboard/memory-analytics' },
+      { id: 'context-visualizer', label: 'Explorer', icon: Eye, path: '/dashboard/memory-visualizer', shortcut: 'G C' },
+      { id: 'context-analytics', label: 'Analytics', icon: BarChart3, path: '/dashboard/memory-analytics' },
     ],
   },
 ];
