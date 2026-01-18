@@ -223,7 +223,84 @@ export function registerRoutes(app: Express, storage: IStorage) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
-  
+
+  // Get single memory by ID
+  app.get("/api/memories/:id", async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const memory = await storage.getMemoryById(id, req.user.id);
+
+      if (!memory) {
+        return res.status(404).json({ message: "Memory not found" });
+      }
+
+      res.json(memory);
+    } catch (error) {
+      console.error("Error fetching memory:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update memory entry
+  app.put("/api/memories/:id", async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { title, content, type, tags, metadata, is_private, is_archived } = req.body;
+
+      // Verify memory exists and belongs to user
+      const existing = await storage.getMemoryById(id, req.user.id);
+      if (!existing) {
+        return res.status(404).json({ message: "Memory not found" });
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (title !== undefined) updates.title = title;
+      if (content !== undefined) updates.content = content;
+      if (type !== undefined) updates.type = type;
+      if (tags !== undefined) updates.tags = tags;
+      if (metadata !== undefined) updates.metadata = metadata;
+      if (is_private !== undefined) updates.is_private = is_private;
+      if (is_archived !== undefined) updates.is_archived = is_archived;
+
+      const memory = await storage.updateMemoryEntry(id, req.user.id, updates);
+      res.json(memory);
+    } catch (error) {
+      console.error("Error updating memory:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete memory entry
+  app.delete("/api/memories/:id", async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+
+      // Verify memory exists and belongs to user
+      const existing = await storage.getMemoryById(id, req.user.id);
+      if (!existing) {
+        return res.status(404).json({ message: "Memory not found" });
+      }
+
+      await storage.deleteMemoryEntry(id, req.user.id);
+      res.json({ message: "Memory deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting memory:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Orchestrator Endpoints
   app.post("/api/orchestrator/execute", async (req: AuthenticatedRequest, res: Response) => {
     try {

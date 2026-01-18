@@ -87,7 +87,7 @@ export const DashboardOverview = () => {
             Welcome back, {profile?.full_name || user?.email?.split('@')[0] || 'User'}
           </h2>
           <p className="text-muted-foreground">
-            Here's an overview of your memory intelligence metrics
+            Here's an overview of your context intelligence metrics
           </p>
         </div>
         <Button onClick={handleRefresh} variant="outline" size="sm" data-testid="button-refresh-dashboard">
@@ -101,7 +101,7 @@ export const DashboardOverview = () => {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              Memory Health Score
+              Context Health Score
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -128,11 +128,11 @@ export const DashboardOverview = () => {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-total-memories">
+        <Card data-testid="card-total-context">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <Database className="h-4 w-4" />
-              Total Memories
+              Total Context Entries
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -200,9 +200,9 @@ export const DashboardOverview = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Memory Health Metrics
+              Context Health Metrics
             </CardTitle>
-            <CardDescription>Detailed breakdown of memory quality indicators</CardDescription>
+            <CardDescription>Detailed breakdown of context quality indicators</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -272,13 +272,13 @@ export const DashboardOverview = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card data-testid="card-memory-distribution">
+        <Card data-testid="card-context-distribution">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Database className="h-5 w-5" />
-              Memory Type Distribution
+              Context Type Distribution
             </CardTitle>
-            <CardDescription>How your memories are categorized</CardDescription>
+            <CardDescription>How your context entries are categorized</CardDescription>
           </CardHeader>
           <CardContent>
             {patternLoading ? (

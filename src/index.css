@@ -134,6 +134,22 @@
     -webkit-backdrop-filter: blur(12px) saturate(150%);
     border: 1px solid hsl(var(--border) / 0.6);
   }
+
+  /* Fix for transparent popover/dropdown backgrounds */
+  .popover-solid {
+    background-color: hsl(var(--popover)) !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Ensure dropdown menus have solid backgrounds */
+  [data-radix-popper-content-wrapper] > * {
+    background-color: hsl(var(--popover));
+  }
+
+  /* Submenu solid background */
+  .submenu-solid {
+    background-color: hsl(var(--card));
+  }
   
   /* Elegant transitions */
   .transition-elegant {

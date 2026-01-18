@@ -22,14 +22,19 @@
     "analytics": "Analíticas",
     "settings": "Configuración"
   },
-  "memory": {
-    "create": "Crear Memoria",
-    "search": "Buscar Memorias",
+  "context": {
+    "create": "Crear Contexto",
+    "search": "Buscar Contexto",
     "title": "Título",
     "content": "Contenido",
     "tags": "Etiquetas",
     "created": "Creado",
-    "updated": "Actualizado"
+    "updated": "Actualizado",
+    "store": "Almacén de Contexto",
+    "explorer": "Explorador de Contexto",
+    "analytics": "Análisis de Contexto",
+    "quick_save": "Guardado Rápido",
+    "total_entries": "Total de Entradas"
   },
   "auth": {
     "login": "Iniciar Sesión",
@@ -40,7 +45,7 @@
   },
   "navigation": {
     "home": "Inicio",
-    "memories": "Memorias",
+    "context": "Almacén de Contexto",
     "profile": "Perfil",
     "help": "Ayuda"
   },

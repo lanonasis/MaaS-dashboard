@@ -22,14 +22,19 @@
     "analytics": "Analytics",
     "settings": "Settings"
   },
-  "memory": {
-    "create": "Create Memory",
-    "search": "Search Memories",
+  "context": {
+    "create": "Create Context",
+    "search": "Search Context",
     "title": "Title",
     "content": "Content",
     "tags": "Tags",
     "created": "Created",
-    "updated": "Updated"
+    "updated": "Updated",
+    "store": "Context Store",
+    "explorer": "Context Explorer",
+    "analytics": "Context Analytics",
+    "quick_save": "Quick Save",
+    "total_entries": "Total Entries"
   },
   "auth": {
     "login": "Login",
@@ -40,7 +45,7 @@
   },
   "navigation": {
     "home": "Home",
-    "memories": "Memories",
+    "context": "Context Store",
     "profile": "Profile",
     "help": "Help"
   },

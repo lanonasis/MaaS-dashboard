@@ -21,6 +21,9 @@ export interface IStorage {
   // Memory methods
   getRecentMemories(userId: string, limit?: number): Promise<MemoryEntry[]>;
   createMemoryEntry(entry: InsertMemoryEntry): Promise<MemoryEntry>;
+  updateMemoryEntry(id: string, userId: string, updates: Partial<InsertMemoryEntry>): Promise<MemoryEntry>;
+  deleteMemoryEntry(id: string, userId: string): Promise<void>;
+  getMemoryById(id: string, userId: string): Promise<MemoryEntry | null>;
   
   // Workflow methods
   getWorkflowRuns(userId: string, limit?: number): Promise<WorkflowRun[]>;
@@ -112,7 +115,36 @@ export class DbStorage implements IStorage {
     const result = await this.db.insert(memoryEntries).values(entry).returning();
     return result[0];
   }
-  
+
+  async updateMemoryEntry(id: string, userId: string, updates: Partial<InsertMemoryEntry>): Promise<MemoryEntry> {
+    const { memoryEntries } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+    const result = await this.db
+      .update(memoryEntries)
+      .set({ ...updates, updated_at: new Date() })
+      .where(and(eq(memoryEntries.id, id), eq(memoryEntries.user_id, userId)))
+      .returning();
+    return result[0];
+  }
+
+  async deleteMemoryEntry(id: string, userId: string): Promise<void> {
+    const { memoryEntries } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+    await this.db
+      .delete(memoryEntries)
+      .where(and(eq(memoryEntries.id, id), eq(memoryEntries.user_id, userId)));
+  }
+
+  async getMemoryById(id: string, userId: string): Promise<MemoryEntry | null> {
+    const { memoryEntries } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+    const result = await this.db
+      .select()
+      .from(memoryEntries)
+      .where(and(eq(memoryEntries.id, id), eq(memoryEntries.user_id, userId)));
+    return result[0] || null;
+  }
+
   async getWorkflowRuns(userId: string, limit: number = 20): Promise<WorkflowRun[]> {
     const { workflowRuns } = await import("@shared/schema");
     const { eq, desc } = await import("drizzle-orm");
