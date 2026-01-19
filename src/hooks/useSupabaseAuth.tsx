@@ -343,21 +343,17 @@ export const SupabaseAuthProvider = ({
             const defaultContextEntries = [
               {
                 user_id: userId,
-                title: 'Welcome to LanOnasis',
-                content: 'Welcome to LanOnasis where your context becomes money or value. This is your personal context store - a place to keep important information, notes, and knowledge that AI assistants can reference to provide you with personalized help.',
+                content: '# Welcome to LanOnasis\n\nWelcome to LanOnasis where your context becomes money or value. This is your personal context store - a place to keep important information, notes, and knowledge that AI assistants can reference to provide you with personalized help.',
                 type: 'context',
-                memory_type: 'context',
                 tags: ['welcome', 'getting-started'],
-                metadata: { source: 'system', is_default: true }
+                metadata: { source: 'system', is_default: true, title: 'Welcome to LanOnasis' }
               },
               {
                 user_id: userId,
-                title: 'Getting Started with Context Store',
-                content: 'Tips for using Context Store:\n\n1. Add project notes to remember important decisions\n2. Store API documentation snippets for quick reference\n3. Save workflow templates for repeated tasks\n4. Use tags to organize related context entries\n5. The AI assistant can search and reference your context to provide personalized help',
+                content: '# Getting Started with Context Store\n\nTips for using Context Store:\n\n1. Add project notes to remember important decisions\n2. Store API documentation snippets for quick reference\n3. Save workflow templates for repeated tasks\n4. Use tags to organize related context entries\n5. The AI assistant can search and reference your context to provide personalized help',
                 type: 'knowledge',
-                memory_type: 'knowledge',
                 tags: ['tips', 'getting-started', 'tutorial'],
-                metadata: { source: 'system', is_default: true }
+                metadata: { source: 'system', is_default: true, title: 'Getting Started with Context Store' }
               }
             ];
 
