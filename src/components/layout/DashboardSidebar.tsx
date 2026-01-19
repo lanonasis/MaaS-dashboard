@@ -63,7 +63,7 @@ interface NavSection {
 
 // Recent pages stored in localStorage
 const RECENT_PAGES_KEY = 'maas-recent-pages';
-const MAX_RECENT_PAGES = 5;
+const MAX_RECENT_PAGES = 3; // Display limit for recent pages
 
 const NAV_SECTIONS: NavSection[] = [
   {
@@ -148,6 +148,16 @@ export function DashboardSidebar({
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
+  const searchBlurTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup search blur timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchBlurTimeoutRef.current) {
+        clearTimeout(searchBlurTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Recent pages state
   const [recentPages, setRecentPages] = React.useState<RecentPage[]>(() => {
@@ -184,7 +194,11 @@ export function DashboardSidebar({
     setRecentPages(prev => {
       const filtered = prev.filter(p => p.path !== path);
       const updated = [{ path, label, timestamp: Date.now() }, ...filtered].slice(0, MAX_RECENT_PAGES);
-      localStorage.setItem(RECENT_PAGES_KEY, JSON.stringify(updated));
+      try {
+        localStorage.setItem(RECENT_PAGES_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to save recent pages to localStorage:', e);
+      }
       return updated;
     });
   }, []);
@@ -195,7 +209,11 @@ export function DashboardSidebar({
       const updated = prev.includes(path)
         ? prev.filter(p => p !== path)
         : [...prev, path];
-      localStorage.setItem('maas-favorites', JSON.stringify(updated));
+      try {
+        localStorage.setItem('maas-favorites', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to save favorites to localStorage:', e);
+      }
       return updated;
     });
   }, []);
@@ -305,7 +323,12 @@ export function DashboardSidebar({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                onBlur={() => {
+                  if (searchBlurTimeoutRef.current) {
+                    clearTimeout(searchBlurTimeoutRef.current);
+                  }
+                  searchBlurTimeoutRef.current = setTimeout(() => setIsSearchFocused(false), 200);
+                }}
                 className="pl-8 pr-8 h-9 text-sm bg-muted/50"
               />
               <kbd className="absolute right-2 top-2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
@@ -316,7 +339,7 @@ export function DashboardSidebar({
 
           {/* Search Results Dropdown */}
           {!collapsed && isSearchFocused && searchResults.length > 0 && (
-            <div className="absolute left-3 right-3 top-[120px] z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
+            <div className="mt-1 z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
               {searchResults.map((item) => {
                 const ItemIcon = item.icon;
                 return (
@@ -376,7 +399,7 @@ export function DashboardSidebar({
                   Recent
                 </div>
                 <div className="space-y-0.5">
-                  {recentPages.slice(0, 3).map((page) => {
+                  {recentPages.slice(0, MAX_RECENT_PAGES).map((page) => {
                     const navItem = ALL_NAV_ITEMS.find(item => item.path === page.path);
                     const ItemIcon = navItem?.icon || Home;
                     const active = isActive(page.path);

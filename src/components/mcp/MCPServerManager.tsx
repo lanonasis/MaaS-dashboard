@@ -337,7 +337,7 @@ const MCPServerManager: React.FC = () => {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => window.open(extension.docsUrl, '_blank')}
+                onClick={() => window.open(extension.docsUrl, '_blank', 'noopener,noreferrer')}
               >
                 <ExternalLink className="h-3 w-3" />
               </Button>
@@ -466,7 +466,7 @@ const MCPServerManager: React.FC = () => {
               <Button
                 variant="link"
                 className="p-0 h-auto text-sm"
-                onClick={() => window.open(selectedExtension.docsUrl, '_blank')}
+                onClick={() => window.open(selectedExtension.docsUrl, '_blank', 'noopener,noreferrer')}
               >
                 <ExternalLink className="h-3 w-3 mr-1" />
                 View {selectedExtension.name} Documentation

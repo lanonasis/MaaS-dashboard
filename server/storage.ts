@@ -124,6 +124,9 @@ export class DbStorage implements IStorage {
       .set({ ...updates, updated_at: new Date() })
       .where(and(eq(memoryEntries.id, id), eq(memoryEntries.user_id, userId)))
       .returning();
+    if (!result[0]) {
+      throw new Error(`Memory entry with id ${id} not found or access denied`);
+    }
     return result[0];
   }
 
