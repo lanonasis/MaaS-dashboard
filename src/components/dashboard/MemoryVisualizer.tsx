@@ -137,7 +137,7 @@ const formatContent = (content: string): string => {
   }
 
   // Clean up common formatting issues
-  let cleaned = content
+  const cleaned = content
     .replace(/\\n/g, '\n')  // Fix escaped newlines
     .replace(/\\t/g, '  ')  // Fix escaped tabs
     .replace(/\r\n/g, '\n') // Normalize line endings
