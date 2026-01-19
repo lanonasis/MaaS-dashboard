@@ -304,7 +304,7 @@ export const DashboardOverview = () => {
               </ResponsiveContainer>
             ) : (
               <div className="text-center text-muted-foreground py-12">
-                No memory data available
+                No context data available
               </div>
             )}
           </CardContent>
@@ -316,7 +316,7 @@ export const DashboardOverview = () => {
               <Activity className="h-5 w-5" />
               Weekly Activity Pattern
             </CardTitle>
-            <CardDescription>Memory creation by day of week</CardDescription>
+            <CardDescription>Context creation by day of week</CardDescription>
           </CardHeader>
           <CardContent>
             {patternLoading ? (
@@ -374,7 +374,7 @@ export const DashboardOverview = () => {
             >
               <span className="flex items-center gap-2">
                 <Database className="h-4 w-4" />
-                Browse Memories
+                Browse Context
               </span>
               <ArrowRight className="h-4 w-4" />
             </Button>
