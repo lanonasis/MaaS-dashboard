@@ -7,10 +7,16 @@
 const url = process.env.VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 const anon = process.env.VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
 const email = process.env.DIAG_EMAIL;
+const phone = process.env.DIAG_PHONE;
 const pass = process.env.DIAG_PASSWORD;
 
 if (!url || !anon) {
   console.error("Missing VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+  process.exit(1);
+}
+
+if (!pass || (!email && !phone)) {
+  console.error("Missing DIAG_PASSWORD and either DIAG_EMAIL or DIAG_PHONE");
   process.exit(1);
 }
 
@@ -24,7 +30,7 @@ if (!url || !anon) {
         "Authorization": `Bearer ${anon}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password: pass }),
+      body: JSON.stringify({ ...(email ? { email } : { phone }), password: pass }),
     });
 
     console.log("Status:", res.status, res.statusText);

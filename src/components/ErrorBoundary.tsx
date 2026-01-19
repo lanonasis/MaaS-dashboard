@@ -2,7 +2,6 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import styles from "./ErrorBoundary.module.css";
 
 interface Props {
   children: ReactNode;
@@ -25,9 +24,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public static getDerivedStateFromError(error: Error): Partial<State> {
     // Generate a unique error ID for tracking
-    const errorId = `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    return { 
-      hasError: true, 
+    const errorId = `error-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    return {
+      hasError: true,
       error,
       errorId,
     };
@@ -56,6 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     console.error("Uncaught error:", error, errorInfo);
+    this.props.onError?.(error, errorInfo);
   }
 
   private handleReset = () => {

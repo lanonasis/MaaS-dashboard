@@ -1,11 +1,13 @@
 // Direct Supabase Auth Hook
 // This hook provides a simplified interface for working directly with Supabase auth
+// Updated to sync with auth-gateway SSO cookies for cross-subdomain authentication
 
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
+import { centralAuth } from "@/lib/central-auth";
 
 type Profile = {
   id: string;
@@ -47,6 +49,9 @@ export const SupabaseAuthProvider = ({
 
   // Add error state to track initialization issues
   const [initError, setInitError] = useState<string | null>(null);
+
+  // Track last synced token to avoid duplicate SSO syncs
+  const lastSyncedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     console.log("SupabaseAuthProvider: Initializing auth");
@@ -128,6 +133,17 @@ export const SupabaseAuthProvider = ({
         fetchProfile(supabaseSession.user.id).catch((err) => {
           console.error("Error fetching profile (non-blocking):", err);
         });
+
+        // Sync SSO cookies if we have a session but haven't synced yet
+        // This handles page reload scenarios where Supabase session exists but SSO cookies may not
+        const accessToken = supabaseSession.access_token;
+        if (accessToken && accessToken !== lastSyncedTokenRef.current) {
+          lastSyncedTokenRef.current = accessToken;
+          console.log("SupabaseAuthProvider: Initial SSO sync on session restore");
+          centralAuth.exchangeSupabaseToken(accessToken).catch((error) => {
+            console.warn("SupabaseAuthProvider: Initial SSO sync failed (non-critical):", error);
+          });
+        }
       } else {
         console.log("SupabaseAuthProvider: No session found");
       }
@@ -165,6 +181,27 @@ export const SupabaseAuthProvider = ({
             // Fetch user profile when signed in
             await fetchProfile(supabaseSession.user.id);
 
+            // Sync with auth-gateway to set SSO cookies for cross-subdomain auth
+            // This enables seamless authentication across dashboard, API, MCP, etc.
+            const accessToken = supabaseSession.access_token;
+            if (accessToken && accessToken !== lastSyncedTokenRef.current) {
+              lastSyncedTokenRef.current = accessToken;
+              console.log("SupabaseAuthProvider: Syncing SSO cookies with auth-gateway");
+
+              // Non-blocking SSO sync - don't wait for it to complete
+              centralAuth.exchangeSupabaseToken(accessToken)
+                .then((success) => {
+                  if (success) {
+                    console.log("SupabaseAuthProvider: SSO cookies synced successfully");
+                  } else {
+                    console.warn("SupabaseAuthProvider: SSO cookie sync failed (non-critical)");
+                  }
+                })
+                .catch((error) => {
+                  console.warn("SupabaseAuthProvider: SSO sync error (non-critical):", error);
+                });
+            }
+
             // Show welcome toast
             toast({
               title: "Welcome!",
@@ -186,8 +223,15 @@ export const SupabaseAuthProvider = ({
           setSession(null);
           setUser(null);
           setProfile(null);
+          lastSyncedTokenRef.current = null;
 
           if (event === "SIGNED_OUT") {
+            // Clear SSO cookies from auth-gateway (non-blocking)
+            console.log("SupabaseAuthProvider: Clearing SSO cookies");
+            centralAuth.clearSSOCookies().catch((error) => {
+              console.warn("SupabaseAuthProvider: Failed to clear SSO cookies:", error);
+            });
+
             // Redirect to home page on sign out
             navigate("/");
 
@@ -294,6 +338,33 @@ export const SupabaseAuthProvider = ({
               profileId: insertData[0].id,
             });
             setProfile(insertData[0] as Profile);
+
+            // Seed default context entries for new users
+            const defaultContextEntries = [
+              {
+                user_id: userId,
+                content: '# Welcome to LanOnasis\n\nWelcome to LanOnasis where your context becomes money or value. This is your personal context store - a place to keep important information, notes, and knowledge that AI assistants can reference to provide you with personalized help.',
+                type: 'context',
+                tags: ['welcome', 'getting-started'],
+                metadata: { source: 'system', is_default: true, title: 'Welcome to LanOnasis' }
+              },
+              {
+                user_id: userId,
+                content: '# Getting Started with Context Store\n\nTips for using Context Store:\n\n1. Add project notes to remember important decisions\n2. Store API documentation snippets for quick reference\n3. Save workflow templates for repeated tasks\n4. Use tags to organize related context entries\n5. The AI assistant can search and reference your context to provide personalized help',
+                type: 'knowledge',
+                tags: ['tips', 'getting-started', 'tutorial'],
+                metadata: { source: 'system', is_default: true, title: 'Getting Started with Context Store' }
+              }
+            ];
+
+            // Insert default context entries (don't block on this)
+            supabase.from('memory_entries').insert(defaultContextEntries).then(({ error: seedError }) => {
+              if (seedError) {
+                console.warn('Failed to seed default context entries:', seedError);
+              } else {
+                console.log('SupabaseAuthProvider: Default context entries seeded');
+              }
+            });
           }
         } else {
           console.warn(

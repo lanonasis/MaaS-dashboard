@@ -218,6 +218,156 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     ],
     isPreConfigured: true,
     requiresApiKey: false
+  },
+  {
+    id: 'dashboard.mcp_services',
+    name: 'MCP Services Manager',
+    type: 'dashboard',
+    category: 'automation',
+    description: 'Manage external API service integrations (Zapier-like)',
+    icon: '🔌',
+    actions: [
+      {
+        id: 'list',
+        name: 'List Services',
+        description: 'Get all available MCP services from the catalog',
+        parameters: [
+          { name: 'category', type: 'string', description: 'Filter by category (payment, devops, ai, communication, storage, analytics)', required: false }
+        ]
+      },
+      {
+        id: 'list_configured',
+        name: 'List Configured Services',
+        description: 'Get services that are already configured for the user',
+        parameters: []
+      },
+      {
+        id: 'configure',
+        name: 'Configure Service',
+        description: 'Set up a new service with credentials',
+        parameters: [
+          { name: 'service_key', type: 'string', description: 'Service identifier', required: true }
+        ]
+      },
+      {
+        id: 'enable',
+        name: 'Enable Service',
+        description: 'Enable a configured service',
+        parameters: [
+          { name: 'service_key', type: 'string', description: 'Service identifier', required: true }
+        ]
+      },
+      {
+        id: 'disable',
+        name: 'Disable Service',
+        description: 'Disable a service',
+        parameters: [
+          { name: 'service_key', type: 'string', description: 'Service identifier', required: true }
+        ]
+      },
+      {
+        id: 'test',
+        name: 'Test Connection',
+        description: 'Test service connection and credentials',
+        parameters: [
+          { name: 'service_key', type: 'string', description: 'Service identifier', required: true }
+        ]
+      }
+    ],
+    isPreConfigured: true,
+    requiresApiKey: false
+  },
+  {
+    id: 'dashboard.mcp_usage',
+    name: 'MCP Usage Analytics',
+    type: 'dashboard',
+    category: 'analytics',
+    description: 'View MCP Router usage statistics, request logs, and performance metrics',
+    icon: '📈',
+    actions: [
+      {
+        id: 'get_stats',
+        name: 'Get Usage Stats',
+        description: 'Fetch MCP Router usage statistics',
+        parameters: [
+          { name: 'timeframe', type: 'string', description: 'Time range (7d, 30d, 90d)', required: false, default: '30d' }
+        ]
+      },
+      {
+        id: 'get_logs',
+        name: 'Get Request Logs',
+        description: 'Fetch recent request logs',
+        parameters: [
+          { name: 'service', type: 'string', description: 'Filter by service', required: false },
+          { name: 'status', type: 'string', description: 'Filter by status (success, error, rate_limited)', required: false },
+          { name: 'limit', type: 'number', description: 'Max results', required: false, default: 50 }
+        ]
+      },
+      {
+        id: 'get_service_breakdown',
+        name: 'Get Service Breakdown',
+        description: 'Get usage breakdown by service',
+        parameters: [
+          { name: 'timeframe', type: 'string', description: 'Time range', required: false, default: '30d' }
+        ]
+      },
+      {
+        id: 'get_top_actions',
+        name: 'Get Top Actions',
+        description: 'Get most frequently used actions',
+        parameters: [
+          { name: 'limit', type: 'number', description: 'Max results', required: false, default: 10 }
+        ]
+      }
+    ],
+    isPreConfigured: true,
+    requiresApiKey: false
+  },
+  {
+    id: 'dashboard.mcp_api_keys',
+    name: 'MCP API Keys Manager',
+    type: 'dashboard',
+    category: 'productivity',
+    description: 'Manage API keys for MCP Router with scoping and rate limits',
+    icon: '🔐',
+    actions: [
+      {
+        id: 'list',
+        name: 'List API Keys',
+        description: 'Get all MCP Router API keys',
+        parameters: []
+      },
+      {
+        id: 'create',
+        name: 'Create API Key',
+        description: 'Generate a new MCP Router API key with scoping',
+        parameters: [
+          { name: 'name', type: 'string', description: 'Key name', required: true },
+          { name: 'scope_type', type: 'string', description: 'Scope type (all_services or specific_services)', required: true },
+          { name: 'services', type: 'array', description: 'List of service keys if scope is specific', required: false },
+          { name: 'rate_limit_per_minute', type: 'number', description: 'Rate limit per minute', required: false },
+          { name: 'rate_limit_per_day', type: 'number', description: 'Rate limit per day', required: false }
+        ]
+      },
+      {
+        id: 'revoke',
+        name: 'Revoke API Key',
+        description: 'Revoke an MCP Router API key',
+        parameters: [
+          { name: 'key_id', type: 'string', description: 'Key ID', required: true }
+        ]
+      },
+      {
+        id: 'rotate',
+        name: 'Rotate API Key',
+        description: 'Generate new secret for an existing key',
+        parameters: [
+          { name: 'key_id', type: 'string', description: 'Key ID', required: true }
+        ]
+      }
+    ],
+    isPreConfigured: true,
+    requiresApiKey: false
   }
 ];
 

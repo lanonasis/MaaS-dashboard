@@ -5,12 +5,7 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-// Maximum number of toasts to display simultaneously
-// Note: Limiting to 1 prevents toast spam but may hide subsequent errors
-// Consider increasing if multiple simultaneous errors are expected
 const TOAST_LIMIT = 3
-// Delay before removing dismissed toast from DOM (in milliseconds)
-// Standard duration: 5 seconds for user to read the message
 const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {

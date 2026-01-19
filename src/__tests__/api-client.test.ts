@@ -39,12 +39,12 @@ describe('API Client', () => {
       const result = await apiClient.getMemories();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/maas/memories',
+        'https://api.lanonasis.com/api/v1/memory',
         expect.objectContaining({
-          credentials: 'include',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            'x-project-scope': 'maas'
+            'X-Platform': 'dashboard',
+            'X-Project-Scope': 'maas'
           })
         })
       );
@@ -67,8 +67,14 @@ describe('API Client', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/maas/memories?page=2&limit=10&type=project&tags=important%2Cwork&search=test+query',
-        expect.any(Object)
+        'https://api.lanonasis.com/api/v1/memory?page=2&limit=10&type=project&tags=important%2Cwork&search=test+query',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'X-Platform': 'dashboard',
+            'X-Project-Scope': 'maas'
+          })
+        })
       );
     });
 
@@ -84,7 +90,7 @@ describe('API Client', () => {
         json: () => Promise.resolve(errorResponse)
       });
 
-      await expect(apiClient.getMemories()).rejects.toThrow('Unauthorized');
+      await expect(apiClient.getMemories()).rejects.toThrow('Authentication required - redirecting to login');
     });
   });
 
@@ -113,18 +119,30 @@ describe('API Client', () => {
 
       const result = await apiClient.createMemory(newMemory);
 
+      const [, requestInit] = mockFetch.mock.calls[0];
+      expect(requestInit?.method).toBe('POST');
+      expect(requestInit?.headers).toEqual(expect.objectContaining({
+        'Content-Type': 'application/json',
+        'X-Platform': 'dashboard',
+        'X-Project-Scope': 'maas'
+      }));
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/maas/memories',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify(newMemory),
-          credentials: 'include',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            'x-project-scope': 'maas'
-          })
-        })
+        'https://api.lanonasis.com/api/v1/memory',
+        expect.any(Object)
       );
+
+      const sentBody = JSON.parse(String(requestInit?.body ?? '{}'));
+      expect(sentBody).toEqual(expect.objectContaining({
+        title: 'New Memory',
+        content: 'New content',
+        type: 'project',
+        tags: ['new'],
+        metadata: {},
+        is_private: false,
+        is_archived: false,
+        access_count: 0,
+        last_accessed_at: null
+      }));
 
       expect(result).toEqual(mockResponse);
     });
@@ -157,10 +175,15 @@ describe('API Client', () => {
       const result = await apiClient.searchMemories(searchQuery);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/maas/memories/search',
+        'https://api.lanonasis.com/api/v1/memory/search',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify(searchQuery)
+          body: JSON.stringify(searchQuery),
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'X-Platform': 'dashboard',
+            'X-Project-Scope': 'maas'
+          })
         })
       );
 
@@ -191,11 +214,12 @@ describe('API Client', () => {
       const result = await apiClient.getApiKeys();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/maas/api-keys',
+        'https://api.lanonasis.com/api/v1/api-keys',
         expect.objectContaining({
-          credentials: 'include',
           headers: expect.objectContaining({
-            'x-project-scope': 'maas'
+            'Content-Type': 'application/json',
+            'X-Platform': 'dashboard',
+            'X-Project-Scope': 'maas'
           })
         })
       );
@@ -229,10 +253,15 @@ describe('API Client', () => {
       const result = await apiClient.createApiKey(keyData);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/maas/api-keys',
+        'https://api.lanonasis.com/api/v1/api-keys',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify(keyData)
+          body: JSON.stringify(keyData),
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'X-Platform': 'dashboard',
+            'X-Project-Scope': 'maas'
+          })
         })
       );
 
@@ -260,8 +289,14 @@ describe('API Client', () => {
       const result = await apiClient.healthCheck();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/maas/health',
-        expect.any(Object)
+        'https://api.lanonasis.com/api/v1/health',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'X-Platform': 'dashboard',
+            'X-Project-Scope': 'maas'
+          })
+        })
       );
 
       expect(result).toEqual(mockResponse);

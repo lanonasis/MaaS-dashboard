@@ -87,7 +87,7 @@ export const DashboardOverview = () => {
             Welcome back, {profile?.full_name || user?.email?.split('@')[0] || 'User'}
           </h2>
           <p className="text-muted-foreground">
-            Here's an overview of your memory intelligence metrics
+            Here's an overview of your context intelligence metrics
           </p>
         </div>
         <Button onClick={handleRefresh} variant="outline" size="sm" data-testid="button-refresh-dashboard">
@@ -101,7 +101,7 @@ export const DashboardOverview = () => {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              Memory Health Score
+              Context Health Score
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -115,8 +115,8 @@ export const DashboardOverview = () => {
                   </span>
                   <span className="text-muted-foreground">/100</span>
                 </div>
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className={`mt-2 ${getStatusBgColor(healthData?.status || 'needs_attention')}`}
                 >
                   {healthData?.status === 'healthy' && <CheckCircle2 className="h-3 w-3 mr-1" />}
@@ -128,11 +128,11 @@ export const DashboardOverview = () => {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-total-memories">
+        <Card data-testid="card-total-context">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <Database className="h-4 w-4" />
-              Total Memories
+              Total Context Entries
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -198,242 +198,197 @@ export const DashboardOverview = () => {
       {healthData && (
         <Card data-testid="card-health-metrics">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Activity className="h-5 w-5 text-primary" />
-              Health Breakdown
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Context Health Metrics
             </CardTitle>
-            <CardDescription>Detailed metrics about your memory organization</CardDescription>
+            <CardDescription>Detailed breakdown of context quality indicators</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Embedding Coverage</span>
+                  <span className="flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-blue-500" />
+                    Embedding Coverage
+                  </span>
                   <span className="font-medium">{healthData.metrics.embedding_coverage}%</span>
                 </div>
-                <Progress value={healthData.metrics.embedding_coverage} className="h-2" />
+                <Progress value={healthData.metrics.embedding_coverage} />
               </div>
+
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Tagging Consistency</span>
+                  <span className="flex items-center gap-2">
+                    <Tag className="h-4 w-4 text-green-500" />
+                    Tagging Consistency
+                  </span>
                   <span className="font-medium">{healthData.metrics.tagging_consistency}%</span>
                 </div>
-                <Progress value={healthData.metrics.tagging_consistency} className="h-2" />
+                <Progress value={healthData.metrics.tagging_consistency} />
               </div>
+
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Type Balance</span>
+                  <span className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-purple-500" />
+                    Type Balance
+                  </span>
                   <span className="font-medium">{healthData.metrics.type_balance}%</span>
                 </div>
-                <Progress value={healthData.metrics.type_balance} className="h-2" />
+                <Progress value={healthData.metrics.type_balance} />
               </div>
+
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Freshness</span>
+                  <span className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-orange-500" />
+                    Freshness
+                  </span>
                   <span className="font-medium">{healthData.metrics.freshness}%</span>
                 </div>
-                <Progress value={healthData.metrics.freshness} className="h-2" />
+                <Progress value={healthData.metrics.freshness} />
               </div>
             </div>
+
+            {healthData.recommendations && healthData.recommendations.length > 0 && (
+              <div className="mt-6 p-4 bg-muted rounded-lg">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Recommendations
+                </h4>
+                <ul className="space-y-2">
+                  {healthData.recommendations.map((rec, index) => (
+                    <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card data-testid="card-activity-chart">
+        <Card data-testid="card-context-distribution">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Calendar className="h-5 w-5 text-primary" />
-              Weekly Activity
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Context Type Distribution
             </CardTitle>
-            <CardDescription>Memory creation by day of week</CardDescription>
+            <CardDescription>How your context entries are categorized</CardDescription>
           </CardHeader>
           <CardContent>
             {patternLoading ? (
-              <div className="h-60 flex items-center justify-center">
-                <Brain className="h-8 w-8 animate-pulse text-muted-foreground" />
-              </div>
-            ) : activityData.length > 0 ? (
-              <div className="h-60" style={{ minHeight: '240px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0088FE" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#0088FE" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={12} />
-                    <YAxis axisLine={false} tickLine={false} fontSize={12} />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#0088FE"
-                      fillOpacity={1}
-                      fill="url(#colorActivity)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              <Skeleton className="h-64 w-full" />
+            ) : pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="h-60 flex flex-col items-center justify-center text-muted-foreground">
-                <BarChart3 className="h-12 w-12 mb-2" />
-                <p>No activity data yet</p>
+              <div className="text-center text-muted-foreground py-12">
+                No context data available
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card data-testid="card-type-distribution">
+        <Card data-testid="card-activity-patterns">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Target className="h-5 w-5 text-primary" />
-              Memory Types
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Weekly Activity Pattern
             </CardTitle>
-            <CardDescription>Distribution by memory type</CardDescription>
+            <CardDescription>Context creation by day of week</CardDescription>
           </CardHeader>
           <CardContent>
             {patternLoading ? (
-              <div className="h-60 flex items-center justify-center">
-                <Brain className="h-8 w-8 animate-pulse text-muted-foreground" />
-              </div>
-            ) : pieData.length > 0 ? (
-              <div className="h-60 flex items-center" style={{ minHeight: '240px' }}>
-                <ResponsiveContainer width="50%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {pieData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex-1 space-y-2">
-                  {pieData.slice(0, 5).map((entry, index) => (
-                    <div key={entry.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <span className="capitalize">{entry.name}</span>
-                      </div>
-                      <span className="font-medium">{entry.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <Skeleton className="h-64 w-full" />
+            ) : activityData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={activityData}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#8884d8"
+                    fill="#8884d8"
+                    fillOpacity={0.3}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="h-60 flex flex-col items-center justify-center text-muted-foreground">
-                <Database className="h-12 w-12 mb-2" />
-                <p>No memories yet</p>
+              <div className="text-center text-muted-foreground py-12">
+                No activity data available
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {(insights && insights.length > 0) || (healthData?.recommendations && healthData.recommendations.length > 0) ? (
-        <Card data-testid="card-insights">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Lightbulb className="h-5 w-5 text-yellow-500" />
-              Insights & Recommendations
-            </CardTitle>
-            <CardDescription>AI-powered suggestions to improve your knowledge base</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {insights?.map((insight, index) => (
-                <div
-                  key={index}
-                  className={`flex items-start gap-3 p-3 rounded-lg border ${
-                    insight.category === 'pattern' ? 'bg-blue-500/10 border-blue-500/20' :
-                    insight.category === 'learning' ? 'bg-green-500/10 border-green-500/20' :
-                    insight.category === 'opportunity' ? 'bg-purple-500/10 border-purple-500/20' :
-                    'bg-yellow-500/10 border-yellow-500/20'
-                  }`}
-                >
-                  <Brain className={`h-5 w-5 mt-0.5 ${
-                    insight.category === 'pattern' ? 'text-blue-500' :
-                    insight.category === 'learning' ? 'text-green-500' :
-                    insight.category === 'opportunity' ? 'text-purple-500' :
-                    'text-yellow-500'
-                  }`} />
-                  <div>
-                    <p className="text-sm font-medium">{insight.title}</p>
-                    <p className="text-xs text-muted-foreground">{insight.description}</p>
-                  </div>
-                </div>
-              ))}
-              
-              {healthData?.recommendations?.map((rec, index) => (
-                <div
-                  key={`rec-${index}`}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20"
-                >
-                  <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium">Health Recommendation</p>
-                    <p className="text-xs text-muted-foreground">{rec}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
       <Card data-testid="card-quick-actions">
-        <CardContent className="pt-6">
-          <div className="text-center space-y-4">
-            <div className="flex items-center justify-center gap-2">
-              <Zap className="h-6 w-6 text-primary" />
-              <h3 className="text-lg font-semibold">Quick Actions</h3>
-            </div>
-            <p className="text-muted-foreground">
-              Manage your API keys, explore memories, or start intelligent workflows
-            </p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <Button 
-                onClick={() => navigate('/dashboard/orchestrator')} 
-                className="gap-2"
-                data-testid="button-try-orchestrator"
-              >
-                <Zap className="h-4 w-4" />
-                AI Orchestrator
-              </Button>
-              <Button 
-                onClick={() => navigate('/dashboard/memory-visualizer')} 
-                variant="outline" 
-                className="gap-2"
-                data-testid="button-view-memories"
-              >
-                <Brain className="h-4 w-4" />
-                View Memories
-              </Button>
-              <Button 
-                onClick={() => navigate('/dashboard/memory-analytics')} 
-                variant="outline" 
-                className="gap-2"
-                data-testid="button-view-analytics"
-              >
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5" />
+            Quick Actions
+          </CardTitle>
+          <CardDescription>Jump to key sections of your dashboard</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button
+              variant="outline"
+              className="justify-between"
+              onClick={() => navigate('/dashboard/memory-analytics')}
+            >
+              <span className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
-                Full Analytics
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
+                View Analytics
+              </span>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-between"
+              onClick={() => navigate('/dashboard/memory-visualizer')}
+            >
+              <span className="flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                Browse Context
+              </span>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-between"
+              onClick={() => navigate('/dashboard/ai-tools')}
+            >
+              <span className="flex items-center gap-2">
+                <Brain className="h-4 w-4" />
+                AI Tools
+              </span>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>
