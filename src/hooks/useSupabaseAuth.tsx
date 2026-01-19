@@ -338,6 +338,37 @@ export const SupabaseAuthProvider = ({
               profileId: insertData[0].id,
             });
             setProfile(insertData[0] as Profile);
+
+            // Seed default context entries for new users
+            const defaultContextEntries = [
+              {
+                user_id: userId,
+                title: 'Welcome to LanOnasis',
+                content: 'Welcome to LanOnasis where your context becomes money or value. This is your personal context store - a place to keep important information, notes, and knowledge that AI assistants can reference to provide you with personalized help.',
+                type: 'context',
+                memory_type: 'context',
+                tags: ['welcome', 'getting-started'],
+                metadata: { source: 'system', is_default: true }
+              },
+              {
+                user_id: userId,
+                title: 'Getting Started with Context Store',
+                content: 'Tips for using Context Store:\n\n1. Add project notes to remember important decisions\n2. Store API documentation snippets for quick reference\n3. Save workflow templates for repeated tasks\n4. Use tags to organize related context entries\n5. The AI assistant can search and reference your context to provide personalized help',
+                type: 'knowledge',
+                memory_type: 'knowledge',
+                tags: ['tips', 'getting-started', 'tutorial'],
+                metadata: { source: 'system', is_default: true }
+              }
+            ];
+
+            // Insert default context entries (don't block on this)
+            supabase.from('memory_entries').insert(defaultContextEntries).then(({ error: seedError }) => {
+              if (seedError) {
+                console.warn('Failed to seed default context entries:', seedError);
+              } else {
+                console.log('SupabaseAuthProvider: Default context entries seeded');
+              }
+            });
           }
         } else {
           console.warn(
