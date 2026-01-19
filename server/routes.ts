@@ -255,6 +255,29 @@ export function registerRoutes(app: Express, storage: IStorage) {
       const { id } = req.params;
       const { title, content, type, tags, metadata, is_private, is_archived } = req.body;
 
+      // Input validation
+      if (title !== undefined && (typeof title !== 'string' || title.length > 500)) {
+        return res.status(400).json({ message: "Title must be a string with max 500 characters" });
+      }
+      if (content !== undefined && typeof content !== 'string') {
+        return res.status(400).json({ message: "Content must be a string" });
+      }
+      if (type !== undefined && typeof type !== 'string') {
+        return res.status(400).json({ message: "Type must be a string" });
+      }
+      if (tags !== undefined && !Array.isArray(tags)) {
+        return res.status(400).json({ message: "Tags must be an array" });
+      }
+      if (metadata !== undefined && (typeof metadata !== 'object' || metadata === null)) {
+        return res.status(400).json({ message: "Metadata must be an object" });
+      }
+      if (is_private !== undefined && typeof is_private !== 'boolean') {
+        return res.status(400).json({ message: "is_private must be a boolean" });
+      }
+      if (is_archived !== undefined && typeof is_archived !== 'boolean') {
+        return res.status(400).json({ message: "is_archived must be a boolean" });
+      }
+
       // Verify memory exists and belongs to user
       const existing = await storage.getMemoryById(id, req.user.id);
       if (!existing) {
@@ -270,10 +293,18 @@ export function registerRoutes(app: Express, storage: IStorage) {
       if (is_private !== undefined) updates.is_private = is_private;
       if (is_archived !== undefined) updates.is_archived = is_archived;
 
+      // Ensure at least one field is being updated
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid update fields provided" });
+      }
+
       const memory = await storage.updateMemoryEntry(id, req.user.id, updates);
       res.json(memory);
     } catch (error) {
       console.error("Error updating memory:", error);
+      if (error instanceof Error && error.message.includes('not found')) {
+        return res.status(404).json({ message: error.message });
+      }
       res.status(500).json({ message: "Internal server error" });
     }
   });
