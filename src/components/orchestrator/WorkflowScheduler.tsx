@@ -1,17 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -20,10 +26,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+} from "@/components/ui/dialog";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import {
   Calendar,
   Clock,
@@ -34,12 +40,12 @@ import {
   Plus,
   Repeat,
   CheckCircle,
-  AlertCircle
-} from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+  AlertCircle,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
-const SCHEDULE_TYPES = ['once', 'daily', 'weekly', 'monthly'] as const;
-type ScheduleType = typeof SCHEDULE_TYPES[number];
+const SCHEDULE_TYPES = ["once", "daily", "weekly", "monthly"] as const;
+type ScheduleType = (typeof SCHEDULE_TYPES)[number];
 
 const isScheduleType = (value: string): value is ScheduleType =>
   SCHEDULE_TYPES.includes(value as ScheduleType);
@@ -52,13 +58,15 @@ interface ScheduledWorkflow {
   scheduled_time: string;
   next_run_at: string;
   last_run_at?: string;
-  status: 'active' | 'paused' | 'completed' | 'cancelled';
+  status: "active" | "paused" | "completed" | "cancelled";
   created_at: string;
   metadata?: any;
 }
 
 export const WorkflowScheduler: React.FC = () => {
-  const [scheduledWorkflows, setScheduledWorkflows] = useState<ScheduledWorkflow[]>([]);
+  const [scheduledWorkflows, setScheduledWorkflows] = useState<
+    ScheduledWorkflow[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [featureAvailable, setFeatureAvailable] = useState(true);
@@ -66,31 +74,25 @@ export const WorkflowScheduler: React.FC = () => {
   const { toast } = useToast();
 
   // Form state
-  const [newGoal, setNewGoal] = useState('');
-  const [scheduleType, setScheduleType] = useState<ScheduleType>('once');
-  const [scheduledTime, setScheduledTime] = useState('');
+  const [newGoal, setNewGoal] = useState("");
+  const [scheduleType, setScheduleType] = useState<ScheduleType>("once");
+  const [scheduledTime, setScheduledTime] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchScheduledWorkflows();
-    }
-  }, [user]);
-
-  const fetchScheduledWorkflows = async () => {
+  const fetchScheduledWorkflows = useCallback(async () => {
     if (!user) return;
 
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('scheduled_workflows')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('next_run_at', { ascending: true });
+        .from("scheduled_workflows")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("next_run_at", { ascending: true });
 
       if (error) {
         // If table doesn't exist or schema cache issue, show "Coming Soon"
-        if (error.code === '42P01' || error.message?.includes('schema cache')) {
+        if (error.code === "42P01" || error.message?.includes("schema cache")) {
           setFeatureAvailable(false);
           setScheduledWorkflows([]);
           setIsLoading(false);
@@ -102,27 +104,38 @@ export const WorkflowScheduler: React.FC = () => {
       setFeatureAvailable(true);
       const normalized = (data || []).map((workflow) => ({
         ...workflow,
-        schedule_type: isScheduleType(workflow.schedule_type) ? workflow.schedule_type : 'once'
+        schedule_type: isScheduleType(workflow.schedule_type)
+          ? workflow.schedule_type
+          : "once",
       })) as ScheduledWorkflow[];
 
       setScheduledWorkflows(normalized);
     } catch (error: any) {
-      console.error('Error fetching scheduled workflows:', error);
+      console.error("Error fetching scheduled workflows:", error);
       // Check for table not found errors
-      if (error.message?.includes('scheduled_workflow') || error.code === 'PGRST116') {
+      if (
+        error.message?.includes("scheduled_workflow") ||
+        error.code === "PGRST116"
+      ) {
         setFeatureAvailable(false);
         setScheduledWorkflows([]);
       } else {
         toast({
-          title: 'Load error',
-          description: error.message || 'Could not load scheduled workflows',
-          variant: 'destructive'
+          title: "Load error",
+          description: error.message || "Could not load scheduled workflows",
+          variant: "destructive",
         });
       }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, toast]);
+
+  useEffect(() => {
+    if (user) {
+      fetchScheduledWorkflows();
+    }
+  }, [user, fetchScheduledWorkflows]);
 
   const handleCreateSchedule = async () => {
     if (!newGoal.trim() || !scheduledTime || !user) return;
@@ -135,17 +148,17 @@ export const WorkflowScheduler: React.FC = () => {
       const nextRunAt = scheduledDateTime.toISOString();
 
       const { data, error } = await supabase
-        .from('scheduled_workflows')
+        .from("scheduled_workflows")
         .insert({
           user_id: user.id,
           goal: newGoal.trim(),
           schedule_type: scheduleType,
           scheduled_time: scheduledTime,
           next_run_at: nextRunAt,
-          status: 'active',
+          status: "active",
           metadata: {
-            created_via: 'workflow_scheduler_ui'
-          }
+            created_via: "workflow_scheduler_ui",
+          },
         })
         .select()
         .single();
@@ -153,55 +166,61 @@ export const WorkflowScheduler: React.FC = () => {
       if (error) throw error;
 
       toast({
-        title: 'Workflow scheduled',
+        title: "Workflow scheduled",
         description: `Scheduled for ${scheduledDateTime.toLocaleString()}`,
       });
 
       // Reset form
-      setNewGoal('');
-      setScheduledTime('');
-      setScheduleType('once');
+      setNewGoal("");
+      setScheduledTime("");
+      setScheduleType("once");
       setIsDialogOpen(false);
 
       // Refresh list
       await fetchScheduledWorkflows();
     } catch (error: any) {
-      console.error('Error scheduling workflow:', error);
+      console.error("Error scheduling workflow:", error);
       toast({
-        title: 'Schedule failed',
-        description: error.message || 'Could not schedule workflow',
-        variant: 'destructive'
+        title: "Schedule failed",
+        description: error.message || "Could not schedule workflow",
+        variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleToggleStatus = async (scheduleId: string, currentStatus: string) => {
+  const handleToggleStatus = async (
+    scheduleId: string,
+    currentStatus: string,
+  ) => {
     if (!user) return;
 
     try {
-      const newStatus = currentStatus === 'active' ? 'paused' : 'active';
+      const newStatus = currentStatus === "active" ? "paused" : "active";
 
       const { error } = await supabase
-        .from('scheduled_workflows')
+        .from("scheduled_workflows")
         .update({ status: newStatus })
-        .eq('id', scheduleId)
-        .eq('user_id', user.id);
+        .eq("id", scheduleId)
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
       toast({
-        title: newStatus === 'active' ? 'Schedule resumed' : 'Schedule paused',
-        description: newStatus === 'active' ? 'Workflow will run as scheduled' : 'Workflow execution paused',
+        title: newStatus === "active" ? "Schedule resumed" : "Schedule paused",
+        description:
+          newStatus === "active"
+            ? "Workflow will run as scheduled"
+            : "Workflow execution paused",
       });
 
       await fetchScheduledWorkflows();
     } catch (error: any) {
       toast({
-        title: 'Status update failed',
-        description: error.message || 'Could not update schedule status',
-        variant: 'destructive'
+        title: "Status update failed",
+        description: error.message || "Could not update schedule status",
+        variant: "destructive",
       });
     }
   };
@@ -211,44 +230,60 @@ export const WorkflowScheduler: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('scheduled_workflows')
+        .from("scheduled_workflows")
         .delete()
-        .eq('id', scheduleId)
-        .eq('user_id', user.id);
+        .eq("id", scheduleId)
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
       toast({
-        title: 'Schedule deleted',
-        description: 'Workflow schedule has been removed',
+        title: "Schedule deleted",
+        description: "Workflow schedule has been removed",
       });
 
       await fetchScheduledWorkflows();
     } catch (error: any) {
       toast({
-        title: 'Delete failed',
-        description: error.message || 'Could not delete schedule',
-        variant: 'destructive'
+        title: "Delete failed",
+        description: error.message || "Could not delete schedule",
+        variant: "destructive",
       });
     }
   };
 
   const getScheduleTypeLabel = (type: string) => {
     const labels = {
-      once: '⏱️ One-time',
-      daily: '📅 Daily',
-      weekly: '📆 Weekly',
-      monthly: '🗓️ Monthly'
+      once: "⏱️ One-time",
+      daily: "📅 Daily",
+      weekly: "📆 Weekly",
+      monthly: "🗓️ Monthly",
     };
     return labels[type as keyof typeof labels] || type;
   };
 
   const getStatusBadge = (status: string) => {
     const configs = {
-      active: { variant: 'default' as const, label: 'Active', icon: <Play className="h-3 w-3" /> },
-      paused: { variant: 'secondary' as const, label: 'Paused', icon: <Pause className="h-3 w-3" /> },
-      completed: { variant: 'outline' as const, label: 'Completed', icon: <CheckCircle className="h-3 w-3" /> },
-      cancelled: { variant: 'destructive' as const, label: 'Cancelled', icon: <AlertCircle className="h-3 w-3" /> }
+      active: {
+        variant: "default" as const,
+        label: "Active",
+        icon: <Play className="h-3 w-3" />,
+      },
+      paused: {
+        variant: "secondary" as const,
+        label: "Paused",
+        icon: <Pause className="h-3 w-3" />,
+      },
+      completed: {
+        variant: "outline" as const,
+        label: "Completed",
+        icon: <CheckCircle className="h-3 w-3" />,
+      },
+      cancelled: {
+        variant: "destructive" as const,
+        label: "Cancelled",
+        icon: <AlertCircle className="h-3 w-3" />,
+      },
     };
     const config = configs[status as keyof typeof configs] || configs.active;
     return (
@@ -280,7 +315,9 @@ export const WorkflowScheduler: React.FC = () => {
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <Calendar className="h-6 w-6" />
               Workflow Scheduler
-              <Badge variant="secondary" className="ml-2 text-xs">Coming Soon</Badge>
+              <Badge variant="secondary" className="ml-2 text-xs">
+                Coming Soon
+              </Badge>
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               Schedule workflows to run automatically at specific times
@@ -298,17 +335,21 @@ export const WorkflowScheduler: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-semibold">Workflow Scheduling Coming Soon</h3>
+                <h3 className="text-xl font-semibold">
+                  Workflow Scheduling Coming Soon
+                </h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  We're building automated workflow scheduling to help you run AI workflows
-                  on a schedule. This feature will allow you to:
+                  We're building automated workflow scheduling to help you run
+                  AI workflows on a schedule. This feature will allow you to:
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto mt-6">
                 <div className="p-4 rounded-lg bg-muted/50 text-left">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">One-time Schedules</span>
+                    <span className="font-medium text-sm">
+                      One-time Schedules
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Run workflows at a specific date and time
@@ -368,7 +409,10 @@ export const WorkflowScheduler: React.FC = () => {
                 <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
                   3
                 </div>
-                <p>The system will automatically run your workflow and notify you of results</p>
+                <p>
+                  The system will automatically run your workflow and notify you
+                  of results
+                </p>
               </div>
             </div>
           </CardContent>
@@ -422,7 +466,10 @@ export const WorkflowScheduler: React.FC = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="schedule-type">Schedule Type</Label>
-                  <Select value={scheduleType} onValueChange={(value: any) => setScheduleType(value)}>
+                  <Select
+                    value={scheduleType}
+                    onValueChange={(value: any) => setScheduleType(value)}
+                  >
                     <SelectTrigger id="schedule-type">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -437,7 +484,9 @@ export const WorkflowScheduler: React.FC = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="scheduled-time">
-                    {scheduleType === 'once' ? 'Scheduled Date & Time' : 'First Run Date & Time'}
+                    {scheduleType === "once"
+                      ? "Scheduled Date & Time"
+                      : "First Run Date & Time"}
                   </Label>
                   <Input
                     id="scheduled-time"
@@ -448,23 +497,30 @@ export const WorkflowScheduler: React.FC = () => {
                   />
                 </div>
 
-                {scheduleType !== 'once' && (
+                {scheduleType !== "once" && (
                   <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
                     <div className="flex items-start gap-2">
                       <Repeat className="h-4 w-4 text-blue-500 mt-0.5" />
                       <p className="text-sm text-muted-foreground">
-                        This workflow will run {scheduleType} starting from the specified time
+                        This workflow will run {scheduleType} starting from the
+                        specified time
                       </p>
                     </div>
                   </div>
                 )}
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleCreateSchedule} disabled={!newGoal.trim() || !scheduledTime || isSaving}>
-                  {isSaving ? 'Scheduling...' : 'Schedule Workflow'}
+                <Button
+                  onClick={handleCreateSchedule}
+                  disabled={!newGoal.trim() || !scheduledTime || isSaving}
+                >
+                  {isSaving ? "Scheduling..." : "Schedule Workflow"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -479,7 +535,9 @@ export const WorkflowScheduler: React.FC = () => {
             <div className="text-center py-8 space-y-3">
               <Calendar className="h-12 w-12 mx-auto text-muted-foreground" />
               <div>
-                <h3 className="text-lg font-semibold">No scheduled workflows</h3>
+                <h3 className="text-lg font-semibold">
+                  No scheduled workflows
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   Create a schedule to run workflows automatically
                 </p>
@@ -504,16 +562,23 @@ export const WorkflowScheduler: React.FC = () => {
                           {getScheduleTypeLabel(schedule.schedule_type)}
                         </Badge>
                       </div>
-                      <p className="text-sm font-medium leading-relaxed">{schedule.goal}</p>
+                      <p className="text-sm font-medium leading-relaxed">
+                        {schedule.goal}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleToggleStatus(schedule.id, schedule.status)}
-                        disabled={schedule.status === 'completed' || schedule.status === 'cancelled'}
+                        onClick={() =>
+                          handleToggleStatus(schedule.id, schedule.status)
+                        }
+                        disabled={
+                          schedule.status === "completed" ||
+                          schedule.status === "cancelled"
+                        }
                       >
-                        {schedule.status === 'active' ? (
+                        {schedule.status === "active" ? (
                           <Pause className="h-4 w-4" />
                         ) : (
                           <Play className="h-4 w-4" />
@@ -531,14 +596,17 @@ export const WorkflowScheduler: React.FC = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                    <div className={`flex items-center gap-2 ${isPast && schedule.status === 'active' ? 'text-orange-500' : ''}`}>
+                    <div
+                      className={`flex items-center gap-2 ${isPast && schedule.status === "active" ? "text-orange-500" : ""}`}
+                    >
                       <Clock className="h-4 w-4" />
                       <div>
                         <p className="font-medium">Next run</p>
                         <p className="text-xs text-muted-foreground">
                           {nextRun.toLocaleString()}
-                          {!isPast && ` (${formatDistanceToNow(nextRun, { addSuffix: true })})`}
-                          {isPast && ' (overdue)'}
+                          {!isPast &&
+                            ` (${formatDistanceToNow(nextRun, { addSuffix: true })})`}
+                          {isPast && " (overdue)"}
                         </p>
                       </div>
                     </div>
@@ -549,7 +617,10 @@ export const WorkflowScheduler: React.FC = () => {
                         <div>
                           <p className="font-medium">Last run</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(schedule.last_run_at), { addSuffix: true })}
+                            {formatDistanceToNow(
+                              new Date(schedule.last_run_at),
+                              { addSuffix: true },
+                            )}
                           </p>
                         </div>
                       </div>
@@ -560,16 +631,19 @@ export const WorkflowScheduler: React.FC = () => {
                       <div>
                         <p className="font-medium">Created</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(schedule.created_at), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(schedule.created_at), {
+                            addSuffix: true,
+                          })}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {isPast && schedule.status === 'active' && (
+                  {isPast && schedule.status === "active" && (
                     <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
                       <p className="text-sm text-orange-600 dark:text-orange-400">
-                        ⚠️ This workflow is scheduled to run in the past. Update the schedule or pause it.
+                        ⚠️ This workflow is scheduled to run in the past. Update
+                        the schedule or pause it.
                       </p>
                     </div>
                   )}
@@ -591,24 +665,33 @@ export const WorkflowScheduler: React.FC = () => {
               <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
                 1
               </div>
-              <p>Create a schedule with your workflow goal and desired timing</p>
+              <p>
+                Create a schedule with your workflow goal and desired timing
+              </p>
             </div>
             <div className="flex items-start gap-3">
               <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
                 2
               </div>
-              <p>The system will automatically execute your workflow at the scheduled time</p>
+              <p>
+                The system will automatically execute your workflow at the
+                scheduled time
+              </p>
             </div>
             <div className="flex items-start gap-3">
               <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
                 3
               </div>
-              <p>For recurring schedules, the workflow repeats based on your selected frequency</p>
+              <p>
+                For recurring schedules, the workflow repeats based on your
+                selected frequency
+              </p>
             </div>
             <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
               <p className="text-xs">
-                <strong>Note:</strong> Scheduled workflows require a backend scheduler service to be running.
-                Currently, schedules are stored but execution requires additional setup.
+                <strong>Note:</strong> Scheduled workflows require a backend
+                scheduler service to be running. Currently, schedules are stored
+                but execution requires additional setup.
               </p>
             </div>
           </div>

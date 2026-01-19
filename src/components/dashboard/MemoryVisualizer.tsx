@@ -101,35 +101,37 @@ const getTypeBadgeColor = (type: string) => {
 
 const safeFormatDistanceToNow = (value: string | Date | null | undefined) => {
   try {
-    if (!value) return 'Just now';
-    const date = typeof value === 'string' ? new Date(value) : value;
-    if (Number.isNaN(date.getTime())) return 'Just now';
+    if (!value) return "Just now";
+    const date = typeof value === "string" ? new Date(value) : value;
+    if (Number.isNaN(date.getTime())) return "Just now";
     return formatDistanceToNow(date, { addSuffix: true });
   } catch {
-    return 'Just now';
+    return "Just now";
   }
 };
 
 // Content formatter - clean up raw content for display
 const formatContent = (content: string): string => {
-  if (!content) return '';
+  if (!content) return "";
 
   // Try to detect and format JSON
-  if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+  if (content.trim().startsWith("{") || content.trim().startsWith("[")) {
     try {
       const parsed = JSON.parse(content);
       // If it's valid JSON, return a cleaner representation
-      if (typeof parsed === 'object') {
+      if (typeof parsed === "object") {
         // Check for common memory structures
         if (parsed.trigger || parsed.actions) {
-          return `Workflow: ${parsed.trigger || 'Automated task'}\n${parsed.actions?.length || 0} action(s) defined`;
+          return `Workflow: ${parsed.trigger || "Automated task"}\n${parsed.actions?.length || 0} action(s) defined`;
         }
         if (parsed.content) {
           return parsed.content;
         }
         // Return pretty printed JSON with truncation
         const formatted = JSON.stringify(parsed, null, 2);
-        return formatted.length > 500 ? formatted.slice(0, 500) + '...' : formatted;
+        return formatted.length > 500
+          ? formatted.slice(0, 500) + "..."
+          : formatted;
       }
     } catch {
       // Not valid JSON, continue with normal processing
@@ -138,22 +140,29 @@ const formatContent = (content: string): string => {
 
   // Clean up common formatting issues
   const cleaned = content
-    .replace(/\\n/g, '\n')  // Fix escaped newlines
-    .replace(/\\t/g, '  ')  // Fix escaped tabs
-    .replace(/\r\n/g, '\n') // Normalize line endings
+    .replace(/\\n/g, "\n") // Fix escaped newlines
+    .replace(/\\t/g, "  ") // Fix escaped tabs
+    .replace(/\r\n/g, "\n") // Normalize line endings
     .trim();
 
   return cleaned;
 };
 
 // Valid memory types for editing
-const MEMORY_TYPES = ['context', 'project', 'knowledge', 'reference', 'personal', 'workflow'];
+const MEMORY_TYPES = [
+  "context",
+  "project",
+  "knowledge",
+  "reference",
+  "personal",
+  "workflow",
+];
 
 // Query keys
 const memoryKeys = {
-  all: ['memories'] as const,
+  all: ["memories"] as const,
   list: (params: { page: number; type: string; userId: string }) =>
-    [...memoryKeys.all, 'list', params] as const,
+    [...memoryKeys.all, "list", params] as const,
 };
 
 export function MemoryVisualizer() {
@@ -174,10 +183,10 @@ export function MemoryVisualizer() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [editForm, setEditForm] = useState({
-    title: '',
-    content: '',
-    type: 'context',
-    tags: '',
+    title: "",
+    content: "",
+    type: "context",
+    tags: "",
   });
 
   // React Query - fetch memories with caching
@@ -187,7 +196,11 @@ export function MemoryVisualizer() {
     refetch,
     isRefetching,
   } = useQuery({
-    queryKey: memoryKeys.list({ page, type: selectedType, userId: authUser?.id || '' }),
+    queryKey: memoryKeys.list({
+      page,
+      type: selectedType,
+      userId: authUser?.id || "",
+    }),
     queryFn: async () => {
       if (!authUser?.id && !useCustomApiKey) {
         return { memories: [], total: 0, totalPages: 1 };
@@ -203,7 +216,9 @@ export function MemoryVisualizer() {
           .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
 
         if (selectedType !== "all") {
-          query = query.or(`memory_type.eq.${selectedType},type.eq.${selectedType}`);
+          query = query.or(
+            `memory_type.eq.${selectedType},type.eq.${selectedType}`,
+          );
         }
 
         const { data, error, count } = await query;
@@ -252,7 +267,8 @@ export function MemoryVisualizer() {
         totalPages: response.pagination?.total_pages || 1,
       };
     },
-    enabled: !authLoading && (!!authUser?.id || (useCustomApiKey && !!customApiKey)),
+    enabled:
+      !authLoading && (!!authUser?.id || (useCustomApiKey && !!customApiKey)),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false, // Prevent refetch on focus
@@ -261,15 +277,25 @@ export function MemoryVisualizer() {
 
   // Update memory mutation
   const updateMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Memory> }) => {
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<Memory>;
+    }) => {
       // Use API client for custom API key users
       if (useCustomApiKey && customApiKey) {
-        const response = await apiClient.updateMemory(id, {
-          title: updates.title,
-          content: updates.content,
-          type: updates.type,
-          tags: updates.tags,
-        }, customApiKey);
+        const response = await apiClient.updateMemory(
+          id,
+          {
+            title: updates.title,
+            content: updates.content,
+            type: updates.type,
+            tags: updates.tags,
+          },
+          customApiKey,
+        );
 
         if (response.error) throw new Error(response.error);
         return { id, updates };
@@ -358,10 +384,10 @@ export function MemoryVisualizer() {
   const handleOpenEdit = (memory: Memory) => {
     setSelectedMemory(memory);
     setEditForm({
-      title: memory.title || '',
-      content: memory.content || '',
-      type: memory.type || 'context',
-      tags: (memory.tags || []).join(', '),
+      title: memory.title || "",
+      content: memory.content || "",
+      type: memory.type || "context",
+      tags: (memory.tags || []).join(", "),
     });
     setIsEditOpen(true);
   };
@@ -370,16 +396,16 @@ export function MemoryVisualizer() {
     if (!selectedMemory) return;
 
     const tags = editForm.tags
-      .split(',')
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
 
     updateMutation.mutate({
       id: selectedMemory.id,
       updates: {
         title: editForm.title,
         content: editForm.content,
-        type: editForm.type as Memory['type'],
+        type: editForm.type as Memory["type"],
         tags,
       },
     });
@@ -391,19 +417,21 @@ export function MemoryVisualizer() {
   };
 
   const handlePreviousPage = () => {
-    if (page > 1) setPage(p => p - 1);
+    if (page > 1) setPage((p) => p - 1);
   };
 
   const handleNextPage = () => {
     if (memoriesData && page < memoriesData.totalPages) {
-      setPage(p => p + 1);
+      setPage((p) => p + 1);
     }
   };
 
   // Stats calculation
   const stats = {
     totalMemories: memoriesData?.total || 0,
-    totalTags: new Set((memoriesData?.memories || []).flatMap(m => m.tags || [])).size,
+    totalTags: new Set(
+      (memoriesData?.memories || []).flatMap((m) => m.tags || []),
+    ).size,
   };
 
   // Show loading state while auth is initializing
@@ -455,10 +483,14 @@ export function MemoryVisualizer() {
                   onChange={(e) => setCustomApiKey(e.target.value)}
                   className="flex-1"
                 />
-                <Button onClick={() => refetch()} disabled={isLoading || isRefetching}>
+                <Button
+                  onClick={() => refetch()}
+                  disabled={isLoading || isRefetching}
+                >
                   <RefreshCw
                     className={
-                      "h-4 w-4 mr-2 " + (isLoading || isRefetching ? "animate-spin" : "")
+                      "h-4 w-4 mr-2 " +
+                      (isLoading || isRefetching ? "animate-spin" : "")
                     }
                   />
                   Test & Load
@@ -515,13 +547,19 @@ export function MemoryVisualizer() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setPage(1); }}>
+              <Select
+                value={selectedType}
+                onValueChange={(v) => {
+                  setSelectedType(v);
+                  setPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  {MEMORY_TYPES.map(type => (
+                  {MEMORY_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type.charAt(0).toUpperCase() + type.slice(1)}
                     </SelectItem>
@@ -535,7 +573,10 @@ export function MemoryVisualizer() {
                 disabled={isLoading || isRefetching}
               >
                 <RefreshCw
-                  className={"h-4 w-4 " + (isLoading || isRefetching ? "animate-spin" : "")}
+                  className={
+                    "h-4 w-4 " +
+                    (isLoading || isRefetching ? "animate-spin" : "")
+                  }
                 />
               </Button>
             </div>
@@ -578,7 +619,9 @@ export function MemoryVisualizer() {
                             </div>
                             <Badge
                               variant="outline"
-                              className={getTypeBadgeColor(memory.type) + " text-xs"}
+                              className={
+                                getTypeBadgeColor(memory.type) + " text-xs"
+                              }
                             >
                               {memory.type}
                             </Badge>
@@ -588,7 +631,10 @@ export function MemoryVisualizer() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => { e.stopPropagation(); handleOpenEdit(memory); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEdit(memory);
+                              }}
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -649,8 +695,9 @@ export function MemoryVisualizer() {
               {memoriesData.memories.length > 0 && (
                 <div className="flex items-center justify-between pt-4 border-t mt-4">
                   <span className="text-sm text-muted-foreground">
-                    Showing {((page - 1) * ITEMS_PER_PAGE) + 1}-
-                    {Math.min(page * ITEMS_PER_PAGE, memoriesData.total)} of {memoriesData.total} memories
+                    Showing {(page - 1) * ITEMS_PER_PAGE + 1}-
+                    {Math.min(page * ITEMS_PER_PAGE, memoriesData.total)} of{" "}
+                    {memoriesData.total} memories
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
@@ -692,17 +739,23 @@ export function MemoryVisualizer() {
               </div>
               <div className="flex-1">
                 <DialogTitle className="text-lg">
-                  {selectedMemory?.title || 'Memory Details'}
+                  {selectedMemory?.title || "Memory Details"}
                 </DialogTitle>
                 <DialogDescription className="flex items-center gap-2 mt-1">
                   <Badge
                     variant="outline"
-                    className={selectedMemory ? getTypeBadgeColor(selectedMemory.type) + " text-xs" : ""}
+                    className={
+                      selectedMemory
+                        ? getTypeBadgeColor(selectedMemory.type) + " text-xs"
+                        : ""
+                    }
                   >
                     {selectedMemory?.type}
                   </Badge>
                   <span className="text-xs">
-                    Created {selectedMemory && safeFormatDistanceToNow(selectedMemory.created_at)}
+                    Created{" "}
+                    {selectedMemory &&
+                      safeFormatDistanceToNow(selectedMemory.created_at)}
                   </span>
                 </DialogDescription>
               </div>
@@ -713,16 +766,20 @@ export function MemoryVisualizer() {
             <div className="space-y-4">
               {/* Content */}
               <div>
-                <h4 className="text-sm font-medium mb-2 text-muted-foreground">Content</h4>
+                <h4 className="text-sm font-medium mb-2 text-muted-foreground">
+                  Content
+                </h4>
                 <pre className="text-sm whitespace-pre-wrap leading-relaxed bg-muted/50 p-4 rounded-lg font-mono text-xs overflow-x-auto">
-                  {formatContent(selectedMemory?.content || '')}
+                  {formatContent(selectedMemory?.content || "")}
                 </pre>
               </div>
 
               {/* Tags */}
               {selectedMemory?.tags && selectedMemory.tags.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Tags</h4>
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">
+                    Tags
+                  </h4>
                   <div className="flex flex-wrap gap-2">
                     {selectedMemory.tags.map((tag, idx) => (
                       <Badge key={idx} variant="secondary" className="text-sm">
@@ -735,29 +792,38 @@ export function MemoryVisualizer() {
               )}
 
               {/* Metadata */}
-              {selectedMemory?.metadata && Object.keys(selectedMemory.metadata).length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Metadata</h4>
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <pre className="text-xs overflow-x-auto">
-                      {JSON.stringify(selectedMemory.metadata, null, 2)}
-                    </pre>
+              {selectedMemory?.metadata &&
+                Object.keys(selectedMemory.metadata).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 text-muted-foreground">
+                      Metadata
+                    </h4>
+                    <div className="bg-muted/50 p-4 rounded-lg">
+                      <pre className="text-xs overflow-x-auto">
+                        {JSON.stringify(selectedMemory.metadata, null, 2)}
+                      </pre>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Stats */}
               <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                 <div>
-                  <span className="text-xs text-muted-foreground">Access Count</span>
-                  <p className="text-sm font-medium">{selectedMemory?.access_count || 0}</p>
+                  <span className="text-xs text-muted-foreground">
+                    Access Count
+                  </span>
+                  <p className="text-sm font-medium">
+                    {selectedMemory?.access_count || 0}
+                  </p>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground">Last Accessed</span>
+                  <span className="text-xs text-muted-foreground">
+                    Last Accessed
+                  </span>
                   <p className="text-sm font-medium">
                     {selectedMemory?.last_accessed_at
                       ? safeFormatDistanceToNow(selectedMemory.last_accessed_at)
-                      : 'Never'}
+                      : "Never"}
                   </p>
                 </div>
               </div>
@@ -765,7 +831,10 @@ export function MemoryVisualizer() {
           </ScrollArea>
 
           <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => selectedMemory && handleOpenEdit(selectedMemory)}>
+            <Button
+              variant="outline"
+              onClick={() => selectedMemory && handleOpenEdit(selectedMemory)}
+            >
               <Pencil className="h-4 w-4 mr-2" />
               Edit
             </Button>
@@ -799,7 +868,9 @@ export function MemoryVisualizer() {
               <Input
                 id="edit-title"
                 value={editForm.title}
-                onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, title: e.target.value }))
+                }
                 placeholder="Memory title"
               />
             </div>
@@ -808,13 +879,13 @@ export function MemoryVisualizer() {
               <Label htmlFor="edit-type">Type</Label>
               <Select
                 value={editForm.type}
-                onValueChange={(v) => setEditForm(f => ({ ...f, type: v }))}
+                onValueChange={(v) => setEditForm((f) => ({ ...f, type: v }))}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MEMORY_TYPES.map(type => (
+                  {MEMORY_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type.charAt(0).toUpperCase() + type.slice(1)}
                     </SelectItem>
@@ -828,7 +899,9 @@ export function MemoryVisualizer() {
               <Textarea
                 id="edit-content"
                 value={editForm.content}
-                onChange={(e) => setEditForm(f => ({ ...f, content: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, content: e.target.value }))
+                }
                 rows={6}
                 className="font-mono text-sm"
               />
@@ -839,7 +912,9 @@ export function MemoryVisualizer() {
               <Input
                 id="edit-tags"
                 value={editForm.tags}
-                onChange={(e) => setEditForm(f => ({ ...f, tags: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, tags: e.target.value }))
+                }
                 placeholder="tag1, tag2, tag3"
               />
             </div>
@@ -850,9 +925,12 @@ export function MemoryVisualizer() {
               <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={updateMutation.isPending}
+            >
               <Save className="h-4 w-4 mr-2" />
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+              {updateMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -864,7 +942,8 @@ export function MemoryVisualizer() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Memory</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this memory? This action cannot be undone.
+              Are you sure you want to delete this memory? This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -874,7 +953,7 @@ export function MemoryVisualizer() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
