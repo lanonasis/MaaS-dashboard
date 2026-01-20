@@ -8,7 +8,7 @@
  * This enables seamless cross-subdomain authentication.
  */
 
-import { hasAuthCookies, parseUserCookie, hasSessionCookie, COOKIE_NAMES } from '@lanonasis/shared-auth';
+import { hasAuthCookies, parseUserCookie, hasSessionCookie, COOKIE_NAMES } from '@lanonasis/oauth-client/react';
 import { directAuth, type AuthResponse, type UserProfile } from './direct-auth';
 import type { Session, User } from '@supabase/supabase-js';
 
