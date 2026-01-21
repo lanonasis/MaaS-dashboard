@@ -400,7 +400,7 @@ describe('ApiClient', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/functions/v1/intelligence-health-check'),
         expect.objectContaining({
-          method: 'GET',
+          method: 'POST',
         })
       );
       expect(result.data?.status).toBe('healthy');

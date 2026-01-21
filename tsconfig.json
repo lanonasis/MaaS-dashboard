@@ -18,6 +18,12 @@
       ],
       "@assets/*": [
         "./attached_assets/*"
+      ],
+      "@lanonasis/mem-intel-sdk": [
+        "../../packages/mem-intel-sdk/mem-intelligence-sdk/src/index-sdk.ts"
+      ],
+      "@lanonasis/mem-intel-sdk/*": [
+        "../../packages/mem-intel-sdk/mem-intelligence-sdk/src/*"
       ]
     },
     "noImplicitAny": false,

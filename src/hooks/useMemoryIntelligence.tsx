@@ -8,6 +8,10 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import {
+  MemoryIntelligenceProvider as SdkMemoryIntelligenceProvider,
+  useMemoryIntelligence as useSdkMemoryIntelligence,
+} from "@lanonasis/mem-intel-sdk/react";
 import type {
   PatternAnalysis as SdkPatternAnalysis,
   DuplicatesResult,
@@ -18,7 +22,6 @@ import { useSupabaseAuth } from "./useSupabaseAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
-type ApiKeyRow = Database["public"]["Tables"]["api_keys"]["Row"];
 type MemoryEntryRow = Database["public"]["Tables"]["memory_entries"]["Row"];
 
 const DEFAULT_INTEL_API_URL = "https://api.lanonasis.com/api/v1";
@@ -39,16 +42,6 @@ const API_URL_ENV_VARS = [
   "VITE_MEMORY_INTEL_URL",
 ] as const;
 
-const MEM_INTEL_SERVICE_ALIASES = new Set([
-  "memory-intel",
-  "mem-intel",
-  "memory_intel",
-  "memory-intelligence",
-  "memory_intelligence",
-  "intelligence",
-  "memory",
-]);
-
 const getEnvValue = (keys: readonly string[]) => {
   const env = import.meta.env as Record<string, string | undefined>;
   for (const key of keys) {
@@ -67,37 +60,6 @@ const normalizeApiUrl = (value: string) => value.replace(/\/$/, "");
 
 const isUsableKey = (value?: string | null) =>
   Boolean(value && value.startsWith("lano_"));
-
-const getServiceRank = (service?: string | null) => {
-  if (!service) return 2;
-  const normalized = service.toLowerCase().trim();
-  if (!normalized) return 2;
-  const tokens = normalized.split(/[\s,]+/).filter(Boolean);
-  if (tokens.some((token) => MEM_INTEL_SERVICE_ALIASES.has(token))) return 0;
-  if (tokens.includes("all")) return 1;
-  return 3;
-};
-
-const selectApiKey = (keys: ApiKeyRow[]) => {
-  const now = Date.now();
-  const candidates = keys.filter((key) => {
-    if (!isUsableKey(key.key)) return false;
-    if (key.is_active === false) return false;
-    if (key.expires_at && new Date(key.expires_at).getTime() < now)
-      return false;
-    return true;
-  });
-
-  candidates.sort((a, b) => {
-    const rankDiff = getServiceRank(a.service) - getServiceRank(b.service);
-    if (rankDiff !== 0) return rankDiff;
-    const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
-    return bDate - aDate;
-  });
-
-  return candidates[0]?.key ?? null;
-};
 
 export interface PatternAnalysis extends SdkPatternAnalysis {}
 
@@ -146,13 +108,57 @@ interface MemoryIntelligenceProviderProps {
 }
 
 const mapHealthResult = (health: MemoryHealth): HealthCheckResult => {
+  const healthAny = health as {
+    health_score?: number | { overall?: number };
+    metrics?: {
+      total_memories?: number;
+      embedding_coverage_percentage?: number;
+      tagging_percentage?: number;
+      memories_by_type?: Record<string, number>;
+      memories_with_tags?: number;
+    };
+    statistics?: {
+      total_memories?: number;
+      memories_with_tags?: number;
+      memory_types?: number;
+      recent_memories_30d?: number;
+    };
+    recommendations?: string[];
+  };
+
+  const metrics = healthAny.metrics;
+  const statistics = healthAny.statistics;
+
   const embeddingCoverage = Math.round(
-    health.metrics.embedding_coverage_percentage || 0,
+    metrics?.embedding_coverage_percentage ?? 0,
   );
-  const taggingConsistency = Math.round(health.metrics.tagging_percentage || 0);
-  const typeCount = Object.keys(health.metrics.memories_by_type || {}).length;
+  const taggingConsistency = Math.round(
+    metrics?.tagging_percentage ??
+      (statistics?.total_memories
+        ? (statistics.memories_with_tags || 0) /
+            statistics.total_memories *
+            100
+        : 0),
+  );
+  const typeCount =
+    metrics?.memories_by_type
+      ? Object.keys(metrics.memories_by_type).length
+      : statistics?.memory_types || 0;
   const typeBalance = Math.round(Math.min((typeCount / 4) * 100, 100));
-  const overallScore = Math.round(health.health_score || 0);
+  const freshness =
+    statistics?.total_memories && statistics.recent_memories_30d
+      ? Math.round(
+          Math.min(
+            (statistics.recent_memories_30d / statistics.total_memories) * 100,
+            100,
+          ),
+        )
+      : 0;
+  const healthScore =
+    typeof healthAny.health_score === "number"
+      ? healthAny.health_score
+      : healthAny.health_score?.overall;
+  const overallScore = Math.round(healthScore ?? 0);
 
   return {
     overall_score: overallScore,
@@ -160,9 +166,9 @@ const mapHealthResult = (health: MemoryHealth): HealthCheckResult => {
       embedding_coverage: embeddingCoverage,
       tagging_consistency: taggingConsistency,
       type_balance: typeBalance,
-      freshness: 0,
+      freshness,
     },
-    recommendations: health.recommendations || [],
+    recommendations: healthAny.recommendations || [],
     status:
       overallScore >= 70
         ? "healthy"
@@ -184,13 +190,51 @@ const mapInsights = (result: InsightsResult | null): InsightResult[] => {
 };
 
 const mapDuplicates = (result: DuplicatesResult | null): DuplicatePair[] => {
-  if (!result?.duplicate_pairs) return [];
-  return result.duplicate_pairs.map((pair) => ({
-    memory_1: pair.memory_1,
-    memory_2: pair.memory_2,
-    similarity_score: pair.similarity_score,
-    recommendation: pair.recommendation,
-  }));
+  if (!result) return [];
+  const resultAny = result as {
+    duplicate_pairs?: DuplicatePair[];
+    duplicate_groups?: Array<{
+      primary_id: string;
+      primary_title: string;
+      similarity_score?: number;
+      duplicates: Array<{
+        id: string;
+        title: string;
+        created_at?: string;
+        similarity?: number;
+      }>;
+    }>;
+  };
+
+  if (Array.isArray(resultAny.duplicate_pairs)) {
+    return resultAny.duplicate_pairs.map((pair) => ({
+      memory_1: pair.memory_1,
+      memory_2: pair.memory_2,
+      similarity_score: pair.similarity_score,
+      recommendation: pair.recommendation ?? "review_manually",
+    }));
+  }
+
+  if (Array.isArray(resultAny.duplicate_groups)) {
+    return resultAny.duplicate_groups.flatMap((group) =>
+      group.duplicates.map((dup) => ({
+        memory_1: {
+          id: group.primary_id,
+          title: group.primary_title,
+          created_at: dup.created_at || "",
+        },
+        memory_2: {
+          id: dup.id,
+          title: dup.title,
+          created_at: dup.created_at || "",
+        },
+        similarity_score: group.similarity_score ?? dup.similarity ?? 0,
+        recommendation: "review_manually",
+      })),
+    );
+  }
+
+  return [];
 };
 
 const getMemoryType = (entry: MemoryEntryRow) =>
@@ -209,9 +253,7 @@ const normalizeTags = (tags: MemoryEntryRow["tags"]) => {
 const fetchMemoryEntries = async (userId: string, timeRangeDays?: number) => {
   let query = supabase
     .from("memory_entries")
-    .select(
-      "id, title, content, type, memory_type, tags, created_at, embedding",
-    )
+    .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -421,187 +463,128 @@ const buildHealthCheck = async (
   }
 };
 
-export function MemoryIntelligenceProvider({
-  children,
-}: MemoryIntelligenceProviderProps) {
-  const { user, session, isLoading: isAuthLoading } = useSupabaseAuth();
-  const userId = user?.id || null;
-  const authToken = session?.access_token || null;
-  const [apiKey, setApiKey] = useState<string | null>(ENV_API_KEY);
-  const [isLookupLoading, setIsLookupLoading] = useState(false);
+interface MemoryIntelligenceProviderInnerProps {
+  children: ReactNode;
+  userId: string | null;
+  canAuth: boolean;
+  isKeyLoading: boolean;
+}
 
-  useEffect(() => {
-    if (ENV_API_KEY) {
-      setApiKey(ENV_API_KEY);
-      setIsLookupLoading(false);
-      return;
-    }
-
-    if (!userId) {
-      setApiKey(null);
-      setIsLookupLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-    setIsLookupLoading(true);
-
-    const loadKey = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("api_keys")
-          .select("key, service, created_at, is_active, expires_at")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-
-        const selectedKey = selectApiKey(data || []);
-        if (isMounted) {
-          setApiKey(selectedKey);
-        }
-      } catch (error) {
-        console.warn("Memory intelligence API key lookup failed:", error);
-        if (isMounted) {
-          setApiKey(null);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLookupLoading(false);
-        }
-      }
-    };
-
-    loadKey();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [userId]);
-
-  const apiUrl = useMemo(() => normalizeApiUrl(ENV_API_URL), []);
-  const isKeyLoading = isAuthLoading || isLookupLoading;
-  const canAuth = Boolean(authToken || isUsableKey(apiKey));
-
-  const request = useCallback(
-    async <T,>(endpoint: string, payload: Record<string, unknown>) => {
-      if (!userId || !canAuth) return null;
-
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-
-      if (authToken) {
-        headers.Authorization = `Bearer ${authToken}`;
-      }
-
-      if (isUsableKey(apiKey)) {
-        headers["X-API-Key"] = apiKey as string;
-      }
-
-      try {
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          console.error(
-            "Memory intelligence request failed:",
-            response.status,
-            errorBody,
-          );
-          return null;
-        }
-
-        return (await response.json()) as T;
-      } catch (error) {
-        console.error("Memory intelligence request error:", error);
-        return null;
-      }
-    },
-    [userId, canAuth, authToken, apiKey, apiUrl],
+const getHealthTotalMemories = (health: MemoryHealth | null) => {
+  if (!health) return null;
+  const healthAny = health as {
+    metrics?: { total_memories?: number };
+    statistics?: { total_memories?: number };
+  };
+  return (
+    healthAny.metrics?.total_memories ??
+    healthAny.statistics?.total_memories ??
+    null
   );
+};
+
+function MemoryIntelligenceProviderInner({
+  children,
+  userId,
+  canAuth,
+  isKeyLoading,
+}: MemoryIntelligenceProviderInnerProps) {
+  const client = useSdkMemoryIntelligence();
+  const isReady = Boolean(userId && canAuth);
 
   const analyzePatterns = useCallback(
     async (timeRangeDays = 30): Promise<PatternAnalysis | null> => {
-      if (!userId) return null;
+      if (!userId || !canAuth) return null;
 
-      const result = await request<PatternAnalysis>(
-        "/intelligence/analyze-patterns",
-        {
+      let apiResult: PatternAnalysis | null = null;
+      try {
+        const response = await client.analyzePatterns({
           userId,
           timeRangeDays,
           responseFormat: "json",
-        },
-      );
+        });
+        apiResult = response.data ?? null;
+      } catch (error) {
+        console.error("Memory intelligence pattern analysis error:", error);
+      }
 
-      if (result && result.total_memories > 0) {
-        return result;
+      if (apiResult && apiResult.total_memories > 0) {
+        return apiResult;
       }
 
       const fallback = await buildPatternAnalysis(userId, timeRangeDays);
-      return fallback ?? result;
+      return fallback ?? apiResult;
     },
-    [userId, request],
+    [client, userId, canAuth],
   );
 
   const getHealthCheck =
     useCallback(async (): Promise<HealthCheckResult | null> => {
-      if (!userId) return null;
+      if (!userId || !canAuth) return null;
 
-      const result = await request<MemoryHealth>("/intelligence/health-check", {
-        userId,
-        responseFormat: "json",
-      });
+      let apiResult: MemoryHealth | null = null;
+      try {
+        const response = await client.healthCheck({
+          userId,
+          responseFormat: "json",
+        });
+        apiResult = response.data ?? null;
+      } catch (error) {
+        console.error("Memory intelligence health check error:", error);
+      }
 
-      if (result && result.metrics?.total_memories > 0) {
-        return mapHealthResult(result);
+      const totalMemories = getHealthTotalMemories(apiResult);
+      if (apiResult && totalMemories && totalMemories > 0) {
+        return mapHealthResult(apiResult);
       }
 
       const fallback = await buildHealthCheck(userId);
-      return fallback ?? (result ? mapHealthResult(result) : null);
-    }, [userId, request]);
+      return fallback ?? (apiResult ? mapHealthResult(apiResult) : null);
+    }, [client, userId, canAuth]);
 
   const extractInsights = useCallback(
     async (topic?: string): Promise<InsightResult[]> => {
-      const result = await request<InsightsResult>(
-        "/intelligence/extract-insights",
-        {
+      if (!userId || !canAuth) return [];
+
+      try {
+        const response = await client.extractInsights({
           userId,
           topic,
           responseFormat: "json",
-        },
-      );
-
-      return mapInsights(result);
+        });
+        return mapInsights(response.data ?? null);
+      } catch (error) {
+        console.error("Memory intelligence insight extraction error:", error);
+        return [];
+      }
     },
-    [userId, request],
+    [client, userId, canAuth],
   );
 
   const detectDuplicates = useCallback(
     async (threshold = 0.9): Promise<DuplicatePair[]> => {
-      const result = await request<DuplicatesResult>(
-        "/intelligence/detect-duplicates",
-        {
+      if (!userId || !canAuth) return [];
+
+      try {
+        const response = await client.detectDuplicates({
           userId,
           similarityThreshold: threshold,
           maxPairs: 10,
           responseFormat: "json",
-        },
-      );
-
-      return mapDuplicates(result);
+        });
+        return mapDuplicates(response.data ?? null);
+      } catch (error) {
+        console.error("Memory intelligence duplicate detection error:", error);
+        return [];
+      }
     },
-    [userId, request],
+    [client, userId, canAuth],
   );
 
   const value = useMemo(
     () => ({
       userId,
-      isReady: Boolean(userId && canAuth),
+      isReady,
       isKeyLoading,
       analyzePatterns,
       getHealthCheck,
@@ -610,7 +593,7 @@ export function MemoryIntelligenceProvider({
     }),
     [
       userId,
-      canAuth,
+      isReady,
       isKeyLoading,
       analyzePatterns,
       getHealthCheck,
@@ -623,6 +606,40 @@ export function MemoryIntelligenceProvider({
     <MemoryIntelligenceContext.Provider value={value}>
       {children}
     </MemoryIntelligenceContext.Provider>
+  );
+}
+
+export function MemoryIntelligenceProvider({
+  children,
+}: MemoryIntelligenceProviderProps) {
+  const { user, session, isLoading: isAuthLoading } = useSupabaseAuth();
+  const userId = user?.id || null;
+  const authToken = session?.access_token || null;
+  const apiKey = isUsableKey(ENV_API_KEY) ? ENV_API_KEY : null;
+  const apiUrl = useMemo(() => normalizeApiUrl(ENV_API_URL), []);
+  const canAuth = Boolean(authToken || apiKey);
+  const sdkConfig = useMemo(
+    () => ({
+      apiUrl,
+      apiKey: authToken ? undefined : apiKey ?? undefined,
+      authToken: authToken ?? undefined,
+      authType: authToken ? "bearer" : apiKey ? "apiKey" : "bearer",
+      allowMissingAuth: true,
+      responseFormat: "json",
+    }),
+    [apiUrl, authToken, apiKey],
+  );
+
+  return (
+    <SdkMemoryIntelligenceProvider config={sdkConfig}>
+      <MemoryIntelligenceProviderInner
+        userId={userId}
+        canAuth={canAuth}
+        isKeyLoading={isAuthLoading}
+      >
+        {children}
+      </MemoryIntelligenceProviderInner>
+    </SdkMemoryIntelligenceProvider>
   );
 }
 

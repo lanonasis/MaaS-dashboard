@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { apiClient, type Memory } from '@/lib/api-client';
+import { isMissingColumnError } from '@/lib/supabase-errors';
 import {
   Brain,
   Save,
@@ -140,14 +141,23 @@ export const MemoryWorkbench: React.FC = () => {
     const safeQuery = sanitizeSearchTerm(normalizedQuery);
 
     const fallbackToSupabase = async () => {
-      const { data, error } = await supabase
-        .from('memory_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .or(`content.ilike.%${safeQuery}%,title.ilike.%${safeQuery}%`)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      const baseQuery = () =>
+        supabase
+          .from('memory_entries')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(20);
 
+      let response = await baseQuery().or(
+        `content.ilike.%${safeQuery}%,title.ilike.%${safeQuery}%`,
+      );
+
+      if (response.error && isMissingColumnError(response.error, 'title')) {
+        response = await baseQuery().ilike('content', `%${safeQuery}%`);
+      }
+
+      const { data, error } = response;
       if (error) throw error;
       return (data || []).map(buildSupabaseMemory);
     };
@@ -252,9 +262,18 @@ export const MemoryWorkbench: React.FC = () => {
         },
       };
 
-      const { error } = await supabase
-        .from('memory_entries')
-        .insert(insertPayload);
+      const insertEntry = async (payload: Record<string, unknown>) =>
+        supabase.from('memory_entries').insert(payload);
+
+      let { error } = await insertEntry(insertPayload);
+      if (error && isMissingColumnError(error, 'memory_type')) {
+        const { memory_type: _memoryType, ...payload } = insertPayload;
+        ({ error } = await insertEntry(payload));
+      }
+      if (error && isMissingColumnError(error, 'type')) {
+        const { type: _type, ...payload } = insertPayload;
+        ({ error } = await insertEntry(payload));
+      }
 
       if (error) throw error;
 

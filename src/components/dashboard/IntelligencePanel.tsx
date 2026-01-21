@@ -63,13 +63,24 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({
 
     setIsLoading(true);
     try {
-      const [healthData, duplicateData] = await Promise.all([
+      const [healthResult, duplicateResult] = await Promise.allSettled([
         showHealthScore ? getHealthCheck() : Promise.resolve(null),
         showDuplicates ? detectDuplicates(0.8) : Promise.resolve([]),
       ]);
 
-      setHealthCheck(healthData);
-      setDuplicates(duplicateData);
+      if (healthResult.status === "fulfilled") {
+        setHealthCheck(healthResult.value);
+      } else {
+        console.warn("Health check request failed:", healthResult.reason);
+        setHealthCheck(null);
+      }
+
+      if (duplicateResult.status === "fulfilled") {
+        setDuplicates(duplicateResult.value);
+      } else {
+        console.warn("Duplicate detection request failed:", duplicateResult.reason);
+        setDuplicates([]);
+      }
     } catch (error) {
       console.error("Error fetching intelligence data:", error);
     } finally {

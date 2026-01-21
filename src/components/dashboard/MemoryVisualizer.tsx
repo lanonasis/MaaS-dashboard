@@ -64,6 +64,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, type Memory } from "@/lib/api-client";
+import { isMissingColumnError } from "@/lib/supabase-errors";
 
 const getTypeIcon = (type: string) => {
   const iconMap: Record<string, any> = {
@@ -208,20 +209,40 @@ export function MemoryVisualizer() {
 
       // Use Supabase directly for authenticated users without custom API key
       if (!useCustomApiKey) {
-        let query = supabase
-          .from("memory_entries")
-          .select("*", { count: "exact" })
-          .eq("user_id", authUser!.id)
-          .order("created_at", { ascending: false })
-          .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+        const runSupabaseQuery = async (
+          filterMode: "both" | "type" | "memory_type",
+        ) => {
+          let query = supabase
+            .from("memory_entries")
+            .select("*", { count: "exact" })
+            .eq("user_id", authUser!.id)
+            .order("created_at", { ascending: false })
+            .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
 
-        if (selectedType !== "all") {
-          query = query.or(
-            `memory_type.eq.${selectedType},type.eq.${selectedType}`,
-          );
+          if (selectedType !== "all") {
+            if (filterMode === "both") {
+              query = query.or(
+                `memory_type.eq.${selectedType},type.eq.${selectedType}`,
+              );
+            } else if (filterMode === "memory_type") {
+              query = query.eq("memory_type", selectedType);
+            } else {
+              query = query.eq("type", selectedType);
+            }
+          }
+
+          return query;
+        };
+
+        let response = await runSupabaseQuery("both");
+        if (response.error && isMissingColumnError(response.error, "memory_type")) {
+          response = await runSupabaseQuery("type");
+        }
+        if (response.error && isMissingColumnError(response.error, "type")) {
+          response = await runSupabaseQuery("memory_type");
         }
 
-        const { data, error, count } = await query;
+        const { data, error, count } = response;
 
         if (error) throw error;
 
@@ -302,18 +323,31 @@ export function MemoryVisualizer() {
       }
 
       // Use Supabase directly for authenticated users
-      const { error } = await supabase
-        .from("memory_entries")
-        .update({
-          title: updates.title,
-          content: updates.content,
-          type: updates.type,
-          memory_type: updates.type,
-          tags: updates.tags,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .eq("user_id", authUser!.id);
+      const updateEntry = async (payload: Record<string, unknown>) =>
+        supabase
+          .from("memory_entries")
+          .update(payload)
+          .eq("id", id)
+          .eq("user_id", authUser!.id);
+
+      const basePayload = {
+        title: updates.title,
+        content: updates.content,
+        type: updates.type,
+        memory_type: updates.type,
+        tags: updates.tags,
+        updated_at: new Date().toISOString(),
+      };
+
+      let { error } = await updateEntry(basePayload);
+      if (error && isMissingColumnError(error, "memory_type")) {
+        const { memory_type: _memoryType, ...payload } = basePayload;
+        ({ error } = await updateEntry(payload));
+      }
+      if (error && isMissingColumnError(error, "type")) {
+        const { type: _type, ...payload } = basePayload;
+        ({ error } = await updateEntry(payload));
+      }
 
       if (error) throw error;
       return { id, updates };
