@@ -2,7 +2,8 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SupabaseAuthProvider } from "@/hooks/useSupabaseAuth";
 import { CentralAuthProvider } from "@/hooks/useCentralAuth";
@@ -17,18 +18,56 @@ import ApiDocs from "./pages/ApiDocs";
 import ApiAnalytics from "./pages/ApiAnalytics";
 import OAuthAuthorize from "./pages/OAuthAuthorize";
 import SupabaseAuthRedirect from "./components/auth/SupabaseAuthRedirect";
+import {
+  createIDBPersister,
+  MAX_CACHE_AGE,
+  CACHE_BUSTER_VERSION,
+} from "@/lib/query-persister";
 
+/**
+ * Optimized QueryClient configuration for fast page loads
+ *
+ * Key optimizations:
+ * - staleTime: Data considered fresh for 5 min (reduces refetches)
+ * - gcTime: Keep unused data for 30 min (enables instant back-navigation)
+ * - refetchOnWindowFocus: Disabled (prevents unnecessary refetches)
+ * - refetchOnReconnect: Enabled (sync after network recovery)
+ * - retry with backoff: Handles transient failures gracefully
+ */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1,
+      staleTime: 5 * 60 * 1000,     // 5 minutes - data is fresh
+      gcTime: 30 * 60 * 1000,       // 30 minutes - keep in memory
+      retry: 2,                      // Retry failed requests twice
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      refetchOnWindowFocus: false,   // Don't refetch when tab regains focus
+      refetchOnReconnect: true,      // Refetch when network reconnects
+      refetchOnMount: false,         // Use cached data on mount if available
     },
   },
 });
 
+/**
+ * IndexedDB persister for cache persistence across page reloads
+ * Excludes sensitive data (API keys, auth tokens, profiles)
+ */
+const persister = createIDBPersister();
+
+/**
+ * Persistence options - controls how cache is restored
+ */
+const persistOptions = {
+  persister,
+  maxAge: MAX_CACHE_AGE,           // Don't restore caches older than 24h
+  buster: String(CACHE_BUSTER_VERSION), // Increment to invalidate all caches
+};
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <PersistQueryClientProvider
+    client={queryClient}
+    persistOptions={persistOptions}
+  >
     <ThemeProvider>
       <TooltipProvider>
         <BrowserRouter>
@@ -72,7 +111,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
-  </QueryClientProvider>
+  </PersistQueryClientProvider>
 );
 
 export default App;

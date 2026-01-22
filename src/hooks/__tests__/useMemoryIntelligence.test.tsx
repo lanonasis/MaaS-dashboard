@@ -16,6 +16,21 @@ import {
   useDuplicateDetection,
 } from "../useMemoryIntelligence";
 
+// Mock @lanonasis/mem-intel-sdk/react to avoid API key validation
+const mockSdkClient = {
+  analyzePatterns: vi.fn().mockResolvedValue({ data: null }),
+  healthCheck: vi.fn().mockResolvedValue({ data: null }),
+  extractInsights: vi.fn().mockResolvedValue({ data: null }),
+  detectDuplicates: vi.fn().mockResolvedValue({ data: null }),
+  suggestTags: vi.fn().mockResolvedValue({ data: null }),
+  findRelated: vi.fn().mockResolvedValue({ data: null }),
+};
+
+vi.mock("@lanonasis/mem-intel-sdk/react", () => ({
+  MemoryIntelligenceProvider: ({ children }: { children: ReactNode }) => children,
+  useMemoryIntelligence: () => mockSdkClient,
+}));
+
 // Mock useSupabaseAuth
 const mockUser = { id: "user-123", email: "test@example.com" };
 const mockSession = { access_token: "test-token" };
