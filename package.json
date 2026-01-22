@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@lanonasis/mem-intel-sdk": "^2.0.0",
+    "@lanonasis/mem-intel-sdk": "^2.0.2",
     "@lanonasis/memory-client": "^2.2.0",
     "@lanonasis/oauth-client": "workspace:*",
     "@neondatabase/serverless": "^1.0.2",

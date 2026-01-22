@@ -22,20 +22,6 @@ export default defineConfig(({ mode }) => ({
       { find: "@", replacement: path.resolve(__dirname, "./src") },
       { find: "@shared", replacement: path.resolve(__dirname, "./shared") },
       { find: "@assets", replacement: path.resolve(__dirname, "./attached_assets") },
-      {
-        find: /^@lanonasis\/mem-intel-sdk\/react$/,
-        replacement: path.resolve(
-          __dirname,
-          "../../packages/mem-intel-sdk/mem-intelligence-sdk/src/react/index.ts",
-        ),
-      },
-      {
-        find: /^@lanonasis\/mem-intel-sdk$/,
-        replacement: path.resolve(
-          __dirname,
-          "../../packages/mem-intel-sdk/mem-intelligence-sdk/src/index-sdk.ts",
-        ),
-      },
       // Stub out Node.js modules that shouldn't be bundled for browser
       {
         find: "child_process",

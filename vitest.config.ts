@@ -36,20 +36,6 @@ export default defineConfig({
       { find: '@', replacement: path.resolve(__dirname, './src') },
       { find: '@shared', replacement: path.resolve(__dirname, './shared') },
       { find: '@assets', replacement: path.resolve(__dirname, './attached_assets') },
-      {
-        find: /^@lanonasis\/mem-intel-sdk\/react$/,
-        replacement: path.resolve(
-          __dirname,
-          '../../packages/mem-intel-sdk/mem-intelligence-sdk/src/react/index.ts'
-        )
-      },
-      {
-        find: /^@lanonasis\/mem-intel-sdk$/,
-        replacement: path.resolve(
-          __dirname,
-          '../../packages/mem-intel-sdk/mem-intelligence-sdk/src/index-sdk.ts'
-        )
-      },
       // Match the app's Vite config for browser-only stubs.
       {
         find: 'child_process',
