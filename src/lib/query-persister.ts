@@ -22,18 +22,14 @@ const EXCLUDED_QUERY_KEYS = [
 
 /**
  * Check if a query should be persisted
+ * Uses exact element matching to avoid false positives
+ * (e.g., 'user-api-keys-settings' won't be excluded when checking for 'api-keys')
  */
 function shouldPersistQuery(queryKey: readonly unknown[]): boolean {
-  const keyString = JSON.stringify(queryKey);
-
-  // Exclude sensitive queries
-  for (const excluded of EXCLUDED_QUERY_KEYS) {
-    if (keyString.includes(excluded)) {
-      return false;
-    }
-  }
-
-  return true;
+  // Check if any element in the query key matches an excluded key
+  return !queryKey.some(
+    (key) => typeof key === 'string' && EXCLUDED_QUERY_KEYS.includes(key as typeof EXCLUDED_QUERY_KEYS[number])
+  );
 }
 
 /**
@@ -80,8 +76,7 @@ export function createIDBPersister(): Persister {
 
     restoreClient: async () => {
       try {
-        const client = await get<PersistedClient>(IDB_KEY);
-        return client ?? undefined;
+        return await get<PersistedClient>(IDB_KEY);
       } catch (error) {
         console.warn('[QueryPersister] Failed to restore cache:', error);
         return undefined;
