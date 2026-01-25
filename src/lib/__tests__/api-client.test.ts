@@ -139,7 +139,7 @@ describe('ApiClient', () => {
         const result = await apiClient.getMemories();
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/v1/memories'),
+          expect.stringContaining('/api/v1/memory'),
           expect.any(Object)
         );
         expect(result.data).toHaveLength(1);
@@ -180,7 +180,7 @@ describe('ApiClient', () => {
         });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/v1/memories'),
+          expect.stringContaining('/api/v1/memory'),
           expect.objectContaining({
             method: 'POST',
             body: expect.stringContaining('Memory content'),
@@ -241,7 +241,7 @@ describe('ApiClient', () => {
         const result = await apiClient.getMemory('mem-1');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/v1/memories/mem-1'),
+          expect.stringContaining('/api/v1/memory/mem-1'),
           expect.any(Object)
         );
         expect(result.data?.id).toBe('mem-1');
@@ -258,7 +258,7 @@ describe('ApiClient', () => {
         const result = await apiClient.updateMemory('mem-1', { title: 'Updated' });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/v1/memories/mem-1'),
+          expect.stringContaining('/api/v1/memory/mem-1'),
           expect.objectContaining({
             method: 'PUT',
             body: JSON.stringify({ title: 'Updated' }),
@@ -278,7 +278,7 @@ describe('ApiClient', () => {
         await apiClient.deleteMemory('mem-1');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/v1/memories/mem-1'),
+          expect.stringContaining('/api/v1/memory/mem-1'),
           expect.objectContaining({
             method: 'DELETE',
           })
@@ -300,7 +300,7 @@ describe('ApiClient', () => {
         });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/v1/memories/search'),
+          expect.stringContaining('/api/v1/memory/search'),
           expect.objectContaining({
             method: 'POST',
             body: JSON.stringify({

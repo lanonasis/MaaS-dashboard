@@ -39,7 +39,7 @@ describe('API Client', () => {
       const result = await apiClient.getMemories();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/memories',
+        'https://api.lanonasis.com/api/v1/memory',
         expect.objectContaining({
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ describe('API Client', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/memories?page=2&limit=10&type=project&tags=important%2Cwork&search=test+query',
+        'https://api.lanonasis.com/api/v1/memory?page=2&limit=10&type=project&tags=important%2Cwork&search=test+query',
         expect.objectContaining({
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
@@ -127,7 +127,7 @@ describe('API Client', () => {
         'X-Project-Scope': 'maas'
       }));
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/memories',
+        'https://api.lanonasis.com/api/v1/memory',
         expect.any(Object)
       );
 
@@ -175,7 +175,7 @@ describe('API Client', () => {
       const result = await apiClient.searchMemories(searchQuery);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.lanonasis.com/api/v1/memories/search',
+        'https://api.lanonasis.com/api/v1/memory/search',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(searchQuery),
