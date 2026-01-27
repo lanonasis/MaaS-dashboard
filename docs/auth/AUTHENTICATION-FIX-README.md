@@ -13,7 +13,7 @@
 1. **Update Environment Variables** (Netlify):
 ```bash
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+REDACTED_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
 VITE_USE_DIRECT_AUTH=true
 ```
 

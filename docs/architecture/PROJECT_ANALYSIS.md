@@ -204,7 +204,7 @@ npm run i18n:check
 ### Environment Variables Required
 ```env
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+REDACTED_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
 VITE_API_URL=https://api.lanonasis.com
 VITE_PROJECT_SCOPE=dashboard
 ```

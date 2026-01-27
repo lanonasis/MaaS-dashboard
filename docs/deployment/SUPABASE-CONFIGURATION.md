@@ -180,7 +180,7 @@ The dashboard Netlify config is **already correct** for direct Supabase auth.
 ```bash
 # Direct Supabase Auth (NEW - REQUIRED)
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+REDACTED_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
 VITE_USE_DIRECT_AUTH=true
 
 # Service URLs (Keep existing)

@@ -15,8 +15,8 @@ Add to your `.env` file (or create one if it doesn't exist):
 OPENAI_API_KEY=sk-proj-your-openai-api-key-here
 
 # Your existing Supabase credentials should already be here
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+https://<project-ref>.supabase.co
+REDACTED_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
 ```
 
 ## Step 2: Run Database Migration

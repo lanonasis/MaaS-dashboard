@@ -142,7 +142,7 @@ Ensure these are set in `.env.local`:
 
 ```env
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+REDACTED_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
 ```
 
 ### Supabase Dashboard Configuration
