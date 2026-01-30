@@ -75,16 +75,20 @@ const Index = () => {
             </p>
             
             <div className="animate-slide-up flex flex-col sm:flex-row gap-4 mb-12">
-              <Link to={user ? "/dashboard" : "/auth/register"}>
-                <AnimatedButton size="lg" className="min-w-[160px]">
-                  {user ? "Go to Dashboard" : "Get Started"} <ArrowRight className="ml-2 h-4 w-4" />
-                </AnimatedButton>
+              <Link to={user ? "/dashboard" : "/auth/register"} className="inline-block">
+                <div className="w-full">
+                  <AnimatedButton size="lg" className="min-w-[160px]">
+                    {user ? "Go to Dashboard" : "Get Started"} <ArrowRight className="ml-2 h-4 w-4" />
+                  </AnimatedButton>
+                </div>
               </Link>
-              <Link to="#features">
-                <AnimatedButton variant="outline" size="lg" className="min-w-[160px]">
-                  Learn More
-                </AnimatedButton>
-              </Link>
+              <a href="#features" className="inline-block">
+                <div className="w-full">
+                  <AnimatedButton variant="outline" size="lg" className="min-w-[160px]">
+                    Learn More
+                  </AnimatedButton>
+                </div>
+              </a>
             </div>
             
             {/* Browser Frame */}
@@ -358,16 +362,16 @@ async function useMemoryService() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <AnimatedButton
-                  size="lg"
+                <AnimatedButton 
+                  size="lg" 
                   className="bg-white text-primary hover:bg-white/90 min-w-[160px]"
                   onClick={() => setShowAuthForm(true)}
                 >
                   Sign up free
                 </AnimatedButton>
-                <AnimatedButton
-                  variant="outline"
-                  size="lg"
+                <AnimatedButton 
+                  variant="outline" 
+                  size="lg" 
                   className="border-white text-white hover:bg-white/10 min-w-[160px]"
                   onClick={() => setShowAuthForm(true)}
                 >

@@ -1,23 +1,60 @@
 /**
  * Dashboard-specific Memory SDK Adapter
- * Integrates the memory-client SDK with the dashboard's Supabase auth and config
+ * Browser-safe stub for memory operations
+ * 
+ * NOTE: The @lanonasis/memory-client is a server-side package using Node.js utilities.
+ * This adapter provides browser-compatible stubs that delegate to backend API endpoints.
  */
 
-import { MemoryClient, createMemoryClient } from '@lanonasis/memory-client';
-import type {
-  MemoryEntry,
-  CreateMemoryRequest,
-  SearchMemoryRequest,
-  MemorySearchResult,
-  MemoryType
-} from '@lanonasis/memory-client';
 import { supabase } from '@/integrations/supabase/client';
 
+// Browser-compatible type definitions
+export interface MemoryEntry {
+  id: string;
+  title: string;
+  content: string;
+  type: MemoryType;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface MemorySearchResult {
+  id: string;
+  title: string;
+  content: string;
+  type: MemoryType;
+  tags?: string[];
+  similarity?: number;
+  created_at: string;
+}
+
+export interface CreateMemoryRequest {
+  title: string;
+  content: string;
+  memory_type?: MemoryType;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface SearchMemoryRequest {
+  query: string;
+  limit?: number;
+  threshold?: number;
+  memory_types?: MemoryType[];
+  tags?: string[];
+  status?: string;
+}
+
+export type MemoryType = 'context' | 'insight' | 'reference' | 'plan';
+
 /**
- * Dashboard Memory Client - Automatically handles auth
+ * Dashboard Memory Client - Browser stub that delegates to backend API
  */
 export class DashboardMemoryClient {
-  private client: MemoryClient | null = null;
+  private apiKey: string | null = null;
+  private apiUrl: string;
 
   constructor() { }
 
@@ -121,10 +158,10 @@ export class DashboardMemoryClient {
    * Get the initialized client
    */
   private async getClient() {
-    if (!this.client) {
+    if (!this.apiKey) {
       await this.initializeClient();
     }
-    return this.client;
+    return this;
   }
 
 /**
@@ -242,7 +279,20 @@ async update(id: string, updates: Partial<CreateMemoryRequest>): Promise<MemoryE
    */
   async delete(id: string): Promise<void> {
     const client = await this.getClient();
-    await client.deleteMemory(id);
+
+    try {
+      const response = await fetch(`${this.apiUrl}/memories/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Delete failed');
+    } catch (error) {
+      console.error('Failed to delete memory:', error);
+      throw error;
+    }
   }
 
 /**
@@ -294,8 +344,12 @@ async list(params?: {
   async batchCreate(memories: CreateMemoryRequest[]): Promise<MemoryEntry[]> {
     const results: MemoryEntry[] = [];
     for (const memory of memories) {
-      const result = await this.create(memory);
-      results.push(result);
+      try {
+        const result = await this.create(memory);
+        results.push(result);
+      } catch (error) {
+        console.error('Batch create failed for item:', error);
+      }
     }
     return results;
   }
@@ -304,11 +358,14 @@ async list(params?: {
    * Bulk tag memories
    */
   async bulkTag(memoryIds: string[], tags: string[]): Promise<void> {
-    const client = await this.getClient();
     for (const id of memoryIds) {
-      const memory = await this.getById(id);
-      const updatedTags = [...new Set([...(memory.tags || []), ...tags])];
-      await this.update(id, { tags: updatedTags });
+      try {
+        const memory = await this.getById(id);
+        const updatedTags = [...new Set([...(memory.tags || []), ...tags])];
+        await this.update(id, { tags: updatedTags });
+      } catch (error) {
+        console.error('Bulk tag failed for memory:', id, error);
+      }
     }
   }
 

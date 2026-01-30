@@ -5,7 +5,27 @@
 import { useMemo } from 'react';
 import { createDashboardMemoryClient } from '@/lib/memory-sdk/dashboard-adapter';
 import { useSupabaseAuth } from './useSupabaseAuth';
-import type { MemoryType, CreateMemoryRequest, MemorySearchResult } from '@lanonasis/memory-client';
+
+// Type definitions for Memory operations (avoiding Node.js module import)
+export interface MemorySearchResult {
+  id: string;
+  title: string;
+  content: string;
+  type: 'context' | 'insight' | 'reference' | 'plan';
+  tags?: string[];
+  similarity?: number;
+  created_at: string;
+}
+
+export interface CreateMemoryRequest {
+  title: string;
+  content: string;
+  memory_type?: 'context' | 'insight' | 'reference' | 'plan';
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export type MemoryType = 'context' | 'insight' | 'reference' | 'plan';
 
 export function useMemoryClient() {
   const { user } = useSupabaseAuth();

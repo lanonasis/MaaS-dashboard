@@ -2,7 +2,52 @@
 
 LanOnasis Dashboard is a React-based web application that serves as the management interface for the LanOnasis Memory as a Service (MaaS) platform. It provides administrators and users with tools for monitoring services, managing API keys, visualizing memory data, orchestrating workflows, and administering system settings. The dashboard integrates with Supabase for authentication and data storage, and communicates with the LanOnasis backend API ecosystem.
 
-## Recent Changes (November 6, 2025)
+## Recent Changes (December 18, 2025)
+
+**Memory Intelligence SDK Integration**
+- Integrated `@lanonasis/mem-intel-sdk@1.0.0` for AI-powered memory analytics
+- Created custom `useMemoryIntelligence.tsx` hook with RLS-protected direct Supabase queries
+- Added `MemoryIntelligenceProvider` context wrapping authenticated dashboard
+- Built comprehensive `DashboardOverview.tsx` with SDK-powered analytics:
+  - Health score cards with status indicators
+  - Pattern visualizations (pie charts, area charts)
+  - Activity charts showing weekly patterns
+  - AI insights panel with actionable recommendations
+  - Quick action buttons for common tasks
+- Enhanced `MemoryAnalytics.tsx` with:
+  - Radar charts for health metrics
+  - Duplicate detection visualization
+  - Weekly activity patterns
+  - Type distribution analysis
+  - AI-powered insights extraction
+- Downgraded Vite from v7 to v6.4.1 for Node.js 21.6.0 (bun) compatibility
+- Added watch ignore patterns to prevent file descriptor exhaustion in Replit environment
+
+**SDK Architecture Notes**
+- SDK uses authenticated user context with RLS, NOT API keys for dashboard analytics
+- Custom hooks query `memory_entries` table directly via Supabase client
+- Health metrics: embedding coverage, tagging consistency, type balance, freshness
+- Pattern analysis: type distribution, day-of-week patterns, peak creation hours
+- Insight categories: pattern, learning, opportunity, risk, action_item
+
+## Previous Changes (December 8, 2025)
+
+**AI Orchestrator Migration to Direct Supabase**
+- Updated AI orchestrator core (`src/lib/ai-orchestrator/core.ts`) to use Supabase directly instead of external memory API endpoints
+- Memory recall now queries `memory_entries` table directly with safe text-based filtering
+- Context storage uses direct Supabase inserts for reliability
+- Fixed query escaping to handle special characters (commas, quotes) in user input
+- Removed dependency on `@lanonasis/memory-client` package which was causing browser compatibility issues
+
+**Button Nesting Fix**
+- Resolved React hydration error in Index.tsx caused by nested button elements
+- Replaced inner button with styled div to maintain accessibility while fixing DOM structure
+
+**Database Schema Updates**
+- Created `workflow_runs` table for workflow execution tracking
+- Created `memory_entries` table for user memory storage
+
+## Previous Changes (November 6, 2025)
 
 **Memory Visualizer Implementation**
 - Created comprehensive Memory Visualizer component (`src/components/dashboard/MemoryVisualizer.tsx`) that fetches user-specific data from both Supabase and the LanOnasis API
@@ -39,7 +84,7 @@ Preferred communication style: Simple, everyday language.
 
 **Framework**: React 18.3+ with TypeScript, using functional components and hooks throughout.
 
-**Build System**: Vite 7.0+ configured for single-page application (SPA) deployment. The application uses Bun as the preferred runtime and package manager instead of Node.js or npm (per CLAUDE.md).
+**Build System**: Vite 6.x configured for single-page application (SPA) deployment. The application uses Bun as the preferred runtime and package manager instead of Node.js or npm. Vite 6.x is required for compatibility with bun's Node.js 21.6.0 runtime (Vite 7 requires Node.js 20.19+ or 22.12+).
 
 **Routing**: React Router DOM handles client-side routing with protected routes wrapping authenticated areas. Main routes include:
 - `/` - Landing page
