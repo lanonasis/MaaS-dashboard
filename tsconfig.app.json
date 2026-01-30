@@ -23,9 +23,13 @@
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
     /* Path aliases */
+    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@shared/*": [
+        "./shared/*"
       ]
     },
     "types": [

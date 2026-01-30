@@ -1,8 +1,9 @@
 
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
-	darkMode: ["class"],
+	darkMode: ["class", ".dark"],
 	content: [
 		"./pages/**/*.{ts,tsx}",
 		"./components/**/*.{ts,tsx}",
@@ -123,7 +124,7 @@ export default {
 				'ease-out-back': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
 			},
 			fontSize: {
-				'2xs': ['0.625rem', { lineHeight: '0.75rem' }], 
+				'2xs': ['0.625rem', { lineHeight: '0.75rem' }],
 				xs: ['0.75rem', { lineHeight: '1rem' }],
 				sm: ['0.875rem', { lineHeight: '1.25rem' }],
 				base: ['1rem', { lineHeight: '1.5rem' }],
@@ -146,5 +147,5 @@ export default {
 			}
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [tailwindcssAnimate],
 } satisfies Config;

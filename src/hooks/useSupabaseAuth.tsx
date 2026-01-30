@@ -442,6 +442,14 @@ export const SupabaseAuthProvider = ({
         throw error;
       }
 
+      // Clear persisted query cache on logout for security
+      try {
+        const { clearPersistedCache } = await import("@/lib/query-persister");
+        await clearPersistedCache();
+      } catch (cacheError) {
+        console.warn("Failed to clear cache on logout:", cacheError);
+      }
+
       // Auth state change listener will handle the session update
     } catch (error) {
       console.error("Sign out error:", error);

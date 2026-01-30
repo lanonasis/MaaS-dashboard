@@ -22,14 +22,20 @@ export default defineConfig(({ mode }) => ({
     react(),
   ],
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@shared": path.resolve(__dirname, "./shared"),
-      "@assets": path.resolve(__dirname, "./attached_assets"),
+    alias: [
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+      { find: "@shared", replacement: path.resolve(__dirname, "./shared") },
+      { find: "@assets", replacement: path.resolve(__dirname, "./attached_assets") },
       // Stub out Node.js modules that shouldn't be bundled for browser
-      'child_process': path.resolve(__dirname, "./src/lib/stubs/child_process.ts"),
-      'util': path.resolve(__dirname, "./src/lib/stubs/util.ts"),
-    },
+      {
+        find: "child_process",
+        replacement: path.resolve(__dirname, "./src/lib/stubs/child_process.ts"),
+      },
+      {
+        find: "util",
+        replacement: path.resolve(__dirname, "./src/lib/stubs/util.ts"),
+      },
+    ],
   },
   optimizeDeps: {
     exclude: ['@lanonasis/memory-client', '@lanonasis/mem-intel-sdk'],

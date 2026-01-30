@@ -77,7 +77,7 @@
    ```bash
    # Add to apps/dashboard/.env
    VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-   VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+REDACTED_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
    ```
 
 2. **Verify OAuth Provider Configuration**

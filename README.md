@@ -98,7 +98,7 @@ Create a `.env` file based on `.env.template`:
 ```env
 # Supabase Configuration
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+REDACTED_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
 
 # API Configuration
 VITE_CORE_API_BASE_URL=https://api.lanonasis.com

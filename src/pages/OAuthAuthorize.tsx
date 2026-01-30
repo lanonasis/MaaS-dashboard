@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, Shield, Key, Database } from 'lucide-react';
-import { AnimatedButton } from '@/components/ui/AnimatedButton';
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { CheckCircle, Shield, Key, Database } from "lucide-react";
+import { AnimatedButton } from "@/components/ui/AnimatedButton";
 
 interface ClientInfo {
   client_id: string;
@@ -20,21 +20,42 @@ export default function OAuthAuthorize() {
   const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null);
 
   // OAuth parameters
-  const clientId = searchParams.get('client_id');
-  const responseType = searchParams.get('response_type');
-  const redirectUri = searchParams.get('redirect_uri');
-  const scope = searchParams.get('scope');
-  const state = searchParams.get('state');
-  const codeChallenge = searchParams.get('code_challenge');
-  const codeChallengeMethod = searchParams.get('code_challenge_method');
-  
+  const clientId = searchParams.get("client_id");
+  const responseType = searchParams.get("response_type");
+  const redirectUri = searchParams.get("redirect_uri");
+  const scope = searchParams.get("scope");
+  const state = searchParams.get("state");
+  const codeChallenge = searchParams.get("code_challenge");
+  const codeChallengeMethod = searchParams.get("code_challenge_method");
+
   // Device flow parameters
-  const userCode = searchParams.get('user_code');
+  const userCode = searchParams.get("user_code");
+
+  const loadClientInfo = useCallback(
+    async (clientId: string) => {
+      // Map client IDs to friendly names
+      const clientMap: Record<string, string> = {
+        "LanOnasis-mcp-cli": "Lan Onasis CLI",
+        "LanOnasis-mcp-desktop": "Lan Onasis Desktop",
+        "LanOnasis-mcp-mobile": "Lan Onasis Mobile",
+        "LanOnasis-vscode": "Lan Onasis VSCode Extension",
+        "LanOnasis-cursor": "Lan Onasis Cursor Extension",
+        "LanOnasis-windsurf": "Lan Onasis Windsurf Extension",
+      };
+
+      setClientInfo({
+        client_id: clientId,
+        client_name: clientMap[clientId] || "Unknown Application",
+        scopes: scope?.split(" ") || [],
+      });
+    },
+    [scope],
+  );
 
   useEffect(() => {
     // Validate parameters
     if (!clientId) {
-      setError('Missing client_id parameter');
+      setError("Missing client_id parameter");
       return;
     }
 
@@ -46,25 +67,7 @@ export default function OAuthAuthorize() {
       const returnUrl = window.location.href;
       navigate(`/auth/login?return_to=${encodeURIComponent(returnUrl)}`);
     }
-  }, [clientId, user, navigate]);
-
-  const loadClientInfo = async (clientId: string) => {
-    // Map client IDs to friendly names
-    const clientMap: Record<string, string> = {
-      'LanOnasis-mcp-cli': 'Lan Onasis CLI',
-      'LanOnasis-mcp-desktop': 'Lan Onasis Desktop',
-      'LanOnasis-mcp-mobile': 'Lan Onasis Mobile',
-      'LanOnasis-vscode': 'Lan Onasis VSCode Extension',
-      'LanOnasis-cursor': 'Lan Onasis Cursor Extension',
-      'LanOnasis-windsurf': 'Lan Onasis Windsurf Extension'
-    };
-
-    setClientInfo({
-      client_id: clientId,
-      client_name: clientMap[clientId] || 'Unknown Application',
-      scopes: scope?.split(' ') || []
-    });
-  };
+  }, [clientId, user, navigate, loadClientInfo]);
 
   const handleAuthorize = async () => {
     if (!user || !clientId) return;
@@ -75,12 +78,15 @@ export default function OAuthAuthorize() {
     try {
       if (userCode) {
         // Device flow authorization
-        const { error } = await supabase.functions.invoke('oauth-device-authorize', {
-          body: {
-            user_code: userCode,
-            user_id: user.id
-          }
-        });
+        const { error } = await supabase.functions.invoke(
+          "oauth-device-authorize",
+          {
+            body: {
+              user_code: userCode,
+              user_id: user.id,
+            },
+          },
+        );
 
         if (error) throw error;
 
@@ -100,31 +106,34 @@ export default function OAuthAuthorize() {
         );
       } else {
         // Authorization code flow
-        const { data, error } = await supabase.functions.invoke('oauth-authorize', {
-          body: {
-            client_id: clientId,
-            user_id: user.id,
-            redirect_uri: redirectUri,
-            scope: scope,
-            code_challenge: codeChallenge,
-            code_challenge_method: codeChallengeMethod
-          }
-        });
+        const { data, error } = await supabase.functions.invoke(
+          "oauth-authorize",
+          {
+            body: {
+              client_id: clientId,
+              user_id: user.id,
+              redirect_uri: redirectUri,
+              scope: scope,
+              code_challenge: codeChallenge,
+              code_challenge_method: codeChallengeMethod,
+            },
+          },
+        );
 
         if (error) throw error;
 
         // Redirect back to client with authorization code
         const callbackUrl = new URL(redirectUri!);
-        callbackUrl.searchParams.set('code', data.authorization_code);
+        callbackUrl.searchParams.set("code", data.authorization_code);
         if (state) {
-          callbackUrl.searchParams.set('state', state);
+          callbackUrl.searchParams.set("state", state);
         }
 
         window.location.href = callbackUrl.toString();
       }
     } catch (err: any) {
-      console.error('Authorization error:', err);
-      setError(err.message || 'Authorization failed');
+      console.error("Authorization error:", err);
+      setError(err.message || "Authorization failed");
     } finally {
       setLoading(false);
     }
@@ -133,10 +142,13 @@ export default function OAuthAuthorize() {
   const handleDeny = () => {
     if (redirectUri) {
       const callbackUrl = new URL(redirectUri);
-      callbackUrl.searchParams.set('error', 'access_denied');
-      callbackUrl.searchParams.set('error_description', 'User denied authorization');
+      callbackUrl.searchParams.set("error", "access_denied");
+      callbackUrl.searchParams.set(
+        "error_description",
+        "User denied authorization",
+      );
       if (state) {
-        callbackUrl.searchParams.set('state', state);
+        callbackUrl.searchParams.set("state", state);
       }
       window.location.href = callbackUrl.toString();
     } else {
@@ -144,20 +156,21 @@ export default function OAuthAuthorize() {
     }
   };
 
-  const scopeDescriptions: Record<string, { icon: any; description: string }> = {
-    'mcp:read': {
-      icon: Database,
-      description: 'Read your memory entries and search memories'
-    },
-    'mcp:write': {
-      icon: Database,
-      description: 'Create, update, and delete memory entries'
-    },
-    'api_keys:manage': {
-      icon: Key,
-      description: 'Create and manage API keys on your behalf'
-    }
-  };
+  const scopeDescriptions: Record<string, { icon: any; description: string }> =
+    {
+      "mcp:read": {
+        icon: Database,
+        description: "Read your memory entries and search memories",
+      },
+      "mcp:write": {
+        icon: Database,
+        description: "Create, update, and delete memory entries",
+      },
+      "api_keys:manage": {
+        icon: Key,
+        description: "Create and manage API keys on your behalf",
+      },
+    };
 
   if (!clientInfo) {
     return (
@@ -182,22 +195,27 @@ export default function OAuthAuthorize() {
           <div className="p-6">
             <div className="mb-6">
               <p className="text-gray-600 text-center">
-                <strong>{clientInfo.client_name}</strong> wants to access your Lan Onasis account
+                <strong>{clientInfo.client_name}</strong> wants to access your
+                Lan Onasis account
               </p>
             </div>
 
             {/* Permissions */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h3 className="font-semibold text-gray-800 mb-3">This application will be able to:</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">
+                This application will be able to:
+              </h3>
               <ul className="space-y-3">
                 {clientInfo.scopes.map((scope) => {
                   const info = scopeDescriptions[scope];
                   if (!info) return null;
-                  
+
                   return (
                     <li key={scope} className="flex items-start">
                       <info.icon className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-gray-700">{info.description}</span>
+                      <span className="text-sm text-gray-700">
+                        {info.description}
+                      </span>
                     </li>
                   );
                 })}
@@ -228,9 +246,9 @@ export default function OAuthAuthorize() {
                 fullWidth
                 className="bg-gradient-to-r from-blue-600 to-purple-600"
               >
-                {loading ? 'Authorizing...' : 'Authorize'}
+                {loading ? "Authorizing..." : "Authorize"}
               </AnimatedButton>
-              
+
               <AnimatedButton
                 onClick={handleDeny}
                 disabled={loading}
@@ -245,7 +263,9 @@ export default function OAuthAuthorize() {
             {userCode && (
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-500 mb-2">Device code:</p>
-                <p className="text-2xl font-mono font-bold text-blue-600">{userCode}</p>
+                <p className="text-2xl font-mono font-bold text-blue-600">
+                  {userCode}
+                </p>
               </div>
             )}
           </div>
@@ -253,8 +273,9 @@ export default function OAuthAuthorize() {
           {/* Footer */}
           <div className="bg-gray-50 px-6 py-4">
             <p className="text-xs text-gray-500 text-center">
-              By authorizing, you agree to share the requested information with {clientInfo.client_name}.
-              You can revoke access at any time from your account settings.
+              By authorizing, you agree to share the requested information with{" "}
+              {clientInfo.client_name}. You can revoke access at any time from
+              your account settings.
             </p>
           </div>
         </div>

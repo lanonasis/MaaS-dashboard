@@ -196,7 +196,7 @@ export const CentralAuthProvider = ({
       const { data: existingProfile } = await supabase
         .from("profiles")
         .select("*")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         .eq("id", oauthUser.id as any)
         .maybeSingle();
 
@@ -213,7 +213,7 @@ export const CentralAuthProvider = ({
             null,
           company_name: null,
           role: "user",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
         } as any);
 
         if (!error) {
@@ -253,7 +253,7 @@ export const CentralAuthProvider = ({
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         .eq("id", userId as any)
         .maybeSingle();
 

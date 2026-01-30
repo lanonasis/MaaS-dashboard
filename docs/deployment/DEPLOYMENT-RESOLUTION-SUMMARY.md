@@ -126,7 +126,7 @@ const { data, error } = await supabase
 
 ```bash
 VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+REDACTED_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
 VITE_AUTH_GATEWAY_URL=https://auth.lanonasis.com
 VITE_API_URL=https://api.lanonasis.com
 VITE_USE_CENTRAL_AUTH=true

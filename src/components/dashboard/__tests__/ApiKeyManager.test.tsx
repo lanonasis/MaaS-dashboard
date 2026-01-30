@@ -28,26 +28,46 @@ vi.mock("@/hooks/use-toast", () => ({
 const mockSupabaseSelect = vi.fn();
 const mockSupabaseInsert = vi.fn();
 const mockSupabaseDelete = vi.fn();
+const mockSupabaseServicesSelect = vi.fn();
+const mockSupabaseScopesInsert = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    from: (table: string) => ({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockImplementation(() => mockSupabaseSelect()),
-        }),
-      }),
-      insert: vi.fn().mockReturnValue({
+    from: (table: string) => {
+      if (table === "user_mcp_services") {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                order: vi.fn().mockImplementation(() => mockSupabaseServicesSelect()),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "api_key_scopes") {
+        return {
+          insert: vi.fn().mockImplementation(() => mockSupabaseScopesInsert()),
+        };
+      }
+      return {
         select: vi.fn().mockReturnValue({
-          single: vi.fn().mockImplementation(() => mockSupabaseInsert()),
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockImplementation(() => mockSupabaseSelect()),
+          }),
         }),
-      }),
-      delete: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockImplementation(() => mockSupabaseDelete()),
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockImplementation(() => mockSupabaseInsert()),
+          }),
         }),
-      }),
-    }),
+        delete: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockImplementation(() => mockSupabaseDelete()),
+          }),
+        }),
+      };
+    },
   },
 }));
 
@@ -72,16 +92,46 @@ if (!navigator.clipboard) {
 }
 navigator.clipboard.writeText = mockClipboardWriteText;
 
+// Mock configured services data
+const mockConfiguredServices = [
+  {
+    service_key: "stripe",
+    display_name: "Stripe",
+    category: "payment",
+    is_enabled: true,
+  },
+  {
+    service_key: "github",
+    display_name: "GitHub",
+    category: "developer",
+    is_enabled: true,
+  },
+  {
+    service_key: "openai",
+    display_name: "OpenAI",
+    category: "ai",
+    is_enabled: true,
+  },
+  {
+    service_key: "slack",
+    display_name: "Slack",
+    category: "communication",
+    is_enabled: false,
+  },
+];
+
 describe("ApiKeyManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     navigator.clipboard.writeText = mockClipboardWriteText;
     mockSupabaseSelect.mockResolvedValue({ data: [], error: null });
     mockSupabaseInsert.mockResolvedValue({
-      data: { id: "key-1", name: "Test Key", key: "lano_testkey123" },
+      data: { id: "key-1", name: "Test Key", key: "lano_testkey123", service: "all" },
       error: null,
     });
     mockSupabaseDelete.mockResolvedValue({ error: null });
+    mockSupabaseServicesSelect.mockResolvedValue({ data: mockConfiguredServices, error: null });
+    mockSupabaseScopesInsert.mockResolvedValue({ error: null });
   });
 
   describe("Dialog Trigger", () => {
@@ -341,7 +391,7 @@ describe("ApiKeyManager", () => {
         {
           id: "key-2",
           name: "Development Key",
-          service: "payment",
+          service: "specific",
           created_at: "2024-01-02T00:00:00Z",
           expires_at: "2025-01-01T00:00:00Z",
           is_active: true,
@@ -362,6 +412,43 @@ describe("ApiKeyManager", () => {
       await waitFor(() => {
         expect(screen.getByText("Production Key")).toBeInTheDocument();
         expect(screen.getByText("Development Key")).toBeInTheDocument();
+      });
+    });
+
+    it("displays service type correctly for keys", async () => {
+      const mockKeys = [
+        {
+          id: "key-1",
+          name: "All Services Key",
+          service: "all",
+          created_at: "2024-01-01T00:00:00Z",
+          expires_at: null,
+          is_active: true,
+        },
+        {
+          id: "key-2",
+          name: "Scoped Key",
+          service: "specific",
+          created_at: "2024-01-02T00:00:00Z",
+          expires_at: null,
+          is_active: true,
+        },
+      ];
+
+      mockSupabaseSelect.mockResolvedValue({ data: mockKeys, error: null });
+
+      const user = userEvent.setup();
+
+      render(<ApiKeyManager />);
+
+      await user.click(
+        screen.getByRole("button", { name: /memory api keys/i })
+      );
+      await user.click(screen.getByRole("tab", { name: /your keys/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Access: All Services")).toBeInTheDocument();
+        expect(screen.getByText("Access: Specific Services")).toBeInTheDocument();
       });
     });
 
@@ -474,7 +561,27 @@ describe("ApiKeyManager", () => {
   });
 
   describe("Service Selection", () => {
-    it("allows selecting different services", async () => {
+    it("shows service type selector with 'All Services' as default", async () => {
+      const user = userEvent.setup();
+
+      render(<ApiKeyManager />);
+
+      await user.click(
+        screen.getByRole("button", { name: /memory api keys/i })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Service Access")).toBeInTheDocument();
+      });
+
+      // Find the service select trigger - should show "All Services (Default)" by default
+      const serviceSelect = screen.getByRole("combobox", {
+        name: /service access/i,
+      });
+      expect(serviceSelect).toBeInTheDocument();
+    });
+
+    it("allows selecting service type 'Specific Services'", async () => {
       const user = userEvent.setup();
 
       render(<ApiKeyManager />);
@@ -494,14 +601,257 @@ describe("ApiKeyManager", () => {
       await user.click(serviceSelect);
 
       // Wait for the dropdown content to be visible
-      // Radix renders content in a portal, we need to wait for it
       await waitFor(
         () => {
-          // Look for the All Services option which is the first option
-          expect(screen.getAllByText("All Services").length).toBeGreaterThan(0);
+          expect(screen.getAllByText(/All Services/i).length).toBeGreaterThan(0);
         },
         { timeout: 3000 }
       );
+    });
+
+    it("shows configured services when 'Specific Services' is selected", async () => {
+      const user = userEvent.setup();
+
+      render(<ApiKeyManager />);
+
+      await user.click(
+        screen.getByRole("button", { name: /memory api keys/i })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Service Access")).toBeInTheDocument();
+      });
+
+      // Click service type selector
+      const serviceSelect = screen.getByRole("combobox", {
+        name: /service access/i,
+      });
+      await user.click(serviceSelect);
+
+      // Select "Specific Services"
+      await waitFor(
+        () => {
+          const specificOption = screen.getByRole("option", { name: /specific services/i });
+          expect(specificOption).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
+
+      await user.click(screen.getByRole("option", { name: /specific services/i }));
+
+      // Should show "Select Services" label and the configured services
+      await waitFor(() => {
+        expect(screen.getByText("Select Services")).toBeInTheDocument();
+      });
+
+      // Should show the configured services from the mock
+      await waitFor(() => {
+        expect(screen.getByText("Stripe")).toBeInTheDocument();
+        expect(screen.getByText("GitHub")).toBeInTheDocument();
+        expect(screen.getByText("OpenAI")).toBeInTheDocument();
+      });
+    });
+
+    it("shows empty state when no services are configured", async () => {
+      mockSupabaseServicesSelect.mockResolvedValue({ data: [], error: null });
+
+      const user = userEvent.setup();
+
+      render(<ApiKeyManager />);
+
+      await user.click(
+        screen.getByRole("button", { name: /memory api keys/i })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Service Access")).toBeInTheDocument();
+      });
+
+      // Click service type selector
+      const serviceSelect = screen.getByRole("combobox", {
+        name: /service access/i,
+      });
+      await user.click(serviceSelect);
+
+      // Select "Specific Services"
+      await waitFor(
+        () => {
+          const specificOption = screen.getByRole("option", { name: /specific services/i });
+          expect(specificOption).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
+
+      await user.click(screen.getByRole("option", { name: /specific services/i }));
+
+      // Should show empty state message
+      await waitFor(() => {
+        expect(screen.getByText("No services configured yet.")).toBeInTheDocument();
+      });
+    });
+
+    it("shows error when trying to generate key with specific services but none selected", async () => {
+      const user = userEvent.setup();
+
+      render(<ApiKeyManager />);
+
+      await user.click(
+        screen.getByRole("button", { name: /memory api keys/i })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Key Name")).toBeInTheDocument();
+      });
+
+      // Enter key name
+      await user.type(screen.getByLabelText("Key Name"), "Test Key");
+
+      // Click service type selector
+      const serviceSelect = screen.getByRole("combobox", {
+        name: /service access/i,
+      });
+      await user.click(serviceSelect);
+
+      // Select "Specific Services"
+      await waitFor(
+        () => {
+          const specificOption = screen.getByRole("option", { name: /specific services/i });
+          expect(specificOption).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
+
+      await user.click(screen.getByRole("option", { name: /specific services/i }));
+
+      // Wait for services to load
+      await waitFor(() => {
+        expect(screen.getByText("Select Services")).toBeInTheDocument();
+      });
+
+      // Don't select any services, just click generate
+      await user.click(
+        screen.getByRole("button", { name: /generate api key/i })
+      );
+
+      // Should show error
+      expect(mockToast).toHaveBeenCalledWith({
+        title: "Error",
+        description: "Please select at least one service when using specific service access",
+        variant: "destructive",
+      });
+    });
+
+    it("shows selected services count", async () => {
+      const user = userEvent.setup();
+
+      render(<ApiKeyManager />);
+
+      await user.click(
+        screen.getByRole("button", { name: /memory api keys/i })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Service Access")).toBeInTheDocument();
+      });
+
+      // Click service type selector and select "Specific Services"
+      const serviceSelect = screen.getByRole("combobox", {
+        name: /service access/i,
+      });
+      await user.click(serviceSelect);
+
+      await waitFor(
+        () => {
+          const specificOption = screen.getByRole("option", { name: /specific services/i });
+          expect(specificOption).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
+
+      await user.click(screen.getByRole("option", { name: /specific services/i }));
+
+      // Wait for services to load
+      await waitFor(() => {
+        expect(screen.getByText("Stripe")).toBeInTheDocument();
+      });
+
+      // Toggle first service (Stripe)
+      const stripeSwitch = screen.getByRole("switch", { name: /stripe/i });
+      await user.click(stripeSwitch);
+
+      // Should show count
+      await waitFor(() => {
+        expect(screen.getByText("1 service selected")).toBeInTheDocument();
+      });
+
+      // Toggle second service (GitHub)
+      const githubSwitch = screen.getByRole("switch", { name: /github/i });
+      await user.click(githubSwitch);
+
+      // Should show plural count
+      await waitFor(() => {
+        expect(screen.getByText("2 services selected")).toBeInTheDocument();
+      });
+    });
+
+    it("creates key with service scopes when specific services selected", async () => {
+      const user = userEvent.setup();
+
+      render(<ApiKeyManager />);
+
+      await user.click(
+        screen.getByRole("button", { name: /memory api keys/i })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Key Name")).toBeInTheDocument();
+      });
+
+      // Enter key name
+      await user.type(screen.getByLabelText("Key Name"), "Scoped Key");
+
+      // Click service type selector and select "Specific Services"
+      const serviceSelect = screen.getByRole("combobox", {
+        name: /service access/i,
+      });
+      await user.click(serviceSelect);
+
+      await waitFor(
+        () => {
+          const specificOption = screen.getByRole("option", { name: /specific services/i });
+          expect(specificOption).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
+
+      await user.click(screen.getByRole("option", { name: /specific services/i }));
+
+      // Wait for services to load and select Stripe
+      await waitFor(() => {
+        expect(screen.getByText("Stripe")).toBeInTheDocument();
+      });
+
+      const stripeSwitch = screen.getByRole("switch", { name: /stripe/i });
+      await user.click(stripeSwitch);
+
+      // Generate key
+      await user.click(
+        screen.getByRole("button", { name: /generate api key/i })
+      );
+
+      // Verify the scopes insert was called
+      await waitFor(() => {
+        expect(mockSupabaseScopesInsert).toHaveBeenCalled();
+      });
+
+      // Should show success toast
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: "API Key Generated",
+          description:
+            "Your API key has been generated successfully. Make sure to copy it now.",
+        });
+      });
     });
   });
 

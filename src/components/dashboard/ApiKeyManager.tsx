@@ -37,13 +37,29 @@ interface ApiKey {
   id: string;
   // key is only shown immediately after creation; not stored in DB
   key?: string;
-  // optional UI hint; DB may not store this column
+  // Service scoping: 'all' or 'specific'
   service?: string;
   user_id: string;
   name: string;
   expires_at: string | null;
   is_active: boolean | null;
   created_at: string;
+}
+
+// User's configured external service
+interface ConfiguredService {
+  service_key: string;
+  display_name: string;
+  category: string;
+  is_enabled: boolean;
+}
+
+// Service scope for API key
+interface ServiceScope {
+  service_key: string;
+  allowed_actions?: string[];
+  max_calls_per_minute?: number;
+  max_calls_per_day?: number;
 }
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
@@ -74,26 +90,15 @@ async function sha256Hex(input: string): Promise<string> {
   }
 }
 
-// Helper to get user-friendly service name
-function getServiceDisplayName(service: string): string {
-  const serviceMap: Record<string, string> = {
-    all: "All Services",
-    payment: "Payment Gateways",
-    wallet: "Wallet Service",
-    verification: "ID Verification",
-    utility: "Utility Payment",
-    trade: "Trade Financing",
-    bank: "Bank Statement API",
-    fraud: "Fraud Monitoring",
-  };
-  return serviceMap[service] || service;
+// Helper to format service type for display
+function getServiceTypeDisplayName(serviceType: string): string {
+  return serviceType === "specific" ? "Specific Services" : "All Services";
 }
 
 export const ApiKeyManager = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("create");
   const [keyName, setKeyName] = useState("");
-  const [keyService, setKeyService] = useState("all");
   const [keyExpiration, setKeyExpiration] = useState("never");
   const [customExpiration, setCustomExpiration] = useState("");
   const [generatedKey, setGeneratedKey] = useState("");
@@ -102,11 +107,62 @@ export const ApiKeyManager = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
+
+  // Service scoping state
+  const [serviceType, setServiceType] = useState<'all' | 'specific'>('all');
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [configuredServices, setConfiguredServices] = useState<ConfiguredService[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+
   const { toast } = useToast();
   const { user } = useSupabaseAuth();
 
   // Check if Web Crypto API is available
   const isCryptoAvailable = typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined';
+
+  // Fetch user's configured external services for scoping
+  const fetchConfiguredServices = useCallback(async () => {
+    if (!user?.id) return;
+
+    setIsLoadingServices(true);
+    try {
+      // Query user_mcp_services table for their configured services
+      const { data, error } = await supabase
+        .from('user_mcp_services')
+        .select(`
+          service_key,
+          display_name,
+          category,
+          is_enabled
+        `)
+        .eq('user_id', user.id)
+        .eq('is_enabled', true)
+        .order('display_name');
+
+      if (error) {
+        console.warn('Could not fetch configured services:', error);
+        // Fallback to empty array - user can still use 'all' scope
+        setConfiguredServices([]);
+        return;
+      }
+
+      setConfiguredServices(data || []);
+    } catch (error) {
+      console.error('Error fetching configured services:', error);
+      setConfiguredServices([]);
+    } finally {
+      setIsLoadingServices(false);
+    }
+  }, [user]);
+
+  // Toggle service selection
+  const toggleServiceSelection = (serviceKey: string) => {
+    setSelectedServices(prev =>
+      prev.includes(serviceKey)
+        ? prev.filter(k => k !== serviceKey)
+        : [...prev, serviceKey]
+    );
+  };
 
   const fetchApiKeys = useCallback(async () => {
     if (!user?.id) {
@@ -149,6 +205,13 @@ export const ApiKeyManager = () => {
       fetchApiKeys();
     }
   }, [isOpen, activeTab, fetchApiKeys]);
+
+  // Fetch configured services when creating a key
+  useEffect(() => {
+    if (isOpen && activeTab === "create") {
+      fetchConfiguredServices();
+    }
+  }, [isOpen, activeTab, fetchConfiguredServices]);
 
   const copyToClipboard = async () => {
     if (!generatedKey) {
@@ -209,6 +272,16 @@ export const ApiKeyManager = () => {
       return;
     }
 
+    // Validate service selection
+    if (serviceType === "specific" && selectedServices.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one service when using specific service access",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -247,7 +320,7 @@ export const ApiKeyManager = () => {
             name: keyName.trim(),
             key: formattedKey,  // Store plain key (required by schema)
             key_hash: keyHash,   // SHA-256 hash for validation
-            service: keyService,
+            service: serviceType,  // 'all' or 'specific'
             user_id: user.id,
             expires_at: expirationDate,
             is_active: true,
@@ -271,7 +344,7 @@ export const ApiKeyManager = () => {
             .insert({
               name: keyName.trim(),
               key: formattedKey,
-              service: keyService,
+              service: serviceType,  // 'all' or 'specific'
               user_id: user.id,
               expires_at: expirationDate,
               is_active: true,
@@ -304,6 +377,27 @@ export const ApiKeyManager = () => {
 
       if (!data) {
         throw new Error("API key was created but no data was returned");
+      }
+
+      // Insert service scopes if using specific services
+      if (serviceType === "specific" && selectedServices.length > 0 && data.id) {
+        const scopeRecords = selectedServices.map(serviceKey => ({
+          api_key_id: data.id,
+          service_key: serviceKey,
+          allowed_actions: null,
+          max_calls_per_minute: null,
+          max_calls_per_day: null,
+          is_active: true,
+        }));
+
+        const { error: scopesError } = await supabase
+          .from("api_key_scopes")
+          .insert(scopeRecords);
+
+        if (scopesError) {
+          console.warn("Failed to insert service scopes:", scopesError);
+          // Don't fail the request - key is created, just log the scope issue
+        }
       }
 
       toast({
@@ -426,24 +520,64 @@ export const ApiKeyManager = () => {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="service">Service Access</Label>
-                  <Select value={keyService} onValueChange={setKeyService}>
+                  <Select value={serviceType} onValueChange={(v) => setServiceType(v as 'all' | 'specific')}>
                     <SelectTrigger id="service">
-                      <SelectValue placeholder="Select a service" />
+                      <SelectValue placeholder="Select access type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Services</SelectItem>
-                      <SelectItem value="payment">Payment Gateways</SelectItem>
-                      <SelectItem value="wallet">Wallet Service</SelectItem>
-                      <SelectItem value="verification">
-                        ID Verification
-                      </SelectItem>
-                      <SelectItem value="utility">Utility Payment</SelectItem>
-                      <SelectItem value="trade">Trade Financing</SelectItem>
-                      <SelectItem value="bank">Bank Statement API</SelectItem>
-                      <SelectItem value="fraud">Fraud Monitoring</SelectItem>
+                      <SelectItem value="all">All Services (Default)</SelectItem>
+                      <SelectItem value="specific">Specific Services</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {serviceType === "all"
+                      ? "This key will have access to all your configured services."
+                      : "Select which services this key can access."}
+                  </p>
                 </div>
+
+                {serviceType === "specific" && (
+                  <div className="grid gap-2">
+                    <Label>Select Services</Label>
+                    {isLoadingServices ? (
+                      <div className="flex justify-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                      </div>
+                    ) : configuredServices.length === 0 ? (
+                      <div className="text-sm text-muted-foreground p-3 bg-secondary/30 rounded-md">
+                        <p>No services configured yet.</p>
+                        <p className="text-xs mt-1">Configure services in the MCP Services section first, or use "All Services" access.</p>
+                      </div>
+                    ) : (
+                      <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
+                        {configuredServices.map((service) => (
+                          <div key={service.service_key} className="flex items-center space-x-2">
+                            <Switch
+                              id={`service-${service.service_key}`}
+                              checked={selectedServices.includes(service.service_key)}
+                              onCheckedChange={() => toggleServiceSelection(service.service_key)}
+                              disabled={!service.is_enabled}
+                            />
+                            <Label
+                              htmlFor={`service-${service.service_key}`}
+                              className={`text-sm cursor-pointer ${!service.is_enabled ? 'text-muted-foreground' : ''}`}
+                            >
+                              {service.display_name || service.service_key}
+                              {service.category && (
+                                <span className="text-xs text-muted-foreground ml-2">({service.category})</span>
+                              )}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {selectedServices.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedServices.length} service{selectedServices.length !== 1 ? 's' : ''} selected
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="grid gap-2">
                   <Label htmlFor="expiration">Expiration</Label>
                   <Select
@@ -480,7 +614,11 @@ export const ApiKeyManager = () => {
                 )}
 
                 <div className="text-xs text-muted-foreground dark:text-muted-foreground">
-                  <p>This API key will have access to the selected services.</p>
+                  <p>
+                    {serviceType === "all"
+                      ? "This API key will have access to all your configured services and Memory services."
+                      : "This API key will have access to selected services and Memory services (always included)."}
+                  </p>
                 </div>
               </div>
             ) : (
@@ -544,8 +682,28 @@ export const ApiKeyManager = () => {
                     </p>
                     <p className="text-foreground">
                       <span className="text-muted-foreground">Services:</span>{" "}
-                      <span className="font-medium">{getServiceDisplayName(keyService)}</span>
+                      <span className="font-medium">
+                        {serviceType === "all"
+                          ? "All Services"
+                          : selectedServices.length > 0
+                          ? `${selectedServices.length} specific service${selectedServices.length !== 1 ? 's' : ''}`
+                          : "None selected"}
+                      </span>
                     </p>
+                    {serviceType === "specific" && selectedServices.length > 0 && (
+                      <div className="mt-1 text-xs">
+                        <span className="text-muted-foreground">Selected: </span>
+                        {selectedServices.map((key, idx) => {
+                          const svc = configuredServices.find(s => s.service_key === key);
+                          return (
+                            <span key={key}>
+                              {svc?.display_name || key}
+                              {idx < selectedServices.length - 1 ? ', ' : ''}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                     <p className="text-foreground">
                       <span className="text-muted-foreground">Expires:</span>{" "}
                       <span className="font-medium">
@@ -581,7 +739,8 @@ export const ApiKeyManager = () => {
                     onClick={() => {
                       setGeneratedKey("");
                       setKeyName("");
-                      setKeyService("all");
+                      setServiceType("all");
+                      setSelectedServices([]);
                       setKeyExpiration("never");
                       setCustomExpiration("");
                       setShowKey(false);
@@ -650,9 +809,9 @@ export const ApiKeyManager = () => {
                             </h3>
                             <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                               Access:{" "}
-                              {key.service === "all"
-                                ? "All Services"
-                                : key.service}
+                              {key.service === "specific"
+                                ? "Specific Services"
+                                : "All Services"}
                             </p>
                           </div>
                           <Button

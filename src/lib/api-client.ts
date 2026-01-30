@@ -362,7 +362,7 @@ class ApiClient {
 
   async intelligenceHealthCheck(): Promise<ApiResponse<any>> {
     return this.makeIntelligenceRequest<any>('intelligence-health-check', {
-      method: 'GET',
+      method: 'POST',
     });
   }
 

@@ -1,25 +1,37 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LanOnasis Memory Service - Dashboard</title>
-    <meta name="description" content="Professional Memory as a Service (MaaS) platform with self-service API key management and comprehensive memory operations." />
+    <meta
+      name="description"
+      content="Professional Memory as a Service (MaaS) platform with self-service API key management and comprehensive memory operations."
+    />
     <meta name="author" content="LanOnasis" />
 
     <meta property="og:title" content="LanOnasis Memory Service - Dashboard" />
-    <meta property="og:description" content="Professional Memory as a Service (MaaS) platform with self-service API key management and comprehensive memory operations." />
+    <meta
+      property="og:description"
+      content="Professional Memory as a Service (MaaS) platform with self-service API key management and comprehensive memory operations."
+    />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://api.lanonasis.com/assets/og-image.png" />
+    <meta
+      property="og:image"
+      content="https://api.lanonasis.com/assets/og-image.png"
+    />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@LanOnasis" />
-    <meta name="twitter:image" content="https://api.lanonasis.com/assets/og-image.png" />
-    
+    <meta
+      name="twitter:image"
+      content="https://api.lanonasis.com/assets/og-image.png"
+    />
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" href="/favicon.ico" />
-    
+
     <!-- Theme colors -->
     <meta name="theme-color" content="#0A1930" />
     <meta name="msapplication-TileColor" content="#0A1930" />
@@ -29,184 +41,219 @@
     <div id="root"></div>
     <script>
       // #region agent log - Early error handler setup
-      (function() {
-        const logEndpoint = 'http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd';
+      (function () {
+        const isDevHost =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1";
+        const logEndpoint = isDevHost
+          ? "http://127.0.0.1:7242/ingest/fdfcd7f5-6d46-477f-9c3e-7404e46b48cd"
+          : null;
         const logError = (location, message, data) => {
+          if (!logEndpoint) {
+            return;
+          }
+
           const logEntry = {
             location: location,
             message: message,
             data: data,
             timestamp: Date.now(),
-            sessionId: 'debug-session',
-            runId: 'initial',
-            hypothesisId: 'A'
+            sessionId: "debug-session",
+            runId: "initial",
+            hypothesisId: "A",
           };
-          
+
           // Try fetch, fallback to localStorage if CSP blocks
           try {
             fetch(logEndpoint, {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify(logEntry)
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(logEntry),
             }).catch(() => {
               // CSP blocked - use localStorage fallback
               try {
-                const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+                const logs = JSON.parse(
+                  localStorage.getItem("debug_logs") || "[]",
+                );
                 logs.push(logEntry);
                 if (logs.length > 100) logs.shift(); // Keep last 100
-                localStorage.setItem('debug_logs', JSON.stringify(logs));
-              } catch(e) {}
+                localStorage.setItem("debug_logs", JSON.stringify(logs));
+              } catch (e) {}
             });
-          } catch(e) {
+          } catch (e) {
             // Fallback to localStorage
             try {
-              const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+              const logs = JSON.parse(
+                localStorage.getItem("debug_logs") || "[]",
+              );
               logs.push(logEntry);
               if (logs.length > 100) logs.shift();
-              localStorage.setItem('debug_logs', JSON.stringify(logs));
-            } catch(e2) {}
+              localStorage.setItem("debug_logs", JSON.stringify(logs));
+            } catch (e2) {}
           }
         };
-        
+
         // Detect if error is from browser extension - be very specific to avoid blocking app errors
         const isExtensionError = (error, filename) => {
-          const msg = String(error || '');
-          const file = String(filename || '');
-          const fullCheck = msg + ' ' + file;
-          
+          const msg = String(error || "");
+          const file = String(filename || "");
+          const fullCheck = msg + " " + file;
+
           // Check for extension URLs in filename/stack FIRST (most reliable)
-          const hasExtensionUrl = file.includes('chrome-extension://') ||
-            file.includes('moz-extension://') ||
-            file.includes('safari-extension://');
-          
+          const hasExtensionUrl =
+            file.includes("chrome-extension://") ||
+            file.includes("moz-extension://") ||
+            file.includes("safari-extension://");
+
           if (hasExtensionUrl) {
             return true; // Definitely from extension
           }
-          
+
           // Check for specific extension error patterns (but NOT if Supabase-related)
-          const isExtensionPattern = (
-            msg.includes('No tab with id') ||
-            msg.includes('jamToggleDumpStore') ||
-            msg.includes('runtime.lastError') ||
-            msg.includes('message port closed') ||
-            msg.includes('Receiving end does not exist') ||
-            (msg.includes('mobx-state-tree') && !msg.includes('supabase')) ||
-            (msg.includes('detectedLibs') && !msg.includes('supabase')) ||
-            (msg.includes('ScreenshotMachineModel') && !msg.includes('supabase')) ||
-            (msg.includes('heuristicsRedefinitions') && !msg.includes('supabase')) ||
-            (msg.includes('extensionState') && !msg.includes('supabase')) ||
-            (msg.includes('utils.js') && !msg.includes('supabase'))
-          );
-          
+          const isExtensionPattern =
+            msg.includes("No tab with id") ||
+            msg.includes("jamToggleDumpStore") ||
+            msg.includes("runtime.lastError") ||
+            msg.includes("message port closed") ||
+            msg.includes("Receiving end does not exist") ||
+            (msg.includes("mobx-state-tree") && !msg.includes("supabase")) ||
+            (msg.includes("detectedLibs") && !msg.includes("supabase")) ||
+            (msg.includes("ScreenshotMachineModel") &&
+              !msg.includes("supabase")) ||
+            (msg.includes("heuristicsRedefinitions") &&
+              !msg.includes("supabase")) ||
+            (msg.includes("extensionState") && !msg.includes("supabase")) ||
+            (msg.includes("utils.js") && !msg.includes("supabase"));
+
           // Only suppress if it's an extension pattern AND not from our app
           if (isExtensionPattern) {
             // Double-check: if it mentions Supabase, auth, session, or our app domains, don't suppress
-            const isAppRelated = fullCheck.includes('supabase') ||
-              fullCheck.includes('auth') ||
-              fullCheck.includes('session') ||
-              fullCheck.includes('lanonasis') ||
-              fullCheck.includes('/src/') ||
-              fullCheck.includes('dashboard');
-            
+            const isAppRelated =
+              fullCheck.includes("supabase") ||
+              fullCheck.includes("auth") ||
+              fullCheck.includes("session") ||
+              fullCheck.includes("lanonasis") ||
+              fullCheck.includes("/src/") ||
+              fullCheck.includes("dashboard");
+
             return !isAppRelated; // Suppress only if NOT app-related
           }
-          
+
           // Check for service worker errors (but only if not from our app)
-          if (file.includes('sw.js') && !file.includes('/src/') && !file.includes('dashboard')) {
+          if (
+            file.includes("sw.js") &&
+            !file.includes("/src/") &&
+            !file.includes("dashboard")
+          ) {
             return true;
           }
-          
+
           return false; // Default: don't suppress
         };
-        
+
         // Override console.error and console.warn to catch extension errors
         const originalConsoleError = console.error;
         const originalConsoleWarn = console.warn;
-        
-        console.error = function(...args) {
-          const errorStr = args.map(a => String(a)).join(' ');
-          const isExt = isExtensionError(errorStr, '');
-          
+
+        console.error = function (...args) {
+          const errorStr = args.map((a) => String(a)).join(" ");
+          const isExt = isExtensionError(errorStr, "");
+
           // Always call original console.error first to ensure Supabase errors work
           originalConsoleError.apply(console, args);
-          
+
           // Log extension errors but don't prevent them from showing
           if (isExt) {
-            logError('index.html:console.error', 'Extension error detected', {error: errorStr.substring(0, 200)});
+            logError("index.html:console.error", "Extension error detected", {
+              error: errorStr.substring(0, 200),
+            });
           }
         };
-        
-        console.warn = function(...args) {
-          const warnStr = args.map(a => String(a)).join(' ');
-          const isExt = isExtensionError(warnStr, '');
-          
+
+        console.warn = function (...args) {
+          const warnStr = args.map((a) => String(a)).join(" ");
+          const isExt = isExtensionError(warnStr, "");
+
           // Always call original console.warn first to ensure Supabase warnings work
           originalConsoleWarn.apply(console, args);
-          
+
           // Log extension warnings but don't prevent them from showing
           if (isExt) {
-            logError('index.html:console.warn', 'Extension warning detected', {warning: warnStr.substring(0, 200)});
+            logError("index.html:console.warn", "Extension warning detected", {
+              warning: warnStr.substring(0, 200),
+            });
           }
         };
-        
+
         // Global error handler (runs before React)
         // IMPORTANT: Only suppress errors that are DEFINITELY from extensions
-        window.addEventListener('error', (event) => {
-          const isExt = isExtensionError(event.message, event.filename);
-          
-          logError('index.html:error', 'Global error event', {
-            message: event.message?.substring(0, 200),
-            filename: event.filename,
-            lineno: event.lineno,
-            colno: event.colno,
-            isExtension: isExt
-          });
-          
-          // Only prevent default for DEFINITE extension errors
-          if (isExt) {
-            // Double-check it's not app-related before suppressing
-            const errorContext = (event.message || '') + ' ' + (event.filename || '');
-            const isAppRelated = errorContext.includes('supabase') ||
-              errorContext.includes('auth') ||
-              errorContext.includes('session') ||
-              errorContext.includes('lanonasis') ||
-              errorContext.includes('/src/') ||
-              errorContext.includes('dashboard');
-            
-            if (!isAppRelated) {
-              event.preventDefault();
-              event.stopPropagation();
-              return false;
+        window.addEventListener(
+          "error",
+          (event) => {
+            const isExt = isExtensionError(event.message, event.filename);
+
+            logError("index.html:error", "Global error event", {
+              message: event.message?.substring(0, 200),
+              filename: event.filename,
+              lineno: event.lineno,
+              colno: event.colno,
+              isExtension: isExt,
+            });
+
+            // Only prevent default for DEFINITE extension errors
+            if (isExt) {
+              // Double-check it's not app-related before suppressing
+              const errorContext =
+                (event.message || "") + " " + (event.filename || "");
+              const isAppRelated =
+                errorContext.includes("supabase") ||
+                errorContext.includes("auth") ||
+                errorContext.includes("session") ||
+                errorContext.includes("lanonasis") ||
+                errorContext.includes("/src/") ||
+                errorContext.includes("dashboard");
+
+              if (!isAppRelated) {
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+              }
             }
-          }
-          // If not extension error or if app-related, let it propagate normally
-        }, true);
-        
+            // If not extension error or if app-related, let it propagate normally
+          },
+          true,
+        );
+
         // Unhandled promise rejection handler
         // IMPORTANT: Only suppress rejections that are DEFINITELY from extensions
-        window.addEventListener('unhandledrejection', (event) => {
+        window.addEventListener("unhandledrejection", (event) => {
           const error = event.reason;
-          const errorStr = error?.message || String(error || '');
-          const stack = error?.stack || '';
+          const errorStr = error?.message || String(error || "");
+          const stack = error?.stack || "";
           const isExt = isExtensionError(errorStr, stack);
-          
-          logError('index.html:unhandledrejection', 'Unhandled promise rejection', {
-            error: errorStr?.substring(0, 200),
-            stack: stack?.substring(0, 200),
-            isExtension: isExt
-          });
-          
+
+          logError(
+            "index.html:unhandledrejection",
+            "Unhandled promise rejection",
+            {
+              error: errorStr?.substring(0, 200),
+              stack: stack?.substring(0, 200),
+              isExtension: isExt,
+            },
+          );
+
           // Only prevent default for DEFINITE extension rejections
           if (isExt) {
             // Double-check it's not app-related before suppressing
-            const errorContext = errorStr + ' ' + stack;
-            const isAppRelated = errorContext.includes('supabase') ||
-              errorContext.includes('auth') ||
-              errorContext.includes('session') ||
-              errorContext.includes('lanonasis') ||
-              errorContext.includes('/src/') ||
-              errorContext.includes('dashboard');
-            
+            const errorContext = errorStr + " " + stack;
+            const isAppRelated =
+              errorContext.includes("supabase") ||
+              errorContext.includes("auth") ||
+              errorContext.includes("session") ||
+              errorContext.includes("lanonasis") ||
+              errorContext.includes("/src/") ||
+              errorContext.includes("dashboard");
+
             if (!isAppRelated) {
               event.preventDefault();
               return false;
@@ -214,8 +261,10 @@
           }
           // If not extension rejection or if app-related, let it propagate normally
         });
-        
-        logError('index.html:init', 'Early error handlers installed', {timestamp: Date.now()});
+
+        logError("index.html:init", "Early error handlers installed", {
+          timestamp: Date.now(),
+        });
       })();
       // #endregion
     </script>

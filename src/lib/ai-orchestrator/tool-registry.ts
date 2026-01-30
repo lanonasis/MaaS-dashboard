@@ -10,6 +10,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getDashboardMemoryClient } from '@/lib/memory-sdk/dashboard-adapter';
 import type { Json } from '@/integrations/supabase/types';
+import { isMissingRelationError } from '@/lib/supabase-errors';
 
 export type ToolType = 'dashboard' | 'mcp' | 'api';
 
@@ -573,10 +574,18 @@ export class ToolRegistry {
    * Initialize - Load user's configured tools
    */
   async initialize() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_tool_configs')
       .select('*')
       .eq('user_id', this.userId);
+
+    if (error) {
+      if (isMissingRelationError(error, 'user_tool_configs')) {
+        console.warn('[ToolRegistry] user_tool_configs table not available');
+        return;
+      }
+      throw error;
+    }
 
     if (data) {
       data.forEach(config => {
@@ -642,7 +651,12 @@ export class ToolRegistry {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (isMissingRelationError(error, 'user_tool_configs')) {
+        throw new Error('Tool configuration storage is not available yet.');
+      }
+      throw error;
+    }
 
     if (data) {
       this.userTools.set(toolId, data);
@@ -653,11 +667,18 @@ export class ToolRegistry {
    * Disable a tool
    */
   async disableTool(toolId: string) {
-    await supabase
+    const { error } = await supabase
       .from('user_tool_configs')
       .update({ enabled: false })
       .eq('user_id', this.userId)
       .eq('tool_id', toolId);
+
+    if (error) {
+      if (isMissingRelationError(error, 'user_tool_configs')) {
+        throw new Error('Tool configuration storage is not available yet.');
+      }
+      throw error;
+    }
 
     const config = this.userTools.get(toolId);
     if (config) {
