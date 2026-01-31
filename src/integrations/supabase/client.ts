@@ -3,15 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 // Environment variables - MUST be set correctly
-const SUPABASE_URL=https://<project-ref>.supabase.co
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Track configuration state so we can render gracefully even if missing
 export const isSupabaseConfigured = !!SUPABASE_PUBLISHABLE_KEY;
 
 // Debug logging for production
 console.log('Supabase client initialization:', {
-  url: SUPABASE_URL=https://<project-ref>.supabase.co
+  url: SUPABASE_URL,
   hasKey: !!SUPABASE_PUBLISHABLE_KEY,
   keyLength: SUPABASE_PUBLISHABLE_KEY?.length || 0
 });
@@ -60,13 +60,13 @@ const createSupabaseClient = () => {
   }
 
   try {
-    console.log('Creating Supabase client with:', { url: SUPABASE_URL=https://<project-ref>.supabase.co
+    console.log('Creating Supabase client with:', { url: SUPABASE_URL });
     
-    const resolvedUrl = SUPABASE_URL=https://<project-ref>.supabase.co
+    const resolvedUrl = SUPABASE_URL;
     const resolvedKey = SUPABASE_PUBLISHABLE_KEY || 'public-anon-key-placeholder';
 
     if (!SUPABASE_PUBLISHABLE_KEY) {
-      console.warn('Missing VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+      console.warn('Missing VITE_SUPABASE_ANON_KEY environment variable');
     }
 
     supabaseInstance = createClient<Database>(

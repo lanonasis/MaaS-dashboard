@@ -4,14 +4,18 @@
 // Usage:
 // VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 
-const url = process.env.VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-const anon = process.env.VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+const url =
+  process.env.VITE_SUPABASE_URL || "https://<project-ref>.supabase.co";
+const anon =
+  process.env.VITE_SUPABASE_ANON_KEY || "REDACTED_SUPABASE_ANON_KEY";
 const email = process.env.DIAG_EMAIL;
 const phone = process.env.DIAG_PHONE;
 const pass = process.env.DIAG_PASSWORD;
 
 if (!url || !anon) {
-  console.error("Missing VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+  console.error(
+    "Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables."
+  );
   process.exit(1);
 }
 

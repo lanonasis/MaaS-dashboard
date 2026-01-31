@@ -8,6 +8,8 @@ const localStorageMock = {
   setItem: vi.fn(),
   removeItem: vi.fn(),
   clear: vi.fn(),
+  length: 0,
+  key: vi.fn(),
 };
 
 // Mock sessionStorage
@@ -16,7 +18,18 @@ const sessionStorageMock = {
   setItem: vi.fn(),
   removeItem: vi.fn(),
   clear: vi.fn(),
+  length: 0,
+  key: vi.fn(),
 };
+
+// Ensure localStorage is available globally
+if (typeof global.localStorage === 'undefined') {
+  global.localStorage = localStorageMock;
+}
+
+if (typeof global.sessionStorage === 'undefined') {
+  global.sessionStorage = sessionStorageMock;
+}
 
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock
@@ -61,9 +74,14 @@ global.ResizeObserver = MockResizeObserver;
 
 // Mock IntersectionObserver
 class MockIntersectionObserver {
+  root: Element | null = null;
+  rootMargin: string = '';
+  thresholds: number[] = [];
+  
   observe = vi.fn();
   unobserve = vi.fn();
   disconnect = vi.fn();
+  takeRecords = vi.fn(() => []);
 }
 global.IntersectionObserver = MockIntersectionObserver;
 

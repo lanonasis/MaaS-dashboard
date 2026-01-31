@@ -160,12 +160,14 @@ class ApiClient {
         } catch (refreshError) {
           console.error('[API Client] Token refresh failed:', refreshError);
           // Refresh failed, redirect to login
-          const redirectUrl = `${window.location.origin}/auth/callback`;
-          const authUrl = new URL(`${API_BASE_URL}/auth/login`);
-          authUrl.searchParams.set('platform', 'dashboard');
-          authUrl.searchParams.set('redirect_url', redirectUrl);
+          if (typeof window !== 'undefined' && window.location) {
+            const redirectUrl = `${window.location.origin}/auth/callback`;
+            const authUrl = new URL(`${API_BASE_URL}/auth/login`);
+            authUrl.searchParams.set('platform', 'dashboard');
+            authUrl.searchParams.set('redirect_url', redirectUrl);
 
-          window.location.href = authUrl.toString();
+            window.location.href = authUrl.toString();
+          }
           throw new Error('Authentication required - redirecting to login');
         }
       }
@@ -331,7 +333,7 @@ class ApiClient {
     functionName: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const url = `${supabaseUrl}/functions/v1/${functionName}`;
 
     // Get API key for intelligence endpoints

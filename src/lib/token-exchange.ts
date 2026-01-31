@@ -103,6 +103,11 @@ export function getAuthGatewayTokens(): {
   user: TokenExchangeResponse['user'];
 } | null {
   try {
+    // Ensure localStorage is available (for SSR compatibility)
+    if (typeof localStorage === 'undefined') {
+      return null;
+    }
+    
     const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
     if (!stored) return null;
 

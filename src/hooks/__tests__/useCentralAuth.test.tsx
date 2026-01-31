@@ -14,29 +14,63 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { ReactNode } from "react";
 
-type CentralAuthModule = typeof import("../useCentralAuth");
+// Ensure document is defined for jsdom
+if (typeof document === 'undefined') {
+  const mockElement = {
+    appendChild: vi.fn(),
+    removeChild: vi.fn(),
+    setAttribute: vi.fn(),
+    getAttribute: vi.fn(),
+    querySelector: vi.fn(),
+    querySelectorAll: vi.fn(() => []),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    nodeType: 1,
+    tagName: 'DIV',
+    style: {},
+    classList: {
+      add: vi.fn(),
+      remove: vi.fn(),
+      contains: vi.fn(),
+    },
+    textContent: '',
+    innerHTML: '',
+    ownerDocument: {},
+    parentNode: null,
+    parentElement: null,
+    namespaceURI: 'http://www.w3.org/1999/xhtml',
+  };
+  
+  global.document = {
+    body: mockElement,
+    createElement: vi.fn(() => mockElement),
+    getElementById: vi.fn(() => mockElement),
+    querySelector: vi.fn(() => mockElement),
+    querySelectorAll: vi.fn(() => []),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    ownerDocument: mockElement,
+  } as any;
+  
+  global.window = {
+    ...global.window,
+    document: global.document,
+  } as any;
+}
 
-let CentralAuthProvider: CentralAuthModule["CentralAuthProvider"];
-let useCentralAuth: CentralAuthModule["useCentralAuth"];
+// Import the actual module
+import { CentralAuthProvider, useCentralAuth } from "../useCentralAuth";
 
 // Mock central auth client
-const {
-  mockHealthCheck,
-  mockGetCurrentSession,
-  mockLogin,
-  mockLogout,
-  mockHandleCallback,
-  mockClearSSOCookies,
-  mockExchangeSupabaseToken,
-} = vi.hoisted(() => ({
-  mockHealthCheck: vi.fn(),
-  mockGetCurrentSession: vi.fn(),
-  mockLogin: vi.fn(),
-  mockLogout: vi.fn(),
-  mockHandleCallback: vi.fn(),
-  mockClearSSOCookies: vi.fn().mockResolvedValue(undefined),
-  mockExchangeSupabaseToken: vi.fn().mockResolvedValue(undefined),
-}));
+const mockHealthCheck = vi.fn();
+const mockGetCurrentSession = vi.fn();
+const mockLogin = vi.fn();
+const mockLogout = vi.fn();
+const mockHandleCallback = vi.fn();
+const mockClearSSOCookies = vi.fn().mockResolvedValue(undefined);
+const mockExchangeSupabaseToken = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/lib/central-auth", () => ({
   centralAuth: {
@@ -61,24 +95,22 @@ vi.mock("@/lib/secure-token-storage", () => ({
 }));
 
 // Mock Supabase fallback
-const mockProfileResponse = vi.hoisted(() => ({
+const mockProfileResponse = {
   data: null as unknown,
   error: null as unknown,
-}));
+};
 
-const mockSupabaseFrom = vi.hoisted(() =>
-  vi.fn(() => {
-    const builder = {
-      select: vi.fn(() => builder),
-      eq: vi.fn(() => builder),
-      maybeSingle: vi.fn(() => Promise.resolve(mockProfileResponse)),
-      insert: vi.fn(() => Promise.resolve({ error: null })),
-    };
-    return builder;
-  })
-);
+const mockSupabaseFrom = vi.fn(() => {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    maybeSingle: vi.fn(() => Promise.resolve(mockProfileResponse)),
+    insert: vi.fn(() => Promise.resolve({ error: null })),
+  };
+  return builder;
+});
 
-const mockSupabaseAuth = vi.hoisted(() => ({
+const mockSupabaseAuth = {
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(() => ({
     data: { subscription: { unsubscribe: vi.fn() } },
@@ -86,7 +118,7 @@ const mockSupabaseAuth = vi.hoisted(() => ({
   signInWithPassword: vi.fn(),
   signUp: vi.fn(),
   signOut: vi.fn(),
-}));
+};
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -96,17 +128,14 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 // Mock router
-const mockNavigate = vi.hoisted(() => vi.fn());
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => mockNavigate,
+  BrowserRouter: ({ children }: { children: ReactNode }) => children,
+}));
 
 // Mock toast
-const mockToast = vi.hoisted(() => vi.fn());
+const mockToast = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({
     toast: mockToast,
@@ -120,9 +149,8 @@ const createWrapper = ({ children }: { children: ReactNode }) => (
 );
 
 describe("useCentralAuth Hook", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
     process.env.VITE_USE_CENTRAL_AUTH = "true";
     process.env.VITE_USE_FALLBACK_AUTH = "true";
     mockProfileResponse.data = null;
@@ -140,10 +168,6 @@ describe("useCentralAuth Hook", () => {
       error: null,
     });
     mockSupabaseAuth.signOut.mockResolvedValue({ error: null });
-
-    const mod = await import("../useCentralAuth");
-    CentralAuthProvider = mod.CentralAuthProvider;
-    useCentralAuth = mod.useCentralAuth;
   });
 
   describe("Initialization", () => {

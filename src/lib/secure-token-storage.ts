@@ -123,15 +123,19 @@ class SecureTokenStorage {
     
     // Clear fallback storage
     try {
-      sessionStorage.removeItem('refresh_token_fallback');
-      localStorage.removeItem('user_data');
-      // Clear legacy localStorage tokens for migration
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('lanonasis_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('lanonasis_user');
-      localStorage.removeItem('lanonasis_current_session');
-      localStorage.removeItem('lanonasis_current_user_id');
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('refresh_token_fallback');
+      }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('user_data');
+        // Clear legacy localStorage tokens for migration
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('lanonasis_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('lanonasis_user');
+        localStorage.removeItem('lanonasis_current_session');
+        localStorage.removeItem('lanonasis_current_user_id');
+      }
     } catch (e) {
       console.warn('Error clearing storage:', e);
     }
@@ -160,6 +164,11 @@ class SecureTokenStorage {
    */
   migrateFromLocalStorage(): void {
     try {
+      // Check if localStorage is available (SSR compatibility)
+      if (typeof localStorage === 'undefined') {
+        return;
+      }
+      
       // Migrate refresh token (only one we need to persist)
       const refreshToken = localStorage.getItem('refresh_token');
       if (refreshToken) {
