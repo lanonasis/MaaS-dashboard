@@ -1,6 +1,35 @@
 /**
- * AI Assistant - Floating Chat Interface
- * A helpful AI agent that assists users throughout the dashboard
+ * AI Assistant Component
+ *
+ * A floating chat interface that provides AI-powered assistance throughout the dashboard.
+ * Features include natural language interaction, context-aware responses, workflow generation,
+ * tool execution, and memory-powered conversations.
+ *
+ * Key Capabilities:
+ * - Natural language processing with intent detection
+ * - Memory recall and context awareness
+ * - Tool execution (API keys, memory management, workflows, analytics)
+ * - Workflow planning and creation
+ * - Conversation history and persistent context
+ * - Real-time suggestions and quick actions
+ *
+ * @component
+ * @example
+ * ```tsx
+ * import { AIAssistant } from '@/components/ai/AIAssistant';
+ *
+ * function Dashboard() {
+ *   return (
+ *     <div>
+ *       {/* Other dashboard content */}
+ *       <AIAssistant />
+ *     </div>
+ *   );
+ * }
+ * ```
+ *
+ * @requires useAIOrchestrator hook to be available in component tree
+ * @requires AI backend API endpoints to be configured
  */
 
 import React, { useState, useRef, useEffect } from 'react';

@@ -86,6 +86,50 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     category: 'productivity',
     description: 'Manage API keys and access tokens',
     icon: '🔑',
+    handler: async (action: string, params: any) => {
+      if (action === 'list') {
+        const { data, error } = await supabase
+          .from('user_api_keys')
+          .select('id, name, key_prefix, is_active, created_at, last_used_at, rate_limit_per_minute, rate_limit_per_day')
+          .eq('user_id', params.user_id);
+
+        if (error) throw error;
+        return data || [];
+      }
+
+      if (action === 'create') {
+        const { data, error } = await supabase
+          .from('user_api_keys')
+          .insert({
+            user_id: params.user_id,
+            name: params.name,
+            scope_type: params.scope_type || 'all_services',
+            allowed_services: params.scope || [],
+            rate_limit_per_minute: params.rate_limit_per_minute || 60,
+            rate_limit_per_day: params.rate_limit_per_day || 10000
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+
+      if (action === 'revoke') {
+        const { data, error } = await supabase
+          .from('user_api_keys')
+          .update({ is_active: false })
+          .eq('id', params.key_id)
+          .eq('user_id', params.user_id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+
+      throw new Error(`Unknown API keys action: ${action}`);
+    },
     actions: [
       {
         id: 'list',
@@ -99,7 +143,8 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
         description: 'Generate a new API key',
         parameters: [
           { name: 'name', type: 'string', description: 'Key name', required: true },
-          { name: 'scope', type: 'array', description: 'Permissions', required: false }
+          { name: 'scope_type', type: 'string', description: 'Scope type (all_services or specific_services)', required: false },
+          { name: 'scope', type: 'array', description: 'Service keys if scope is specific', required: false }
         ]
       },
       {
@@ -179,6 +224,86 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     category: 'productivity',
     description: 'Create and manage workflows',
     icon: '⚡',
+    handler: async (action: string, params: any) => {
+      if (action === 'create') {
+        // TODO: Replace with LLM-powered workflow generation
+        // Current implementation creates basic templates but should be enhanced with:
+        // 1. AI analysis of user context and available tools
+        // 2. Dynamic step generation based on goal complexity
+        // 3. Risk assessment and dependency analysis
+        // 4. Integration with user's existing workflows and preferences
+        //
+        // Future implementation should call:
+        // const aiService = new AIService(authToken);
+        // return await aiService.generateWorkflow({
+        //   goal: params.goal,
+        //   userContext: { userId: params.user_id, ... },
+        //   memories: await getRelevantMemories(params.goal)
+        // });
+        const workflow = {
+          id: `wf_${Date.now()}`,
+          goal: params.goal,
+          summary: `Workflow to ${params.goal}`,
+          priority: 'medium',
+          suggestedTimeframe: '2-4 hours',
+          steps: [
+            {
+              id: 'step_1',
+              label: 'Analyze requirements',
+              detail: 'Review the goal and break down into actionable tasks',
+              dependsOnStepIds: [],
+              suggestedTool: 'dashboard.memory',
+              expectedOutcome: 'Clear understanding of what needs to be done'
+            },
+            {
+              id: 'step_2',
+              label: 'Execute tasks',
+              detail: 'Perform the necessary actions step by step',
+              dependsOnStepIds: ['step_1'],
+              suggestedTool: 'dashboard.analytics',
+              expectedOutcome: 'Goal accomplished'
+            }
+          ],
+          risks: ['Scope creep', 'Technical blockers'],
+          missingInfo: [],
+          usedMemories: [],
+          context: { goal: params.goal },
+          createdAt: new Date().toISOString()
+        };
+
+        // Store in database
+        const { data, error } = await supabase
+          .from('workflows')
+          .insert({
+            user_id: params.user_id,
+            workflow_id: workflow.id,
+            goal: workflow.goal,
+            summary: workflow.summary,
+            priority: workflow.priority,
+            steps: workflow.steps,
+            context: workflow.context
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return workflow;
+      }
+
+      if (action === 'list') {
+        const { data, error } = await supabase
+          .from('workflows')
+          .select('*')
+          .eq('user_id', params.user_id)
+          .order('created_at', { ascending: false })
+          .limit(params.limit || 10);
+
+        if (error) throw error;
+        return data || [];
+      }
+
+      throw new Error(`Unknown workflow action: ${action}`);
+    },
     actions: [
       {
         id: 'create',
@@ -207,13 +332,72 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     category: 'analytics',
     description: 'View usage analytics and metrics',
     icon: '📊',
+    handler: async (action: string, params: any) => {
+      if (action === 'get_usage') {
+        const timeframe = params.timeframe || '7d';
+        const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+
+        // Get memory usage stats
+        const { data: memoryStats, error: memoryError } = await supabase
+          .from('memories')
+          .select('created_at, type')
+          .eq('user_id', params.user_id)
+          .gte('created_at', startDate.toISOString());
+
+        if (memoryError) throw memoryError;
+
+        // Get API usage stats
+        const { data: apiStats, error: apiError } = await supabase
+          .from('api_requests')
+          .select('created_at, status, service')
+          .eq('user_id', params.user_id)
+          .gte('created_at', startDate.toISOString());
+
+        if (apiError) throw apiError;
+
+        // Calculate metrics
+        const totalMemories = memoryStats?.length || 0;
+        const totalRequests = apiStats?.length || 0;
+        const successfulRequests = apiStats?.filter(r => r.status === 'success').length || 0;
+        const successRate = totalRequests > 0 ? (successfulRequests / totalRequests) * 100 : 0;
+
+        // Memory type distribution
+        const memoryTypeDistribution = (memoryStats || []).reduce((acc, memory) => {
+          acc[memory.type] = (acc[memory.type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        // Service usage distribution
+        const serviceDistribution = (apiStats || []).reduce((acc, request) => {
+          acc[request.service] = (acc[request.service] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        return {
+          timeframe,
+          totalMemories,
+          totalRequests,
+          successRate: Math.round(successRate * 100) / 100,
+          memoryTypeDistribution,
+          serviceDistribution,
+          period: {
+            start: startDate.toISOString(),
+            end: new Date().toISOString()
+          }
+        };
+      }
+
+      throw new Error(`Unknown analytics action: ${action}`);
+    },
     actions: [
       {
         id: 'get_usage',
         name: 'Get Usage Stats',
         description: 'Fetch API usage statistics',
         parameters: [
-          { name: 'timeframe', type: 'string', description: 'Time range', required: false, default: '7d' }
+          { name: 'timeframe', type: 'string', description: 'Time range (7d, 30d, 90d)', required: false, default: '7d' }
         ]
       }
     ],
@@ -227,6 +411,165 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     category: 'automation',
     description: 'Manage external API service integrations (Zapier-like)',
     icon: '🔌',
+    handler: async (action: string, params: any) => {
+      if (action === 'list') {
+        // Get available services from MCP catalog
+        const { data: services, error } = await supabase
+          .from('mcp_services')
+          .select('*')
+          .eq('is_active', true);
+
+        if (error) throw error;
+
+        let filteredServices = services || [];
+        if (params.category) {
+          filteredServices = filteredServices.filter(s => s.category === params.category);
+        }
+
+        return filteredServices.map(service => ({
+          service_key: service.service_key,
+          name: service.name,
+          description: service.description,
+          category: service.category,
+          is_configurable: service.is_configurable,
+          auth_type: service.auth_type,
+          base_url: service.base_url
+        }));
+      }
+
+      if (action === 'list_configured') {
+        const { data: configs, error } = await supabase
+          .from('user_service_configs')
+          .select(`
+            id,
+            service_key,
+            is_enabled,
+            created_at,
+            updated_at,
+            mcp_services (
+              name,
+              description,
+              category,
+              auth_type
+            )
+          `)
+          .eq('user_id', params.user_id);
+
+        if (error) throw error;
+
+        return (configs || []).map(config => ({
+          id: config.id,
+          service_key: config.service_key,
+          name: config.mcp_services?.name,
+          description: config.mcp_services?.description,
+          category: config.mcp_services?.category,
+          auth_type: config.mcp_services?.auth_type,
+          is_enabled: config.is_enabled,
+          created_at: config.created_at,
+          updated_at: config.updated_at
+        }));
+      }
+
+      if (action === 'configure') {
+        // Check if service exists and is configurable
+        const { data: service, error: serviceError } = await supabase
+          .from('mcp_services')
+          .select('*')
+          .eq('service_key', params.service_key)
+          .eq('is_configurable', true)
+          .single();
+
+        if (serviceError || !service) {
+          throw new Error(`Service ${params.service_key} not found or not configurable`);
+        }
+
+        // Create user configuration
+        const { data, error } = await supabase
+          .from('user_service_configs')
+          .insert({
+            user_id: params.user_id,
+            service_key: params.service_key,
+            config: params.config || {},
+            is_enabled: false // Start disabled, user can enable after testing
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+
+      if (action === 'enable') {
+        const { data, error } = await supabase
+          .from('user_service_configs')
+          .update({ is_enabled: true, updated_at: new Date().toISOString() })
+          .eq('user_id', params.user_id)
+          .eq('service_key', params.service_key)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+
+      if (action === 'disable') {
+        const { data, error } = await supabase
+          .from('user_service_configs')
+          .update({ is_enabled: false, updated_at: new Date().toISOString() })
+          .eq('user_id', params.user_id)
+          .eq('service_key', params.service_key)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+
+      if (action === 'test') {
+        // Get service config
+        const { data: config, error: configError } = await supabase
+          .from('user_service_configs')
+          .select(`
+            *,
+            mcp_services (
+              base_url,
+              auth_type
+            )
+          `)
+          .eq('user_id', params.user_id)
+          .eq('service_key', params.service_key)
+          .single();
+
+        if (configError || !config) {
+          throw new Error(`Service ${params.service_key} not configured`);
+        }
+
+        try {
+          // Test connection by making a simple API call
+          const response = await fetch(`${config.mcp_services.base_url}/health`, {
+            headers: {
+              'Authorization': `Bearer ${config.api_key || 'test'}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          return {
+            service_key: params.service_key,
+            status: response.ok ? 'success' : 'failed',
+            status_code: response.status,
+            message: response.ok ? 'Connection successful' : 'Connection failed'
+          };
+        } catch (error) {
+          return {
+            service_key: params.service_key,
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
+
+      throw new Error(`Unknown MCP services action: ${action}`);
+    },
     actions: [
       {
         id: 'list',
@@ -247,7 +590,8 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
         name: 'Configure Service',
         description: 'Set up a new service with credentials',
         parameters: [
-          { name: 'service_key', type: 'string', description: 'Service identifier', required: true }
+          { name: 'service_key', type: 'string', description: 'Service identifier', required: true },
+          { name: 'config', type: 'object', description: 'Service configuration', required: false }
         ]
       },
       {
@@ -285,6 +629,140 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     category: 'analytics',
     description: 'View MCP Router usage statistics, request logs, and performance metrics',
     icon: '📈',
+    handler: async (action: string, params: any) => {
+      const timeframe = params.timeframe || '30d';
+      const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      if (action === 'get_stats') {
+        const { data: stats, error } = await supabase
+          .from('mcp_request_logs')
+          .select('created_at, status, response_time, service_key')
+          .eq('user_id', params.user_id)
+          .gte('created_at', startDate.toISOString());
+
+        if (error) throw error;
+
+        const totalRequests = stats?.length || 0;
+        const successfulRequests = stats?.filter(r => r.status === 'success').length || 0;
+        const failedRequests = stats?.filter(r => r.status === 'error').length || 0;
+        const rateLimitedRequests = stats?.filter(r => r.status === 'rate_limited').length || 0;
+
+        const avgResponseTime = stats && stats.length > 0
+          ? stats.reduce((sum, r) => sum + (r.response_time || 0), 0) / stats.length
+          : 0;
+
+        const successRate = totalRequests > 0 ? (successfulRequests / totalRequests) * 100 : 0;
+
+        return {
+          timeframe,
+          totalRequests,
+          successfulRequests,
+          failedRequests,
+          rateLimitedRequests,
+          successRate: Math.round(successRate * 100) / 100,
+          avgResponseTime: Math.round(avgResponseTime * 100) / 100,
+          period: {
+            start: startDate.toISOString(),
+            end: new Date().toISOString()
+          }
+        };
+      }
+
+      if (action === 'get_logs') {
+        let query = supabase
+          .from('mcp_request_logs')
+          .select('*')
+          .eq('user_id', params.user_id)
+          .gte('created_at', startDate.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(params.limit || 50);
+
+        if (params.service) {
+          query = query.eq('service_key', params.service);
+        }
+
+        if (params.status) {
+          query = query.eq('status', params.status);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        return data || [];
+      }
+
+      if (action === 'get_service_breakdown') {
+        const { data: stats, error } = await supabase
+          .from('mcp_request_logs')
+          .select('service_key, status, response_time')
+          .eq('user_id', params.user_id)
+          .gte('created_at', startDate.toISOString());
+
+        if (error) throw error;
+
+        const serviceStats = (stats || []).reduce((acc, stat) => {
+          const service = stat.service_key;
+          if (!acc[service]) {
+            acc[service] = {
+              service_key: service,
+              total_requests: 0,
+              successful_requests: 0,
+              failed_requests: 0,
+              avg_response_time: 0,
+              total_response_time: 0
+            };
+          }
+
+          acc[service].total_requests++;
+          if (stat.status === 'success') {
+            acc[service].successful_requests++;
+          } else if (stat.status === 'error') {
+            acc[service].failed_requests++;
+          }
+
+          acc[service].total_response_time += stat.response_time || 0;
+          acc[service].avg_response_time = acc[service].total_response_time / acc[service].total_requests;
+
+          return acc;
+        }, {} as Record<string, any>);
+
+        return Object.values(serviceStats).map(stat => ({
+          ...stat,
+          avg_response_time: Math.round(stat.avg_response_time * 100) / 100,
+          success_rate: stat.total_requests > 0 ? Math.round((stat.successful_requests / stat.total_requests) * 10000) / 100 : 0
+        }));
+      }
+
+      if (action === 'get_top_actions') {
+        const { data: actions, error } = await supabase
+          .from('mcp_request_logs')
+          .select('service_key, action')
+          .eq('user_id', params.user_id)
+          .gte('created_at', startDate.toISOString());
+
+        if (error) throw error;
+
+        const actionCounts = (actions || []).reduce((acc, log) => {
+          const key = `${log.service_key}.${log.action}`;
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        return Object.entries(actionCounts)
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, params.limit || 10)
+          .map(([action, count]) => ({
+            action,
+            count,
+            service: action.split('.')[0],
+            action_name: action.split('.')[1]
+          }));
+      }
+
+      throw new Error(`Unknown MCP usage action: ${action}`);
+    },
     actions: [
       {
         id: 'get_stats',
@@ -331,6 +809,100 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     category: 'productivity',
     description: 'Manage API keys for MCP Router with scoping and rate limits',
     icon: '🔐',
+    handler: async (action: string, params: any) => {
+      if (action === 'list') {
+        const { data, error } = await supabase
+          .from('mcp_api_keys')
+          .select(`
+            id,
+            user_id,
+            key_prefix,
+            name,
+            scope_type,
+            allowed_services,
+            rate_limit_per_minute,
+            rate_limit_per_day,
+            is_active,
+            created_at,
+            last_used_at,
+            expires_at
+          `)
+          .eq('user_id', params.user_id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+      }
+
+      if (action === 'create') {
+        const { data, error } = await supabase
+          .from('mcp_api_keys')
+          .insert({
+            user_id: params.user_id,
+            name: params.name,
+            scope_type: params.scope_type || 'all_services',
+            allowed_services: params.services || [],
+            rate_limit_per_minute: params.rate_limit_per_minute || 60,
+            rate_limit_per_day: params.rate_limit_per_day || 10000,
+            expires_at: params.expires_at // Optional expiration
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+
+      if (action === 'revoke') {
+        const { data, error } = await supabase
+          .from('mcp_api_keys')
+          .update({
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', params.key_id)
+          .eq('user_id', params.user_id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+
+      if (action === 'rotate') {
+        // Generate new key secret while keeping same configuration
+        const { data: existingKey, error: fetchError } = await supabase
+          .from('mcp_api_keys')
+          .select('*')
+          .eq('id', params.key_id)
+          .eq('user_id', params.user_id)
+          .single();
+
+        if (fetchError || !existingKey) {
+          throw new Error(`API key not found: ${params.key_id}`);
+        }
+
+        // Update with new key hash (in real implementation, generate new secret)
+        const newKeyHash = `hash_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        const { data, error } = await supabase
+          .from('mcp_api_keys')
+          .update({
+            key_hash: newKeyHash,
+            updated_at: new Date().toISOString(),
+            last_rotated_at: new Date().toISOString()
+          })
+          .eq('id', params.key_id)
+          .eq('user_id', params.user_id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
+
+      throw new Error(`Unknown MCP API keys action: ${action}`);
+    },
     actions: [
       {
         id: 'list',
@@ -347,7 +919,8 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
           { name: 'scope_type', type: 'string', description: 'Scope type (all_services or specific_services)', required: true },
           { name: 'services', type: 'array', description: 'List of service keys if scope is specific', required: false },
           { name: 'rate_limit_per_minute', type: 'number', description: 'Rate limit per minute', required: false },
-          { name: 'rate_limit_per_day', type: 'number', description: 'Rate limit per day', required: false }
+          { name: 'rate_limit_per_day', type: 'number', description: 'Rate limit per day', required: false },
+          { name: 'expires_at', type: 'string', description: 'Expiration date (ISO string)', required: false }
         ]
       },
       {
@@ -690,7 +1263,7 @@ export class ToolRegistry {
   /**
    * Execute a tool action
    */
-  async executeAction(toolId: string, actionId: string, params: any): Promise<any> {
+  async executeAction(toolId: string, actionId: string, params: any = {}): Promise<any> {
     // Check permission
     if (!this.canUseAction(toolId, actionId)) {
       throw new Error(`Permission denied for ${toolId}.${actionId}`);
@@ -701,13 +1274,19 @@ export class ToolRegistry {
       throw new Error(`Tool not found: ${toolId}`);
     }
 
+    // Add user_id to params for dashboard tools
+    const enhancedParams = {
+      ...params,
+      user_id: this.userId
+    };
+
     // Execute based on tool type
     if (tool.type === 'dashboard' && tool.handler) {
-      return tool.handler(actionId, params);
+      return tool.handler(actionId, enhancedParams);
     }
 
     if (tool.type === 'mcp') {
-      return this.executeMCPAction(tool, actionId, params);
+      return this.executeMCPAction(tool, actionId, enhancedParams);
     }
 
     throw new Error(`Cannot execute ${toolId}.${actionId}`);

@@ -1,6 +1,46 @@
 /**
- * Tool Manager - UI for configuring AI tools
- * Allows users to enable/disable tools and configure API keys
+ * Tool Manager Component
+ *
+ * A comprehensive interface for managing AI tools and their configurations.
+ * Provides users with the ability to enable/disable tools, configure API keys,
+ * set permissions, and manage tool-specific settings.
+ *
+ * Tool Categories:
+ * - **Dashboard Tools**: Always available (API Keys, Memory Manager, Workflow Manager, Analytics)
+ * - **MCP Tools**: External integrations requiring API keys (GitHub, ClickUp, Supabase, Stripe, etc.)
+ *
+ * Features:
+ * - Tool discovery and catalog browsing
+ * - Secure API key management with encryption
+ * - Granular permission controls
+ * - Tool status monitoring and health checks
+ * - Configuration persistence and validation
+ * - Real-time tool availability updates
+ *
+ * Security Considerations:
+ * - API keys are encrypted before storage
+ * - Row-level security ensures user isolation
+ * - Permission checks prevent unauthorized tool access
+ * - Audit logging for all configuration changes
+ *
+ * @component
+ * @example
+ * ```tsx
+ * import { ToolManager } from '@/components/ai/ToolManager';
+ *
+ * function AIToolsPage() {
+ *   return (
+ *     <div className="container mx-auto p-6">
+ *       <h1 className="text-2xl font-bold mb-6">AI Tools Configuration</h1>
+ *       <ToolManager />
+ *     </div>
+ *   );
+ * }
+ * ```
+ *
+ * @requires Supabase authentication context
+ * @requires Tool registry to be properly configured
+ * @requires Database tables: user_tool_configs, mcp_services
  */
 
 import React, { useState, useEffect } from 'react';

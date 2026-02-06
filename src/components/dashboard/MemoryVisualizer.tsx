@@ -1,3 +1,31 @@
+/**
+ * Memory Visualizer Component
+ *
+ * A comprehensive memory management interface that provides:
+ * - Semantic search and filtering across stored memories
+ * - Visual memory browser with pagination and type-based organization
+ * - Memory editing and deletion capabilities
+ * - Real-time memory statistics and analytics
+ * - Bulk operations for memory management
+ *
+ * Features:
+ * - Advanced search with semantic matching and metadata filtering
+ * - Memory type categorization (context, knowledge, project, reference, personal, workflow)
+ * - Responsive grid/list view with customizable display options
+ * - Memory creation workflow with rich text editing
+ * - Tag-based organization and filtering
+ * - Memory health indicators and usage analytics
+ *
+ * @component
+ * @example
+ * ```tsx
+ * <MemoryVisualizer
+ *   initialSearch=""
+ *   initialType=""
+ *   showControls={true}
+ * />
+ * ```
+ */
 import { useState, useCallback } from "react";
 import {
   Card,
