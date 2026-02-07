@@ -20,8 +20,10 @@ import { createClient, SupabaseClient, Session, User } from '@supabase/supabase-
 import { autoExchangeTokens } from './token-exchange';
 
 // Supabase configuration - same project as MCP Core
-const SUPABASE_URL=https://<project-ref>.supabase.co
-const SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+const SUPABASE_URL =
+  import.meta.env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY =
+  import.meta.env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
 interface AuthResponse {
   session: Session | null;
@@ -44,12 +46,12 @@ class DirectAuthClient {
   private readonly USER_KEY = 'lanonasis_user';
 
   constructor() {
-    if (!SUPABASE_URL=https://<project-ref>.supabase.co
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       console.error('DirectAuth: Missing Supabase configuration');
       throw new Error('Supabase configuration required');
     }
 
-    this.supabase = createClient(SUPABASE_URL=https://<project-ref>.supabase.co
+    this.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
@@ -75,7 +77,7 @@ class DirectAuthClient {
       }
     });
 
-    console.log('DirectAuth: Initialized with Supabase URL:', SUPABASE_URL=https://<project-ref>.supabase.co
+    console.log('DirectAuth: Initialized with Supabase URL:', SUPABASE_URL);
   }
 
   /**

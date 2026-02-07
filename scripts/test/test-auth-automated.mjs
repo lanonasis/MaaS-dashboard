@@ -42,12 +42,10 @@ const envLocal = loadEnvFile(".env.local");
 const env = loadEnvFile(".env");
 const envVars = { ...env, ...envLocal };
 
-const SUPABASE_URL=https://<project-ref>.supabase.co
-  envVars.VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-  process.env.VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-  "https://mxtsdgkwzjzlttpotole.supabase.co";
-const SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
-  envVars.VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+const SUPABASE_URL =
+  envVars.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY =
+  envVars.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
 
 console.log("🧪 Authentication Feature Tests\n");
 console.log("================================\n");
@@ -76,31 +74,31 @@ function logTest(name, status, message = "") {
 console.log("📦 Test Suite 1: Configuration\n");
 
 try {
-  if (!SUPABASE_URL=https://<project-ref>.supabase.co
+  if (!SUPABASE_URL) {
     logTest(
       "Supabase URL configured",
       "fail",
-      "VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+      "VITE_SUPABASE_URL is not set"
     );
   } else {
-    logTest("Supabase URL configured", "pass", `URL: ${SUPABASE_URL=https://<project-ref>.supabase.co
+    logTest("Supabase URL configured", "pass", `URL: ${SUPABASE_URL}`);
   }
 } catch (error) {
   logTest("Supabase URL configured", "fail", error.message);
 }
 
 try {
-  if (!SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+  if (!SUPABASE_ANON_KEY) {
     logTest(
       "Supabase Anon Key configured",
       "fail",
-      "VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+      "VITE_SUPABASE_ANON_KEY is not set"
     );
   } else {
     logTest(
       "Supabase Anon Key configured",
       "pass",
-      `Key length: ${SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+      `Key length: ${SUPABASE_ANON_KEY.length}`
     );
   }
 } catch (error) {
@@ -112,7 +110,7 @@ console.log("\n📦 Test Suite 2: Supabase Client\n");
 
 let supabase;
 try {
-  supabase = createClient(SUPABASE_URL=https://<project-ref>.supabase.co
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   logTest("Supabase client created", "pass");
 } catch (error) {
   logTest("Supabase client created", "fail", error.message);
@@ -175,9 +173,9 @@ console.log("\n📦 Test Suite 4: Auth Settings\n");
 if (supabase) {
   try {
     // Test auth settings endpoint
-    const response = await fetch(`${SUPABASE_URL=https://<project-ref>.supabase.co
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
       headers: {
-        apikey: SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+        apikey: SUPABASE_ANON_KEY,
         "Content-Type": "application/json",
       },
     });

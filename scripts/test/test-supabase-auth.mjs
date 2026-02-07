@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 
 // Test Supabase auth configuration
-const SUPABASE_URL=https://<project-ref>.supabase.co
+const SUPABASE_URL =
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const TEST_EMAIL = "test@example.com";
 const TEST_PASS = "TestPassword123!";
 
 console.log("🔍 Testing Supabase Auth Configuration...\n");
-console.log(`Supabase URL: ${SUPABASE_URL=https://<project-ref>.supabase.co
+console.log(`Supabase URL: ${SUPABASE_URL}`);
 console.log(`Test Email: ${TEST_EMAIL}\n`);
 
 try {
   // Test 1: Check if Supabase is reachable
   console.log("1️⃣ Testing Supabase connectivity...");
-  const healthCheck = await fetch(`${SUPABASE_URL=https://<project-ref>.supabase.co
+  const healthCheck = await fetch(`${SUPABASE_URL}/auth/v1/settings`);
   console.log(`   Status: ${healthCheck.status} ${healthCheck.statusText}`);
   
   if (healthCheck.ok) {
@@ -25,7 +26,7 @@ try {
   console.log("2️⃣ Testing password grant endpoint...");
   console.log("   (This will fail without valid credentials, but shows us the error type)\n");
   
-  const authTest = await fetch(`${SUPABASE_URL=https://<project-ref>.supabase.co
+  const authTest = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -47,7 +48,7 @@ try {
       console.log("   ⚠️  ACTION REQUIRED: Enable email auth in Supabase Dashboard");
     } else if (errorBody.includes("apikey")) {
       console.log("📋 Diagnosis: Invalid or missing API key");
-      console.log("   ⚠️  ACTION REQUIRED: Check VITE_SUPABASE_ANON_KEY=REDACTED_SUPABASE_ANON_KEY
+      console.log("   ⚠️  ACTION REQUIRED: Check VITE_SUPABASE_ANON_KEY");
     } else {
       console.log("📋 Diagnosis: Unknown 400 error");
       console.log("   Response details above ☝️");
