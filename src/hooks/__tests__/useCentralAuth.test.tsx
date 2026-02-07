@@ -63,8 +63,7 @@ if (typeof document === 'undefined') {
 // Import the actual module
 import { CentralAuthProvider, useCentralAuth } from "../useCentralAuth";
 
-// Mock central auth client.
-// Vitest hoists vi.mock() calls, so these mocks must be hoisted too.
+// Mock central auth client (hoisted for vi.mock)
 const {
   mockHealthCheck,
   mockGetCurrentSession,
@@ -105,10 +104,19 @@ vi.mock("@/lib/secure-token-storage", () => ({
   },
 }));
 
+<<<<<<< HEAD
 // Mock Supabase fallback.
 // Vitest hoists vi.mock() calls, so anything referenced inside a mock factory
 // must be hoisted too.
 const { mockProfileResponse, mockSupabaseFrom, mockSupabaseAuth } = vi.hoisted(() => {
+=======
+// Mock Supabase fallback (hoisted for vi.mock)
+const {
+  mockProfileResponse,
+  mockSupabaseFrom,
+  mockSupabaseAuth,
+} = vi.hoisted(() => {
+>>>>>>> 186ff48 (fix(auth): read env flags at runtime)
   const mockProfileResponse = {
     data: null as unknown,
     error: null as unknown,

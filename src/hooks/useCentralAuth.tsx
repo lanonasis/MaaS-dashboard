@@ -40,10 +40,17 @@ const CentralAuthContext = createContext<CentralAuthContextType | undefined>(
   undefined
 );
 
-const USE_CENTRAL_AUTH =
-  import.meta.env.VITE_USE_CENTRAL_AUTH === "true" || false;
-const USE_FALLBACK_AUTH =
-  import.meta.env.VITE_USE_FALLBACK_AUTH === "true" || true;
+const readEnvFlag = (key: string, fallback: boolean) => {
+  const metaEnv = (import.meta as { env?: Record<string, string | undefined> })
+    ?.env;
+  const raw =
+    metaEnv?.[key] ??
+    (typeof process !== "undefined" ? process.env?.[key] : undefined);
+  if (raw === undefined) {
+    return fallback;
+  }
+  return String(raw).toLowerCase() === "true";
+};
 
 export const CentralAuthProvider = ({
   children,
@@ -82,14 +89,17 @@ export const CentralAuthProvider = ({
   }, []);
 
   const initializeAuth = async (): Promise<(() => void) | undefined> => {
+    const useCentralAuth = readEnvFlag("VITE_USE_CENTRAL_AUTH", false);
+    const useFallbackAuth = readEnvFlag("VITE_USE_FALLBACK_AUTH", true);
+
     console.log("CentralAuthProvider: initializeAuth called", {
-      USE_CENTRAL_AUTH,
-      USE_FALLBACK_AUTH,
+      USE_CENTRAL_AUTH: useCentralAuth,
+      USE_FALLBACK_AUTH: useFallbackAuth,
     });
     setIsLoading(true);
 
     // Try central auth first if enabled
-    if (USE_CENTRAL_AUTH) {
+    if (useCentralAuth) {
       try {
         console.log("CentralAuthProvider: Checking central auth health");
         const isHealthy = await centralAuth.healthCheck();
@@ -122,7 +132,7 @@ export const CentralAuthProvider = ({
     }
 
     // Fallback to Supabase
-    if (USE_FALLBACK_AUTH) {
+    if (useFallbackAuth) {
       try {
         const {
           data: { session: supabaseSession },
@@ -273,8 +283,11 @@ export const CentralAuthProvider = ({
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      const useCentralAuth = readEnvFlag("VITE_USE_CENTRAL_AUTH", false);
+      const useFallbackAuth = readEnvFlag("VITE_USE_FALLBACK_AUTH", true);
+
       // Try central auth first if enabled
-      if (USE_CENTRAL_AUTH && isUsingCentralAuth) {
+      if (useCentralAuth && isUsingCentralAuth) {
         try {
           // centralAuth.login() redirects and never returns
           // The auth callback handler will complete the flow
@@ -290,7 +303,7 @@ export const CentralAuthProvider = ({
       }
 
       // Fallback to Supabase
-      if (USE_FALLBACK_AUTH) {
+      if (useFallbackAuth) {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -338,8 +351,11 @@ export const CentralAuthProvider = ({
   const signUp = async (email: string, password: string, name: string) => {
     setIsLoading(true);
     try {
+      const useCentralAuth = readEnvFlag("VITE_USE_CENTRAL_AUTH", false);
+      const useFallbackAuth = readEnvFlag("VITE_USE_FALLBACK_AUTH", true);
+
       // Try central auth first if enabled
-      if (USE_CENTRAL_AUTH) {
+      if (useCentralAuth) {
         try {
           // centralAuth.signup() redirects and never returns
           // The auth callback handler will complete the flow
@@ -355,7 +371,7 @@ export const CentralAuthProvider = ({
       }
 
       // Fallback to Supabase
-      if (USE_FALLBACK_AUTH) {
+      if (useFallbackAuth) {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
