@@ -21,7 +21,6 @@
  * function Dashboard() {
  *   return (
  *     <div>
- *       {/* Other dashboard content */}
  *       <AIAssistant />
  *     </div>
  *   );
