@@ -1,98 +1,37 @@
-/**
- * Central Auth Hook Tests
- *
- * Tests the useCentralAuth hook including:
- * - Initialization and health checks
- * - Session management
- * - Login/logout flows
- * - Profile fetching
- * - Error handling
- */
-
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
 import { ReactNode } from "react";
 
-// Ensure document is defined for jsdom
-if (typeof document === 'undefined') {
-  const mockElement = {
-    appendChild: vi.fn(),
-    removeChild: vi.fn(),
-    setAttribute: vi.fn(),
-    getAttribute: vi.fn(),
-    querySelector: vi.fn(),
-    querySelectorAll: vi.fn(() => []),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-    nodeType: 1,
-    tagName: 'DIV',
-    style: {},
-    classList: {
-      add: vi.fn(),
-      remove: vi.fn(),
-      contains: vi.fn(),
+// Mock central auth client
+let mockHealthCheck: any;
+let mockGetCurrentSession: any;
+let mockLogin: any;
+let mockLogout: any;
+let mockHandleCallback: any;
+let mockClearSSOCookies: any;
+let mockExchangeSupabaseToken: any;
+
+vi.mock("@/lib/central-auth", () => {
+  mockHealthCheck = vi.fn();
+  mockGetCurrentSession = vi.fn();
+  mockLogin = vi.fn();
+  mockLogout = vi.fn();
+  mockHandleCallback = vi.fn();
+  mockClearSSOCookies = vi.fn().mockResolvedValue(undefined);
+  mockExchangeSupabaseToken = vi.fn().mockResolvedValue(undefined);
+
+  return {
+    centralAuth: {
+      healthCheck: mockHealthCheck,
+      getCurrentSession: mockGetCurrentSession,
+      login: mockLogin,
+      logout: mockLogout,
+      handleCallback: mockHandleCallback,
+      clearSSOCookies: mockClearSSOCookies,
+      exchangeSupabaseToken: mockExchangeSupabaseToken,
     },
-    textContent: '',
-    innerHTML: '',
-    ownerDocument: {},
-    parentNode: null,
-    parentElement: null,
-    namespaceURI: 'http://www.w3.org/1999/xhtml',
   };
-  
-  global.document = {
-    body: mockElement,
-    createElement: vi.fn(() => mockElement),
-    getElementById: vi.fn(() => mockElement),
-    querySelector: vi.fn(() => mockElement),
-    querySelectorAll: vi.fn(() => []),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-    ownerDocument: mockElement,
-  } as any;
-  
-  global.window = {
-    ...global.window,
-    document: global.document,
-  } as any;
-}
-
-// Import the actual module
-import { CentralAuthProvider, useCentralAuth } from "../useCentralAuth";
-
-// Mock central auth client (hoisted for vi.mock)
-const {
-  mockHealthCheck,
-  mockGetCurrentSession,
-  mockLogin,
-  mockLogout,
-  mockHandleCallback,
-  mockClearSSOCookies,
-  mockExchangeSupabaseToken,
-} = vi.hoisted(() => ({
-  mockHealthCheck: vi.fn(),
-  mockGetCurrentSession: vi.fn(),
-  mockLogin: vi.fn(),
-  mockLogout: vi.fn(),
-  mockHandleCallback: vi.fn(),
-  mockClearSSOCookies: vi.fn().mockResolvedValue(undefined),
-  mockExchangeSupabaseToken: vi.fn().mockResolvedValue(undefined),
-}));
-
-vi.mock("@/lib/central-auth", () => ({
-  centralAuth: {
-    healthCheck: mockHealthCheck,
-    getCurrentSession: mockGetCurrentSession,
-    login: mockLogin,
-    logout: mockLogout,
-    handleCallback: mockHandleCallback,
-    clearSSOCookies: mockClearSSOCookies,
-    exchangeSupabaseToken: mockExchangeSupabaseToken,
-  },
-}));
+});
 
 // Mock secure token storage
 vi.mock("@/lib/secure-token-storage", () => ({
@@ -104,25 +43,18 @@ vi.mock("@/lib/secure-token-storage", () => ({
   },
 }));
 
-<<<<<<< HEAD
-// Mock Supabase fallback.
-// Vitest hoists vi.mock() calls, so anything referenced inside a mock factory
-// must be hoisted too.
-const { mockProfileResponse, mockSupabaseFrom, mockSupabaseAuth } = vi.hoisted(() => {
-=======
-// Mock Supabase fallback (hoisted for vi.mock)
-const {
-  mockProfileResponse,
-  mockSupabaseFrom,
-  mockSupabaseAuth,
-} = vi.hoisted(() => {
->>>>>>> 186ff48 (fix(auth): read env flags at runtime)
-  const mockProfileResponse = {
+// Mock Supabase fallback
+let mockProfileResponse: any;
+let mockSupabaseFrom: any;
+let mockSupabaseAuth: any;
+
+vi.mock("@/integrations/supabase/client", () => {
+  mockProfileResponse = {
     data: null as unknown,
     error: null as unknown,
   };
 
-  const mockSupabaseFrom = vi.fn(() => {
+  mockSupabaseFrom = vi.fn(() => {
     const builder = {
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
@@ -132,7 +64,7 @@ const {
     return builder;
   });
 
-  const mockSupabaseAuth = {
+  mockSupabaseAuth = {
     getSession: vi.fn(),
     onAuthStateChange: vi.fn(() => ({
       data: { subscription: { unsubscribe: vi.fn() } },
@@ -142,30 +74,32 @@ const {
     signOut: vi.fn(),
   };
 
-  return { mockProfileResponse, mockSupabaseFrom, mockSupabaseAuth };
+  return {
+    supabase: {
+      auth: mockSupabaseAuth,
+      from: mockSupabaseFrom,
+    },
+  };
 });
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    auth: mockSupabaseAuth,
-    from: mockSupabaseFrom,
-  },
-}));
-
 // Mock router
-const { mockNavigate } = vi.hoisted(() => ({ mockNavigate: vi.fn() }));
+const mockNavigate = vi.fn();
 vi.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
   BrowserRouter: ({ children }: { children: ReactNode }) => children,
 }));
 
 // Mock toast
-const { mockToast } = vi.hoisted(() => ({ mockToast: vi.fn() }));
+const mockToast = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({
     toast: mockToast,
   }),
 }));
+
+// Import the actual module
+import { CentralAuthProvider, useCentralAuth } from "../useCentralAuth";
+import { BrowserRouter } from "react-router-dom";
 
 const createWrapper = ({ children }: { children: ReactNode }) => (
   <BrowserRouter>
