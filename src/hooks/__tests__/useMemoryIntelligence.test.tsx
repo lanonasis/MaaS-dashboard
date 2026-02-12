@@ -3,8 +3,8 @@
  * Tests pattern analysis, health check, insights, and duplicate detection
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
@@ -32,14 +32,19 @@ vi.mock("@lanonasis/mem-intel-sdk/react", () => ({
 }));
 
 // Mock useSupabaseAuth
-const mockUser = { id: "user-123", email: "test@example.com" };
-const mockSession = { access_token: "test-token" };
 let mockAuthLoading = false;
+let mockAuthUser: { id: string; email: string } | null = {
+  id: "user-123",
+  email: "test@example.com",
+};
+let mockAuthSession: { access_token: string } | null = {
+  access_token: "test-token",
+};
 
 vi.mock("../useSupabaseAuth", () => ({
   useSupabaseAuth: () => ({
-    user: mockUser,
-    session: mockSession,
+    user: mockAuthUser,
+    session: mockAuthSession,
     isLoading: mockAuthLoading,
   }),
 }));
@@ -85,6 +90,8 @@ describe("useMemoryIntelligence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAuthLoading = false;
+    mockAuthUser = { id: "user-123", email: "test@example.com" };
+    mockAuthSession = { access_token: "test-token" };
 
     // Default fetch response - API returns null/empty
     mockFetch.mockResolvedValue({
@@ -142,13 +149,18 @@ describe("useMemoryIntelligence", () => {
   describe("usePatternAnalysis hook", () => {
     it("returns empty state when not ready", async () => {
       mockAuthLoading = true;
+      mockAuthUser = null;
+      mockAuthSession = null;
 
       const { result } = renderHook(() => usePatternAnalysis(), {
         wrapper: createWrapper(),
       });
 
       expect(result.current.data).toBeNull();
-      expect(result.current.isLoading).toBe(true);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.isReady).toBe(false);
+      expect(result.current.isKeyLoading).toBe(true);
+      expect(mockSdkClient.analyzePatterns).not.toHaveBeenCalled();
     });
 
     it("returns empty pattern when no memories exist", async () => {
@@ -217,6 +229,10 @@ describe("useMemoryIntelligence", () => {
     it("provides refetch function", async () => {
       const { result } = renderHook(() => usePatternAnalysis(), {
         wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(mockSdkClient.analyzePatterns).toHaveBeenCalledTimes(1);
       });
 
       expect(typeof result.current.refetch).toBe("function");
@@ -305,6 +321,10 @@ describe("useMemoryIntelligence", () => {
         }
       );
 
+      await waitFor(() => {
+        expect(mockSdkClient.extractInsights).toHaveBeenCalledTimes(1);
+      });
+
       expect(result.current).toHaveProperty("data");
       expect(result.current).toHaveProperty("refetch");
     });
@@ -331,6 +351,10 @@ describe("useMemoryIntelligence", () => {
     it("accepts custom threshold parameter", async () => {
       const { result } = renderHook(() => useDuplicateDetection(0.95), {
         wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(mockSdkClient.detectDuplicates).toHaveBeenCalledTimes(1);
       });
 
       expect(result.current).toHaveProperty("data");

@@ -81,6 +81,10 @@ describe("IntelligencePanel", () => {
       expect(
         screen.getByText("AI-powered insights and recommendations")
       ).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(screen.getByText("Health Score")).toBeInTheDocument();
+      });
     });
 
     it("displays health tab by default", async () => {
@@ -237,6 +241,10 @@ describe("IntelligencePanel", () => {
       expect(screen.getByText("Memory Health")).toBeInTheDocument();
       // Should not have tabs in compact mode
       expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(screen.getByText("85/100")).toBeInTheDocument();
+      });
     });
 
     it("shows health score in compact mode", async () => {
@@ -262,12 +270,20 @@ describe("IntelligencePanel", () => {
     it("hides health score when showHealthScore is false", async () => {
       render(<IntelligencePanel showHealthScore={false} />);
 
+      await waitFor(() => {
+        expect(mockDetectDuplicates).toHaveBeenCalledTimes(1);
+      });
+
       // Health tab should still exist but data won't be fetched
       expect(mockGetHealthCheck).not.toHaveBeenCalled();
     });
 
     it("hides duplicates when showDuplicates is false", async () => {
       render(<IntelligencePanel showDuplicates={false} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Health Score")).toBeInTheDocument();
+      });
 
       // Duplicates won't be fetched
       expect(mockDetectDuplicates).not.toHaveBeenCalled();

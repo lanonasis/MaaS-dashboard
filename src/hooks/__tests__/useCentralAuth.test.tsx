@@ -1,25 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { ReactNode } from "react";
 
-// Mock central auth client
-let mockHealthCheck: any;
-let mockGetCurrentSession: any;
-let mockLogin: any;
-let mockLogout: any;
-let mockHandleCallback: any;
-let mockClearSSOCookies: any;
-let mockExchangeSupabaseToken: any;
+const {
+  mockHealthCheck,
+  mockGetCurrentSession,
+  mockLogin,
+  mockLogout,
+  mockHandleCallback,
+  mockClearSSOCookies,
+  mockExchangeSupabaseToken,
+} = vi.hoisted(() => ({
+  mockHealthCheck: vi.fn(),
+  mockGetCurrentSession: vi.fn(),
+  mockLogin: vi.fn(),
+  mockLogout: vi.fn(),
+  mockHandleCallback: vi.fn(),
+  mockClearSSOCookies: vi.fn().mockResolvedValue(undefined),
+  mockExchangeSupabaseToken: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/lib/central-auth", () => {
-  mockHealthCheck = vi.fn();
-  mockGetCurrentSession = vi.fn();
-  mockLogin = vi.fn();
-  mockLogout = vi.fn();
-  mockHandleCallback = vi.fn();
-  mockClearSSOCookies = vi.fn().mockResolvedValue(undefined);
-  mockExchangeSupabaseToken = vi.fn().mockResolvedValue(undefined);
-
   return {
     centralAuth: {
       healthCheck: mockHealthCheck,
@@ -43,18 +44,27 @@ vi.mock("@/lib/secure-token-storage", () => ({
   },
 }));
 
-// Mock Supabase fallback
-let mockProfileResponse: any;
-let mockSupabaseFrom: any;
-let mockSupabaseAuth: any;
+const { mockProfileResponse, mockSupabaseFrom, mockSupabaseAuth } = vi.hoisted(
+  () => ({
+    mockProfileResponse: {
+      data: null as unknown,
+      error: null as unknown,
+    },
+    mockSupabaseFrom: vi.fn(),
+    mockSupabaseAuth: {
+      getSession: vi.fn(),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
+      signInWithPassword: vi.fn(),
+      signUp: vi.fn(),
+      signOut: vi.fn(),
+    },
+  })
+);
 
 vi.mock("@/integrations/supabase/client", () => {
-  mockProfileResponse = {
-    data: null as unknown,
-    error: null as unknown,
-  };
-
-  mockSupabaseFrom = vi.fn(() => {
+  mockSupabaseFrom.mockImplementation(() => {
     const builder = {
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
@@ -63,16 +73,6 @@ vi.mock("@/integrations/supabase/client", () => {
     };
     return builder;
   });
-
-  mockSupabaseAuth = {
-    getSession: vi.fn(),
-    onAuthStateChange: vi.fn(() => ({
-      data: { subscription: { unsubscribe: vi.fn() } },
-    })),
-    signInWithPassword: vi.fn(),
-    signUp: vi.fn(),
-    signOut: vi.fn(),
-  };
 
   return {
     supabase: {
@@ -208,7 +208,9 @@ describe("useCentralAuth Hook", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      await result.current.signIn("test@example.com", "password123");
+      await act(async () => {
+        await result.current.signIn("test@example.com", "password123");
+      });
 
       expect(mockSupabaseAuth.signInWithPassword).toHaveBeenCalledWith({
         email: "test@example.com",
@@ -234,7 +236,9 @@ describe("useCentralAuth Hook", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      await result.current.signIn("test@example.com", "wrongpassword");
+      await act(async () => {
+        await result.current.signIn("test@example.com", "wrongpassword");
+      });
 
       expect(mockSupabaseAuth.signInWithPassword).toHaveBeenCalledWith({
         email: "test@example.com",
@@ -269,7 +273,9 @@ describe("useCentralAuth Hook", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      await result.current.signOut();
+      await act(async () => {
+        await result.current.signOut();
+      });
 
       expect(mockLogout).toHaveBeenCalled();
       await waitFor(() => {
@@ -344,7 +350,9 @@ describe("useCentralAuth Hook", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      await result.current.handleAuthCallback();
+      await act(async () => {
+        await result.current.handleAuthCallback();
+      });
 
       expect(mockSupabaseAuth.getSession).toHaveBeenCalled();
       expect(result.current.session).toEqual(mockSession);
