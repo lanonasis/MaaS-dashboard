@@ -248,34 +248,21 @@ export const MemoryWorkbench: React.FC = () => {
         ? newMemoryType
         : (typeToEnumMap[newMemoryType] || 'context');
 
-      const insertPayload = {
-        user_id: user.id,
+      const response = await apiClient.createMemory({
         title,
         content: newMemoryContent.trim(),
-        type: newMemoryType, // Keep original type for display
-        memory_type: enumType as any, // Use valid enum type for DB
+        type: enumType,
         tags,
         metadata: {
           source: 'dashboard_quick_add',
-          display_type: newMemoryType, // Store original type selection
-          created_via: 'memory_workbench'
+          display_type: newMemoryType,
+          created_via: 'memory_workbench',
         },
-      };
+      });
 
-      const insertEntry = async (payload: Record<string, unknown>) =>
-        supabase.from('memory_entries').insert(payload);
-
-      let { error } = await insertEntry(insertPayload);
-      if (error && isMissingColumnError(error, 'memory_type')) {
-        const { memory_type: _memoryType, ...payload } = insertPayload;
-        ({ error } = await insertEntry(payload));
+      if (response.error) {
+        throw new Error(response.error);
       }
-      if (error && isMissingColumnError(error, 'type')) {
-        const { type: _type, ...payload } = insertPayload;
-        ({ error } = await insertEntry(payload));
-      }
-
-      if (error) throw error;
 
       toast({
         title: 'Memory saved',

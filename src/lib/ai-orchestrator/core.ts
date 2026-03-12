@@ -13,6 +13,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { createToolRegistry, type ToolRegistry } from '@/lib/ai-orchestrator/tool-registry';
 import { createAIService, type AIService, type AICompletionResponse } from '@/lib/ai-orchestrator/ai-service';
+import { apiClient } from '@/lib/api-client';
 
 // Local type definitions for memory operations
 export interface MemorySearchResult {
@@ -624,17 +625,20 @@ export class AIOrchestrator {
     if (!this.userContext?.user_id) return;
 
     try {
-      await supabase.from('memory_entries').insert({
-        user_id: this.userContext.user_id,
+      const response = await apiClient.createMemory({
         title: `Context from ${new Date().toLocaleDateString()}`,
         content,
-        memory_type: 'context',
+        type: 'context',
         tags: ['conversation', 'context'],
         metadata: {
           session_id: this.userContext?.current_session_id,
           timestamp: new Date().toISOString()
         }
       });
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
     } catch (error) {
       console.error('Failed to store context:', error);
     }
@@ -654,17 +658,20 @@ export class AIOrchestrator {
         .join('\n');
 
       try {
-        await supabase.from('memory_entries').insert({
-          user_id: this.userContext.user_id,
+        const response = await apiClient.createMemory({
           title: `Conversation snapshot - ${new Date().toLocaleString()}`,
           content: conversationSummary,
-          memory_type: 'context',
+          type: 'context',
           tags: ['conversation', 'ai-assistant'],
           metadata: {
             session_id: this.userContext?.current_session_id,
             message_count: this.conversationHistory.length
           }
         });
+
+        if (response.error) {
+          throw new Error(response.error);
+        }
       } catch (error) {
         console.error('Failed to store conversation context:', error);
       }

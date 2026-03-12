@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { isMissingColumnError } from '@/lib/supabase-errors';
+import { apiClient } from '@/lib/api-client';
 import mcpServers from '@/config/mcp-servers.json';
 import {
   Play,
@@ -215,34 +215,19 @@ export const WorkflowOrchestrator: React.FC = () => {
       const content = `Workflow: ${workflow.goal}\n\nSummary: ${workflow.summary || 'N/A'}\n\nSteps:\n${workflow.steps.map((step, idx) => `${idx + 1}. ${step.label || step.action}`).join('\n')}\n\nNotes: ${workflow.notes}`;
       const title = workflow.goal?.slice(0, 80) || 'Workflow';
 
-      const insertPayload = {
-        user_id: user.id,
+      const response = await apiClient.createMemory({
         title,
         content,
         type: 'workflow',
-        memory_type: 'workflow',
         tags: ['orchestrator', 'workflow', workflow.priority || 'medium'],
         metadata: {
           source: 'orchestrator_workflow',
           workflow_id: workflow.id,
-          goal: workflow.goal
-        }
-      };
+          goal: workflow.goal,
+        },
+      });
 
-      const insertEntry = async (payload: Record<string, unknown>) =>
-        supabase.from('memory_entries').insert(payload);
-
-      let { error } = await insertEntry(insertPayload);
-      if (error && isMissingColumnError(error, 'memory_type')) {
-        const { memory_type: _memoryType, ...payload } = insertPayload;
-        ({ error } = await insertEntry(payload));
-      }
-      if (error && isMissingColumnError(error, 'type')) {
-        const { type: _type, ...payload } = insertPayload;
-        ({ error } = await insertEntry(payload));
-      }
-
-      if (error) throw error;
+      if (response.error) throw new Error(response.error);
 
       toast({
         title: 'Workflow saved to memory',

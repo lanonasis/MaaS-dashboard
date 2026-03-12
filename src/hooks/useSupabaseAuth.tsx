@@ -6,6 +6,7 @@ import { useState, useEffect, createContext, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/api-client";
 import { Session, User } from "@supabase/supabase-js";
 import { centralAuth } from "@/lib/central-auth";
 
@@ -342,14 +343,14 @@ export const SupabaseAuthProvider = ({
             // Seed default context entries for new users
             const defaultContextEntries = [
               {
-                user_id: userId,
+                title: 'Welcome to LanOnasis',
                 content: '# Welcome to LanOnasis\n\nWelcome to LanOnasis where your context becomes money or value. This is your personal context store - a place to keep important information, notes, and knowledge that AI assistants can reference to provide you with personalized help.',
                 type: 'context',
                 tags: ['welcome', 'getting-started'],
                 metadata: { source: 'system', is_default: true, title: 'Welcome to LanOnasis' }
               },
               {
-                user_id: userId,
+                title: 'Getting Started with Context Store',
                 content: '# Getting Started with Context Store\n\nTips for using Context Store:\n\n1. Add project notes to remember important decisions\n2. Store API documentation snippets for quick reference\n3. Save workflow templates for repeated tasks\n4. Use tags to organize related context entries\n5. The AI assistant can search and reference your context to provide personalized help',
                 type: 'knowledge',
                 tags: ['tips', 'getting-started', 'tutorial'],
@@ -358,9 +359,22 @@ export const SupabaseAuthProvider = ({
             ];
 
             // Insert default context entries (don't block on this)
-            supabase.from('memory_entries').insert(defaultContextEntries).then(({ error: seedError }) => {
-              if (seedError) {
-                console.warn('Failed to seed default context entries:', seedError);
+            Promise.allSettled(
+              defaultContextEntries.map((entry) =>
+                apiClient.createMemory(entry)
+              )
+            ).then((results) => {
+              const rejectedResult = results.find(
+                (result) => result.status === 'rejected'
+              );
+              const apiErrorResult = results.find(
+                (result) => result.status === 'fulfilled' && result.value.error
+              );
+              if (rejectedResult || apiErrorResult) {
+                console.warn(
+                  'Failed to seed default context entries:',
+                  rejectedResult ?? apiErrorResult?.value.error
+                );
               } else {
                 console.log('SupabaseAuthProvider: Default context entries seeded');
               }
