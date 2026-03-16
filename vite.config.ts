@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import path from "path";
 
 // https://vitejs.dev/config/
@@ -38,7 +38,8 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   optimizeDeps: {
-    exclude: ['@lanonasis/memory-client', '@lanonasis/mem-intel-sdk'],
+    entries: ["index.html"],
+    exclude: ["@lanonasis/memory-client", "@lanonasis/mem-intel-sdk"],
   },
   build: {
     // Allow Rollup to determine optimal chunk boundaries to prevent

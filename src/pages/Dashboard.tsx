@@ -37,7 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const Dashboard = () => {
@@ -46,6 +46,29 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { signOut } = useSupabaseAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("maas-sidebar-collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const isMobileViewport = () => window.innerWidth < 1024;
+
+  const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
+    overview: { title: "Overview" },
+    "api-keys": { title: "Router Keys", subtitle: "Manage API access keys" },
+    orchestrator: { title: "Orchestrator", subtitle: "AI workflow automation" },
+    "ai-tools": { title: "AI Tools" },
+    "memory-visualizer": { title: "Context Explorer" },
+    "memory-analytics": { title: "Context Analytics" },
+    "mcp-tracking": { title: "Request Tracking" },
+    scheduler: { title: "Scheduler" },
+    "mcp-services": { title: "API Services" },
+    "mcp-usage": { title: "Usage Analytics" },
+    extensions: { title: "MCP Extensions" },
+  };
 
   // Determine active page based on route
   const getActivePage = () => {
@@ -69,6 +92,36 @@ const Dashboard = () => {
   };
 
   const activePage = getActivePage();
+  const pageMeta = useMemo(
+    () => PAGE_META[activePage] ?? { title: "Dashboard" },
+    [activePage]
+  );
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isMobileViewport()) {
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (sidebarOpen && isMobileViewport()) {
+      const previous = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = previous;
+      };
+    }
+
+    document.body.style.overflow = "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [sidebarOpen]);
 
   // Render the active page content
   const renderContent = () => {
@@ -158,24 +211,38 @@ const Dashboard = () => {
           size="icon"
           className="fixed top-20 left-4 z-50 lg:hidden"
           onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={sidebarOpen}
+          aria-controls="dashboard-sidebar"
         >
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
 
         {/* Sidebar */}
-        <DashboardSidebar
-          className={cn(
-            "fixed lg:static left-0 top-16 bottom-0 z-40 transform transition-transform duration-200 ease-in-out lg:transform-none",
-            "lg:h-auto",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-          )}
-          onNavigate={() => {
-            // Close sidebar on mobile after navigation
-            if (window.innerWidth < 1024) {
-              setSidebarOpen(false);
-            }
-          }}
-        />
+        <div id="dashboard-sidebar">
+          <DashboardSidebar
+            collapsed={collapsed}
+            onCollapsedChange={(next) => {
+              setCollapsed(next);
+              try {
+                localStorage.setItem("maas-sidebar-collapsed", String(next));
+              } catch {
+                // no-op
+              }
+            }}
+            className={cn(
+              "fixed lg:static left-0 top-16 bottom-0 z-40 transform transition-transform duration-200 ease-in-out lg:transform-none",
+              "lg:h-auto",
+              sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+            )}
+            onNavigate={() => {
+              // Close sidebar on mobile after navigation
+              if (window.innerWidth < 1024) {
+                setSidebarOpen(false);
+              }
+            }}
+          />
+        </div>
 
         {/* Mobile Overlay */}
         {sidebarOpen && (
@@ -189,7 +256,13 @@ const Dashboard = () => {
         <main className="flex-1 overflow-auto">
           {/* Top Bar */}
           <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
-            <div className="flex justify-end items-center px-6 py-3">
+            <div className="flex justify-between items-center px-6 py-3">
+              <div className="min-w-0">
+                <h1 className="text-lg font-semibold truncate">{pageMeta.title}</h1>
+                {pageMeta.subtitle && (
+                  <p className="text-sm text-muted-foreground truncate">{pageMeta.subtitle}</p>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
