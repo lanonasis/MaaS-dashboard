@@ -61,6 +61,13 @@ interface ServiceScope {
   max_calls_per_minute?: number;
   max_calls_per_day?: number;
 }
+
+interface ActivityRecord {
+  id: string;
+  operation: string;
+  success: boolean | null;
+  timestamp: string | null;
+}
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -107,6 +114,12 @@ export const ApiKeyManager = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
+
+  // Activity dialog state
+  const [activityKeyId, setActivityKeyId] = useState<string | null>(null);
+  const [activityKeyName, setActivityKeyName] = useState<string>('');
+  const [activityRecords, setActivityRecords] = useState<ActivityRecord[]>([]);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
 
   // Service scoping state
   const [serviceType, setServiceType] = useState<'all' | 'specific'>('all');
@@ -471,6 +484,27 @@ export const ApiKeyManager = () => {
     }
   };
 
+  const fetchKeyActivity = async (keyId: string) => {
+    setIsLoadingActivity(true);
+    try {
+      const { data, error } = await supabase
+        .from('key_usage_analytics')
+        .select('id, operation, success, timestamp')
+        .eq('key_id', keyId)
+        .order('timestamp', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setActivityRecords((data as ActivityRecord[]) ?? []);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load activity';
+      console.error('ApiKeyManager: fetchKeyActivity error:', error);
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+      setActivityRecords([]);
+    } finally {
+      setIsLoadingActivity(false);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Never";
 
@@ -784,7 +818,7 @@ export const ApiKeyManager = () => {
                     {apiKeys.length === 1 ? "key" : "keys"}
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
                     {apiKeys.map((key) => (
                       <div
                         key={key.id}
@@ -844,6 +878,11 @@ export const ApiKeyManager = () => {
                             variant="outline"
                             size="sm"
                             className="h-7 text-xs"
+                            onClick={() => {
+                              setActivityKeyId(key.id);
+                              setActivityKeyName(key.name);
+                              fetchKeyActivity(key.id);
+                            }}
                           >
                             View Activity
                           </Button>
@@ -867,6 +906,50 @@ export const ApiKeyManager = () => {
             </DialogFooter>
           </TabsContent>
         </Tabs>
+      </DialogContent>
+    </Dialog>
+
+    {/* Activity Dialog */}
+    <Dialog open={activityKeyId !== null} onOpenChange={(open) => { if (!open) { setActivityKeyId(null); setActivityRecords([]); } }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Activity — {activityKeyName}</DialogTitle>
+          <DialogDescription>Last 50 operations for this key</DialogDescription>
+        </DialogHeader>
+
+        <div className="py-2">
+          {isLoadingActivity ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : activityRecords.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-8">
+              No activity recorded for this key yet.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+              {activityRecords.map((record) => (
+                <div key={record.id} className="flex items-center justify-between p-2 rounded-md border text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Badge variant={record.success === false ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0 shrink-0">
+                      {record.success === false ? 'Failed' : 'OK'}
+                    </Badge>
+                    <span className="font-mono text-xs truncate">{record.operation}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                    {record.timestamp ? new Date(record.timestamp).toLocaleString() : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setActivityKeyId(null); setActivityRecords([]); }}>
+            Close
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

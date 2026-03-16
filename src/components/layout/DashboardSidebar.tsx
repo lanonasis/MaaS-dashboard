@@ -337,26 +337,26 @@ export function DashboardSidebar({
               <kbd className="absolute right-2 top-2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                 <Command className="h-3 w-3" />K
               </kbd>
-            </div>
-          )}
 
-          {/* Search Results Dropdown */}
-          {!collapsed && isSearchFocused && searchResults.length > 0 && (
-            <div className="mt-1 z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
-              {searchResults.map((item) => {
-                const ItemIcon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleNavigate(item.path, item.label)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
-                  >
-                    <ItemIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>{item.label}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">{item.section}</span>
-                  </button>
-                );
-              })}
+              {/* Search Results Dropdown — absolutely anchored to the search bar */}
+              {isSearchFocused && searchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
+                  {searchResults.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNavigate(item.path, item.label)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+                      >
+                        <ItemIcon className="h-4 w-4 text-muted-foreground" />
+                        <span>{item.label}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{item.section}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

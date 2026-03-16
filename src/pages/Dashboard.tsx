@@ -230,7 +230,7 @@ const Dashboard = () => {
           ref={toggleButtonRef}
           variant="ghost"
           size="icon"
-          className="fixed top-20 left-4 z-50 lg:hidden"
+          className="fixed top-16 left-4 z-50 lg:hidden"
           onClick={() => sidebarOpen ? closeSidebar() : setSidebarOpen(true)}
           aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
           aria-expanded={sidebarOpen}
