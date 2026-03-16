@@ -128,6 +128,7 @@ interface DashboardSidebarProps {
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   id?: string;
+  isInteractive?: boolean;
 }
 
 export function DashboardSidebar({
@@ -136,9 +137,11 @@ export function DashboardSidebar({
   collapsed = false,
   onCollapsedChange,
   id,
+  isInteractive = true,
 }: DashboardSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const asideRef = React.useRef<HTMLElement | null>(null);
   const [openSections, setOpenSections] = React.useState<Set<string>>(() => {
     const initial = new Set<string>();
     NAV_SECTIONS.forEach(section => {
@@ -160,6 +163,18 @@ export function DashboardSidebar({
       }
     };
   }, []);
+
+  useEffect(() => {
+    const aside = asideRef.current;
+    if (!aside) return;
+
+    if (isInteractive) {
+      aside.removeAttribute('inert');
+      return;
+    }
+
+    aside.setAttribute('inert', '');
+  }, [isInteractive]);
 
   // Recent pages state
   const [recentPages, setRecentPages] = React.useState<RecentPage[]>(() => {
@@ -277,10 +292,13 @@ export function DashboardSidebar({
   return (
     <TooltipProvider>
       <aside
+        ref={asideRef}
         id={id}
+        aria-hidden={!isInteractive}
         className={cn(
           "min-h-full border-r border-border bg-card flex flex-col shadow-lg transition-all duration-300",
           collapsed ? "w-16" : "w-64",
+          !isInteractive && "pointer-events-none",
           className
         )}
       >

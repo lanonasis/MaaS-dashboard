@@ -37,10 +37,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COLLAPSED_KEY = 'maas-sidebar-collapsed';
+const DESKTOP_BREAKPOINT = 1024;
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   'overview':          { title: 'Overview' },
@@ -63,11 +64,34 @@ const Dashboard = () => {
   const { signOut } = useSupabaseAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const toggleButtonRef = useRef<HTMLButtonElement>(null);
+  const pageTitleRef = useRef<HTMLHeadingElement>(null);
+  const previousBodyOverflowRef = useRef<string | null>(null);
+  const [isDesktopViewport, setIsDesktopViewport] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth >= DESKTOP_BREAKPOINT;
+  });
+
+  const syncBodyScrollLock = useCallback((shouldLock: boolean) => {
+    if (typeof document === "undefined") return;
+
+    if (shouldLock) {
+      if (previousBodyOverflowRef.current === null) {
+        previousBodyOverflowRef.current = document.body.style.overflow;
+      }
+      document.body.style.overflow = "hidden";
+      return;
+    }
+
+    if (previousBodyOverflowRef.current !== null) {
+      document.body.style.overflow = previousBodyOverflowRef.current;
+      previousBodyOverflowRef.current = null;
+    }
+  }, []);
 
   // Close mobile drawer and return focus to the toggle button
-  const closeSidebar = () => {
+  const closeSidebar = (focusTarget?: HTMLElement | null) => {
     setSidebarOpen(false);
-    requestAnimationFrame(() => toggleButtonRef.current?.focus());
+    requestAnimationFrame(() => (focusTarget ?? toggleButtonRef.current)?.focus());
   };
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -89,41 +113,35 @@ const Dashboard = () => {
   // Escape key closes mobile drawer
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && sidebarOpen && window.innerWidth < 1024) {
+      if (e.key === 'Escape' && sidebarOpen && !isDesktopViewport) {
         closeSidebar();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sidebarOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isDesktopViewport, sidebarOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Move focus into sidebar when drawer opens on mobile
   useEffect(() => {
-    if (sidebarOpen && window.innerWidth < 1024) {
+    if (sidebarOpen && !isDesktopViewport) {
       const sidebar = document.getElementById('dashboard-sidebar');
       const firstFocusable = sidebar?.querySelector<HTMLElement>(
         'button, [href], input, [tabindex]:not([tabindex="-1"])'
       );
       firstFocusable?.focus();
     }
-  }, [sidebarOpen]);
+  }, [isDesktopViewport, sidebarOpen]);
 
   // Body scroll lock while mobile drawer is open; restored on resize past breakpoint
   useEffect(() => {
-    if (!sidebarOpen || window.innerWidth >= 1024) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const handleResize = () => {
-      if (window.innerWidth >= 1024) {
-        document.body.style.overflow = previousOverflow;
-      }
-    };
-    window.addEventListener('resize', handleResize);
+    const shouldLock = sidebarOpen && !isDesktopViewport;
+    syncBodyScrollLock(shouldLock);
+    if (!shouldLock) return;
+
     return () => {
-      window.removeEventListener('resize', handleResize);
-      document.body.style.overflow = previousOverflow;
+      syncBodyScrollLock(false);
     };
-  }, [sidebarOpen]);
+  }, [isDesktopViewport, sidebarOpen, syncBodyScrollLock]);
 
   // Determine active page based on route
   const getActivePage = () => {
@@ -148,6 +166,25 @@ const Dashboard = () => {
 
   const activePage = getActivePage();
   const pageMeta = PAGE_META[activePage] ?? { title: 'Dashboard' };
+
+  useEffect(() => {
+    document.title = `${pageMeta.title} | MaaS Dashboard`;
+  }, [pageMeta.title]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth >= DESKTOP_BREAKPOINT;
+      setIsDesktopViewport(desktop);
+      syncBodyScrollLock(sidebarOpen && !desktop);
+      if (desktop) {
+        setSidebarOpen(true);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [sidebarOpen, syncBodyScrollLock]);
 
   // Render the active page content
   const renderContent = () => {
@@ -248,6 +285,7 @@ const Dashboard = () => {
         {/* Sidebar */}
         <DashboardSidebar
           id="dashboard-sidebar"
+          isInteractive={isDesktopViewport || sidebarOpen}
           className={cn(
             "fixed lg:static left-0 top-16 bottom-0 z-40 transform transition-transform duration-200 ease-in-out lg:transform-none",
             "lg:h-auto",
@@ -257,14 +295,14 @@ const Dashboard = () => {
           onCollapsedChange={handleCollapsedChange}
           onNavigate={() => {
             // Close sidebar on mobile after navigation
-            if (window.innerWidth < 1024) {
-              setSidebarOpen(false);
+            if (!isDesktopViewport) {
+              closeSidebar(pageTitleRef.current);
             }
           }}
         />
 
         {/* Mobile Overlay */}
-        {sidebarOpen && (
+        {!isDesktopViewport && sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-30 lg:hidden"
             onClick={closeSidebar}
@@ -279,7 +317,13 @@ const Dashboard = () => {
             <div className="flex justify-between items-center px-6 py-3">
               {/* Page title */}
               <div className="flex flex-col min-w-0">
-                <h1 className="text-base font-semibold leading-tight truncate">{pageMeta.title}</h1>
+                <h1
+                  ref={pageTitleRef}
+                  tabIndex={-1}
+                  className="text-base font-semibold leading-tight truncate focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {pageMeta.title}
+                </h1>
                 {pageMeta.subtitle && (
                   <p className="text-xs text-muted-foreground truncate">{pageMeta.subtitle}</p>
                 )}
