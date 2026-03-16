@@ -108,13 +108,19 @@ const Dashboard = () => {
     }
   }, [sidebarOpen]);
 
-  // Body scroll lock while mobile drawer is open
+  // Body scroll lock while mobile drawer is open; restored on resize past breakpoint
   useEffect(() => {
-    const isMobile = window.innerWidth < 1024;
-    if (!sidebarOpen || !isMobile) return;
+    if (!sidebarOpen || window.innerWidth >= 1024) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        document.body.style.overflow = previousOverflow;
+      }
+    };
+    window.addEventListener('resize', handleResize);
     return () => {
+      window.removeEventListener('resize', handleResize);
       document.body.style.overflow = previousOverflow;
     };
   }, [sidebarOpen]);

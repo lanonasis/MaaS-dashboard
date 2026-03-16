@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -116,6 +116,7 @@ export const ApiKeyManager = () => {
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
 
   // Activity dialog state
+  const activityRequestRef = useRef<string | null>(null);
   const [activityKeyId, setActivityKeyId] = useState<string | null>(null);
   const [activityKeyName, setActivityKeyName] = useState<string>('');
   const [activityRecords, setActivityRecords] = useState<ActivityRecord[]>([]);
@@ -485,7 +486,9 @@ export const ApiKeyManager = () => {
   };
 
   const fetchKeyActivity = async (keyId: string) => {
+    activityRequestRef.current = keyId;
     setIsLoadingActivity(true);
+    setActivityRecords([]);
     try {
       const { data, error } = await supabase
         .from('key_usage_analytics')
@@ -494,14 +497,20 @@ export const ApiKeyManager = () => {
         .order('timestamp', { ascending: false })
         .limit(50);
       if (error) throw error;
-      setActivityRecords((data as ActivityRecord[]) ?? []);
+      if (activityRequestRef.current === keyId) {
+        setActivityRecords((data as ActivityRecord[]) ?? []);
+      }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load activity';
-      console.error('ApiKeyManager: fetchKeyActivity error:', error);
-      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
-      setActivityRecords([]);
+      if (activityRequestRef.current === keyId) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load activity';
+        console.error('ApiKeyManager: fetchKeyActivity error:', error);
+        toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+        setActivityRecords([]);
+      }
     } finally {
-      setIsLoadingActivity(false);
+      if (activityRequestRef.current === keyId) {
+        setIsLoadingActivity(false);
+      }
     }
   };
 
