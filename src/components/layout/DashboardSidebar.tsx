@@ -127,13 +127,15 @@ interface DashboardSidebarProps {
   className?: string;
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  id?: string;
 }
 
 export function DashboardSidebar({
   onNavigate,
   className,
   collapsed = false,
-  onCollapsedChange
+  onCollapsedChange,
+  id,
 }: DashboardSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -275,6 +277,7 @@ export function DashboardSidebar({
   return (
     <TooltipProvider>
       <aside
+        id={id}
         className={cn(
           "min-h-full border-r border-border bg-card flex flex-col shadow-lg transition-all duration-300",
           collapsed ? "w-16" : "w-64",
@@ -460,6 +463,7 @@ export function DashboardSidebar({
                   ) : (
                     <button
                       onClick={() => toggleSection(section.id)}
+                      aria-expanded={isOpen}
                       className={cn(
                         "w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors",
                         hasActiveItem
@@ -494,6 +498,7 @@ export function DashboardSidebar({
                           >
                             <button
                               onClick={() => handleNavigate(item.path, item.label)}
+                              aria-current={active ? "page" : undefined}
                               className={cn(
                                 "flex-1 flex items-center justify-between px-3 py-1.5 rounded-md text-sm transition-colors",
                                 active
@@ -524,6 +529,7 @@ export function DashboardSidebar({
                                 e.stopPropagation();
                                 toggleFavorite(item.path);
                               }}
+                              aria-label={isFavorite ? `Remove ${item.label} from favorites` : `Add ${item.label} to favorites`}
                               className={cn(
                                 "p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity",
                                 isFavorite

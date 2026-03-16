@@ -37,8 +37,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+
+const SIDEBAR_COLLAPSED_KEY = 'maas-sidebar-collapsed';
+
+const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
+  'overview':          { title: 'Overview' },
+  'api-keys':          { title: 'Router Keys',       subtitle: 'Manage API access keys' },
+  'orchestrator':      { title: 'Orchestrator',      subtitle: 'AI workflow automation' },
+  'ai-tools':          { title: 'AI Tools' },
+  'memory-visualizer': { title: 'Context Explorer' },
+  'memory-analytics':  { title: 'Context Analytics' },
+  'mcp-tracking':      { title: 'Request Tracking' },
+  'scheduler':         { title: 'Scheduler' },
+  'mcp-services':      { title: 'API Services' },
+  'mcp-usage':         { title: 'Usage Analytics' },
+  'extensions':        { title: 'MCP Extensions' },
+};
 
 const Dashboard = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -46,6 +62,46 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { signOut } = useSupabaseAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleCollapsedChange = (value: boolean) => {
+    setCollapsed(value);
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(value));
+    } catch (e) {
+      console.warn('Failed to save sidebar collapsed state:', e);
+    }
+  };
+
+  // Escape key closes mobile drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && sidebarOpen && window.innerWidth < 1024) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sidebarOpen]);
+
+  // Body scroll lock while mobile drawer is open
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+    if (sidebarOpen && isMobile) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen]);
 
   // Determine active page based on route
   const getActivePage = () => {
@@ -69,6 +125,7 @@ const Dashboard = () => {
   };
 
   const activePage = getActivePage();
+  const pageMeta = PAGE_META[activePage] ?? { title: 'Dashboard' };
 
   // Render the active page content
   const renderContent = () => {
@@ -158,17 +215,23 @@ const Dashboard = () => {
           size="icon"
           className="fixed top-20 left-4 z-50 lg:hidden"
           onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+          aria-expanded={sidebarOpen}
+          aria-controls="dashboard-sidebar"
         >
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
 
         {/* Sidebar */}
         <DashboardSidebar
+          id="dashboard-sidebar"
           className={cn(
             "fixed lg:static left-0 top-16 bottom-0 z-40 transform transition-transform duration-200 ease-in-out lg:transform-none",
             "lg:h-auto",
             sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           )}
+          collapsed={collapsed}
+          onCollapsedChange={handleCollapsedChange}
           onNavigate={() => {
             // Close sidebar on mobile after navigation
             if (window.innerWidth < 1024) {
@@ -182,6 +245,7 @@ const Dashboard = () => {
           <div
             className="fixed inset-0 bg-black/50 z-30 lg:hidden"
             onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
           />
         )}
 
@@ -189,7 +253,15 @@ const Dashboard = () => {
         <main className="flex-1 overflow-auto">
           {/* Top Bar */}
           <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
-            <div className="flex justify-end items-center px-6 py-3">
+            <div className="flex justify-between items-center px-6 py-3">
+              {/* Page title */}
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-base font-semibold leading-tight truncate">{pageMeta.title}</h1>
+                {pageMeta.subtitle && (
+                  <p className="text-xs text-muted-foreground truncate">{pageMeta.subtitle}</p>
+                )}
+              </div>
+
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
