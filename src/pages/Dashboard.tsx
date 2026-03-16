@@ -37,7 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COLLAPSED_KEY = 'maas-sidebar-collapsed';
@@ -62,6 +62,13 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { signOut } = useSupabaseAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const toggleButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Close mobile drawer and return focus to the toggle button
+  const closeSidebar = () => {
+    setSidebarOpen(false);
+    requestAnimationFrame(() => toggleButtonRef.current?.focus());
+  };
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
@@ -83,23 +90,32 @@ const Dashboard = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && sidebarOpen && window.innerWidth < 1024) {
-        setSidebarOpen(false);
+        closeSidebar();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sidebarOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Move focus into sidebar when drawer opens on mobile
+  useEffect(() => {
+    if (sidebarOpen && window.innerWidth < 1024) {
+      const sidebar = document.getElementById('dashboard-sidebar');
+      const firstFocusable = sidebar?.querySelector<HTMLElement>(
+        'button, [href], input, [tabindex]:not([tabindex="-1"])'
+      );
+      firstFocusable?.focus();
+    }
   }, [sidebarOpen]);
 
   // Body scroll lock while mobile drawer is open
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
-    if (sidebarOpen && isMobile) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    if (!sidebarOpen || !isMobile) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = previousOverflow;
     };
   }, [sidebarOpen]);
 
@@ -211,10 +227,11 @@ const Dashboard = () => {
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Mobile Sidebar Toggle */}
         <Button
+          ref={toggleButtonRef}
           variant="ghost"
           size="icon"
           className="fixed top-20 left-4 z-50 lg:hidden"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={() => sidebarOpen ? closeSidebar() : setSidebarOpen(true)}
           aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
           aria-expanded={sidebarOpen}
           aria-controls="dashboard-sidebar"
@@ -244,7 +261,7 @@ const Dashboard = () => {
         {sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
+            onClick={closeSidebar}
             aria-hidden="true"
           />
         )}
