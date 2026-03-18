@@ -527,6 +527,7 @@ export const ApiKeyManager = () => {
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
@@ -961,5 +962,6 @@ export const ApiKeyManager = () => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   );
 };

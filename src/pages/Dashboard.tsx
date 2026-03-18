@@ -62,7 +62,10 @@ const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useSupabaseAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth >= DESKTOP_BREAKPOINT;
+  });
   const toggleButtonRef = useRef<HTMLButtonElement>(null);
   const pageTitleRef = useRef<HTMLHeadingElement>(null);
   const previousBodyOverflowRef = useRef<string | null>(null);
@@ -175,16 +178,17 @@ const Dashboard = () => {
     const handleResize = () => {
       const desktop = window.innerWidth >= DESKTOP_BREAKPOINT;
       setIsDesktopViewport(desktop);
-      syncBodyScrollLock(sidebarOpen && !desktop);
-      if (desktop) {
-        setSidebarOpen(true);
-      }
+      // Always sync scroll lock on resize — handles mobile→desktop AND desktop→mobile
+      setSidebarOpen((prev) => {
+        syncBodyScrollLock(prev && !desktop);
+        return desktop ? true : prev;
+      });
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [sidebarOpen, syncBodyScrollLock]);
+  }, [syncBodyScrollLock]);
 
   // Render the active page content
   const renderContent = () => {
@@ -305,7 +309,7 @@ const Dashboard = () => {
         {!isDesktopViewport && sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-            onClick={closeSidebar}
+            onClick={() => closeSidebar()}
             aria-hidden="true"
           />
         )}
