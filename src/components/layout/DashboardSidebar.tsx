@@ -127,16 +127,21 @@ interface DashboardSidebarProps {
   className?: string;
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  id?: string;
+  isInteractive?: boolean;
 }
 
 export function DashboardSidebar({
   onNavigate,
   className,
   collapsed = false,
-  onCollapsedChange
+  onCollapsedChange,
+  id,
+  isInteractive = true,
 }: DashboardSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const asideRef = React.useRef<HTMLElement | null>(null);
   const [openSections, setOpenSections] = React.useState<Set<string>>(() => {
     const initial = new Set<string>();
     NAV_SECTIONS.forEach(section => {
@@ -158,6 +163,18 @@ export function DashboardSidebar({
       }
     };
   }, []);
+
+  useEffect(() => {
+    const aside = asideRef.current;
+    if (!aside) return;
+
+    if (isInteractive) {
+      aside.removeAttribute('inert');
+      return;
+    }
+
+    aside.setAttribute('inert', '');
+  }, [isInteractive]);
 
   // Recent pages state
   const [recentPages, setRecentPages] = React.useState<RecentPage[]>(() => {
@@ -275,9 +292,13 @@ export function DashboardSidebar({
   return (
     <TooltipProvider>
       <aside
+        ref={asideRef}
+        id={id}
+        aria-hidden={!isInteractive}
         className={cn(
           "min-h-full border-r border-border bg-card flex flex-col shadow-lg transition-all duration-300",
           collapsed ? "w-16" : "w-64",
+          !isInteractive && "pointer-events-none",
           className
         )}
       >
@@ -334,26 +355,26 @@ export function DashboardSidebar({
               <kbd className="absolute right-2 top-2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                 <Command className="h-3 w-3" />K
               </kbd>
-            </div>
-          )}
 
-          {/* Search Results Dropdown */}
-          {!collapsed && isSearchFocused && searchResults.length > 0 && (
-            <div className="mt-1 z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
-              {searchResults.map((item) => {
-                const ItemIcon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleNavigate(item.path, item.label)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
-                  >
-                    <ItemIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>{item.label}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">{item.section}</span>
-                  </button>
-                );
-              })}
+              {/* Search Results Dropdown — absolutely anchored to the search bar */}
+              {isSearchFocused && searchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
+                  {searchResults.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNavigate(item.path, item.label)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+                      >
+                        <ItemIcon className="h-4 w-4 text-muted-foreground" />
+                        <span>{item.label}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{item.section}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -460,6 +481,7 @@ export function DashboardSidebar({
                   ) : (
                     <button
                       onClick={() => toggleSection(section.id)}
+                      aria-expanded={isOpen}
                       className={cn(
                         "w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors",
                         hasActiveItem
@@ -494,6 +516,7 @@ export function DashboardSidebar({
                           >
                             <button
                               onClick={() => handleNavigate(item.path, item.label)}
+                              aria-current={active ? "page" : undefined}
                               className={cn(
                                 "flex-1 flex items-center justify-between px-3 py-1.5 rounded-md text-sm transition-colors",
                                 active
@@ -524,6 +547,7 @@ export function DashboardSidebar({
                                 e.stopPropagation();
                                 toggleFavorite(item.path);
                               }}
+                              aria-label={isFavorite ? `Remove ${item.label} from favorites` : `Add ${item.label} to favorites`}
                               className={cn(
                                 "p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity",
                                 isFavorite

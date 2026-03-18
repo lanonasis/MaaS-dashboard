@@ -37,15 +37,114 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
+
+const SIDEBAR_COLLAPSED_KEY = 'maas-sidebar-collapsed';
+const DESKTOP_BREAKPOINT = 1024;
+
+const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
+  'overview':          { title: 'Overview' },
+  'api-keys':          { title: 'Router Keys',       subtitle: 'Manage API access keys' },
+  'orchestrator':      { title: 'Orchestrator',      subtitle: 'AI workflow automation' },
+  'ai-tools':          { title: 'AI Tools' },
+  'memory-visualizer': { title: 'Context Explorer' },
+  'memory-analytics':  { title: 'Context Analytics' },
+  'mcp-tracking':      { title: 'Request Tracking' },
+  'scheduler':         { title: 'Scheduler' },
+  'mcp-services':      { title: 'API Services' },
+  'mcp-usage':         { title: 'Usage Analytics' },
+  'extensions':        { title: 'MCP Extensions' },
+};
 
 const Dashboard = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useSupabaseAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth >= DESKTOP_BREAKPOINT;
+  });
+  const toggleButtonRef = useRef<HTMLButtonElement>(null);
+  const pageTitleRef = useRef<HTMLHeadingElement>(null);
+  const previousBodyOverflowRef = useRef<string | null>(null);
+  const [isDesktopViewport, setIsDesktopViewport] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth >= DESKTOP_BREAKPOINT;
+  });
+
+  const syncBodyScrollLock = useCallback((shouldLock: boolean) => {
+    if (typeof document === "undefined") return;
+
+    if (shouldLock) {
+      if (previousBodyOverflowRef.current === null) {
+        previousBodyOverflowRef.current = document.body.style.overflow;
+      }
+      document.body.style.overflow = "hidden";
+      return;
+    }
+
+    if (previousBodyOverflowRef.current !== null) {
+      document.body.style.overflow = previousBodyOverflowRef.current;
+      previousBodyOverflowRef.current = null;
+    }
+  }, []);
+
+  // Close mobile drawer and return focus to the toggle button
+  const closeSidebar = (focusTarget?: HTMLElement | null) => {
+    setSidebarOpen(false);
+    requestAnimationFrame(() => (focusTarget ?? toggleButtonRef.current)?.focus());
+  };
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleCollapsedChange = (value: boolean) => {
+    setCollapsed(value);
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(value));
+    } catch (e) {
+      console.warn('Failed to save sidebar collapsed state:', e);
+    }
+  };
+
+  // Escape key closes mobile drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && sidebarOpen && !isDesktopViewport) {
+        closeSidebar();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDesktopViewport, sidebarOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Move focus into sidebar when drawer opens on mobile
+  useEffect(() => {
+    if (sidebarOpen && !isDesktopViewport) {
+      const sidebar = document.getElementById('dashboard-sidebar');
+      const firstFocusable = sidebar?.querySelector<HTMLElement>(
+        'button, [href], input, [tabindex]:not([tabindex="-1"])'
+      );
+      firstFocusable?.focus();
+    }
+  }, [isDesktopViewport, sidebarOpen]);
+
+  // Body scroll lock while mobile drawer is open; restored on resize past breakpoint
+  useEffect(() => {
+    const shouldLock = sidebarOpen && !isDesktopViewport;
+    syncBodyScrollLock(shouldLock);
+    if (!shouldLock) return;
+
+    return () => {
+      syncBodyScrollLock(false);
+    };
+  }, [isDesktopViewport, sidebarOpen, syncBodyScrollLock]);
 
   // Determine active page based on route
   const getActivePage = () => {
@@ -69,6 +168,27 @@ const Dashboard = () => {
   };
 
   const activePage = getActivePage();
+  const pageMeta = PAGE_META[activePage] ?? { title: 'Dashboard' };
+
+  useEffect(() => {
+    document.title = `${pageMeta.title} | MaaS Dashboard`;
+  }, [pageMeta.title]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth >= DESKTOP_BREAKPOINT;
+      setIsDesktopViewport(desktop);
+      // Always sync scroll lock on resize — handles mobile→desktop AND desktop→mobile
+      setSidebarOpen((prev) => {
+        syncBodyScrollLock(prev && !desktop);
+        return desktop ? true : prev;
+      });
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [syncBodyScrollLock]);
 
   // Render the active page content
   const renderContent = () => {
@@ -154,34 +274,43 @@ const Dashboard = () => {
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Mobile Sidebar Toggle */}
         <Button
+          ref={toggleButtonRef}
           variant="ghost"
           size="icon"
-          className="fixed top-20 left-4 z-50 lg:hidden"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="fixed top-16 left-4 z-50 lg:hidden"
+          onClick={() => sidebarOpen ? closeSidebar() : setSidebarOpen(true)}
+          aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+          aria-expanded={sidebarOpen}
+          aria-controls="dashboard-sidebar"
         >
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
 
         {/* Sidebar */}
         <DashboardSidebar
+          id="dashboard-sidebar"
+          isInteractive={isDesktopViewport || sidebarOpen}
           className={cn(
             "fixed lg:static left-0 top-16 bottom-0 z-40 transform transition-transform duration-200 ease-in-out lg:transform-none",
             "lg:h-auto",
             sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           )}
+          collapsed={collapsed}
+          onCollapsedChange={handleCollapsedChange}
           onNavigate={() => {
             // Close sidebar on mobile after navigation
-            if (window.innerWidth < 1024) {
-              setSidebarOpen(false);
+            if (!isDesktopViewport) {
+              closeSidebar(pageTitleRef.current);
             }
           }}
         />
 
         {/* Mobile Overlay */}
-        {sidebarOpen && (
+        {!isDesktopViewport && sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
+            onClick={() => closeSidebar()}
+            aria-hidden="true"
           />
         )}
 
@@ -189,7 +318,21 @@ const Dashboard = () => {
         <main className="flex-1 overflow-auto">
           {/* Top Bar */}
           <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
-            <div className="flex justify-end items-center px-6 py-3">
+            <div className="flex justify-between items-center px-6 py-3">
+              {/* Page title */}
+              <div className="flex flex-col min-w-0">
+                <h1
+                  ref={pageTitleRef}
+                  tabIndex={-1}
+                  className="text-base font-semibold leading-tight truncate focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {pageMeta.title}
+                </h1>
+                {pageMeta.subtitle && (
+                  <p className="text-xs text-muted-foreground truncate">{pageMeta.subtitle}</p>
+                )}
+              </div>
+
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
