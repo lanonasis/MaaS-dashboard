@@ -2,6 +2,9 @@
   command = "./netlify-build.sh"
   publish = "dist"
 
+[[plugins]]
+  package = "@netlify/plugin-sitemap"
+
 [build.environment]
   NODE_VERSION = "20"
 
