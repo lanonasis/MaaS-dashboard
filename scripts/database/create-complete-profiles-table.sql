@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   company_name TEXT,
   phone TEXT,
   role TEXT DEFAULT 'user',
+  organization_id UUID REFERENCES public.organizations(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

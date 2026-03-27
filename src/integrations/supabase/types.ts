@@ -2023,6 +2023,7 @@ export type Database = {
           id: string
           is_vendor: boolean | null
           last_name: string | null
+          organization_id: string | null
           stripe_customer_id: string | null
           subscription_tier: string | null
           updated_at: string | null
@@ -2037,6 +2038,7 @@ export type Database = {
           id: string
           is_vendor?: boolean | null
           last_name?: string | null
+          organization_id?: string | null
           stripe_customer_id?: string | null
           subscription_tier?: string | null
           updated_at?: string | null
@@ -2051,6 +2053,7 @@ export type Database = {
           id?: string
           is_vendor?: boolean | null
           last_name?: string | null
+          organization_id?: string | null
           stripe_customer_id?: string | null
           subscription_tier?: string | null
           updated_at?: string | null
