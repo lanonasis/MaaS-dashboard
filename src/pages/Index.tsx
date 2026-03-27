@@ -51,22 +51,23 @@ const Index = () => {
         <>
           {/* Hero Section */}
       <section className="relative overflow-hidden py-20 md:py-32">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/5 dark:from-primary/20 dark:to-accent/10 pointer-events-none" />
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 h-[500px] w-[500px] rounded-full bg-primary/10 blur-[100px]" />
-          <div className="absolute -bottom-40 -left-40 h-[500px] w-[500px] rounded-full bg-accent/10 blur-[100px]" />
+          <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-primary/15 dark:bg-primary/35 blur-[120px]" />
+          <div className="absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-accent/10 dark:bg-accent/25 blur-[120px]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[800px] rounded-full bg-primary/5 dark:bg-primary/10 blur-[80px]" />
         </div>
         
         <div className="container relative px-4 md:px-6">
           <div className="flex flex-col items-center text-center">
             <div className="animate-slide-down">
-              <div className="inline-flex items-center rounded-full border border-gray-200/60 dark:border-gray-700/60 bg-background/80 backdrop-blur-sm px-3 py-1 text-sm font-medium text-foreground mb-6">
+              <div className="inline-flex items-center rounded-full border border-gray-200/60 dark:border-primary/30 bg-background/80 dark:bg-primary/5 backdrop-blur-sm px-3 py-1 text-sm font-medium text-foreground mb-6">
                 <span className="flex h-2 w-2 rounded-full bg-accent mr-2"></span>
                 <span>Introducing LanOnasis</span>
               </div>
             </div>
             
-            <h1 className="animate-fade-in font-bold tracking-tight text-4xl md:text-5xl lg:text-6xl mb-6 max-w-4xl bg-clip-text">
+            <h1 className="animate-fade-in font-bold tracking-tight text-4xl md:text-5xl lg:text-6xl mb-6 max-w-4xl bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/80 dark:from-white dark:to-primary/80">
               Memory-as-a-Service Platform <br /> for AI Developers
             </h1>
             
