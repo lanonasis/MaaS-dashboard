@@ -289,6 +289,29 @@ export class AIOrchestrator {
       'remember', 'save this', 'note', 'store', 'keep in mind'
     ];
 
+    // Keywords for web scraping
+    const scrapeKeywords = [
+      'scrape', 'extract data from', 'get data from', 'fetch from',
+      'extract from', 'crawl', 'get all', 'extract all',
+      'product names', 'job listings', 'headings', 'links from'
+    ];
+
+    // Check for web scraping intent first
+    if (scrapeKeywords.some(kw => lowerInput.includes(kw))) {
+      const urlMatch = userInput.match(/(?:https?:\/\/)?(?:www\.)?[\w\-.]+(?:\.[\w\-]+)+[^\s]*/);
+      if (urlMatch) {
+        return {
+          type: 'execute_action',
+          action: 'dashboard.web_scraper.scrape',
+          params: {
+            url: urlMatch[0].startsWith('http') ? urlMatch[0] : `https://${urlMatch[0]}`,
+            extractionRequest: userInput
+          },
+          confidence: 0.9
+        };
+      }
+    }
+
     // Detect tool action intent - check for specific patterns
     if (toolActionKeywords.some(kw => lowerInput.includes(kw))) {
       const actionIntent = this.parseToolAction(lowerInput);
@@ -421,6 +444,24 @@ export class AIOrchestrator {
     // Generic Analytics patterns
     if (lowerInput.includes('usage') || lowerInput.includes('analytics') || lowerInput.includes('stats')) {
       return { action: 'dashboard.analytics.get_usage', params: {} };
+    }
+
+    // Web scraping patterns
+    if (lowerInput.includes('scrape') || lowerInput.includes('extract data')) {
+      const urlMatch = input.match(/(?:https?:\/\/)?(?:www\.)?[\w\-.]+(?:\.[\w\-]+)+[^\s]*/);
+      if (urlMatch) {
+        return {
+          action: 'dashboard.web_scraper.scrape',
+          params: {
+            url: urlMatch[0].startsWith('http') ? urlMatch[0] : `https://${urlMatch[0]}`,
+            extractionRequest: input
+          }
+        };
+      }
+      return {
+        action: 'dashboard.web_scraper.scrape',
+        params: { extractionRequest: input }
+      };
     }
 
     return null;

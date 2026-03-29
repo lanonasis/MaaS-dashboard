@@ -803,6 +803,104 @@ export const DASHBOARD_TOOLS: ToolDefinition[] = [
     requiresApiKey: false
   },
   {
+    id: 'dashboard.web_scraper',
+    name: 'Web Scraper',
+    type: 'dashboard',
+    category: 'automation',
+    description: 'Extract structured data from any website using Browser Use Cloud',
+    icon: '🕸️',
+    handler: async (action: string, params: any) => {
+      if (action === 'scrape') {
+        const { url, extractionRequest, schema } = params;
+        
+        if (!url) {
+          throw new Error('URL is required for web scraping');
+        }
+
+        const browserUseApiKey = import.meta.env.VITE_BROWSER_USE_API_KEY;
+        
+        if (!browserUseApiKey) {
+          throw new Error('Browser Use API key not configured. Please add VITE_BROWSER_USE_API_KEY to your environment.');
+        }
+
+        const response = await fetch('https://api.browser-use.com/api/v2/tasks', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': browserUseApiKey
+          },
+          body: JSON.stringify({
+            url,
+            prompt: extractionRequest || 'Extract all relevant data from this page',
+            structured_output_schema: schema ? JSON.parse(schema) : undefined
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Browser Use API error: ${response.status} - ${errorText}`);
+        }
+
+        const taskData = await response.json();
+        const taskId = taskData.task_id;
+
+        let result = null;
+        const maxAttempts = 30;
+        const pollInterval = 2000;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          
+          const statusResponse = await fetch(`https://api.browser-use.com/api/v2/tasks/${taskId}/status`, {
+            headers: {
+              'x-api-key': browserUseApiKey
+            }
+          });
+
+          if (!statusResponse.ok) {
+            continue;
+          }
+
+          const statusData = await statusResponse.json();
+          
+          if (statusData.status === 'completed') {
+            result = statusData.result;
+            break;
+          } else if (statusData.status === 'failed') {
+            throw new Error(`Scraping failed: ${statusData.error || 'Unknown error'}`);
+          }
+        }
+
+        if (!result) {
+          throw new Error('Scraping task timed out');
+        }
+
+        return {
+          url,
+          request: extractionRequest,
+          data: result,
+          notes: null
+        };
+      }
+
+      throw new Error(`Unknown web scraper action: ${action}`);
+    },
+    actions: [
+      {
+        id: 'scrape',
+        name: 'Extract Data',
+        description: 'Extract structured data from a website using natural language',
+        parameters: [
+          { name: 'url', type: 'string', description: 'URL of the website to scrape', required: true },
+          { name: 'extractionRequest', type: 'string', description: 'What data to extract (e.g., "all product names and prices")', required: true },
+          { name: 'schema', type: 'string', description: 'Optional JSON schema for structured output', required: false }
+        ]
+      }
+    ],
+    isPreConfigured: true,
+    requiresApiKey: true
+  },
+  {
     id: 'dashboard.mcp_api_keys',
     name: 'MCP API Keys Manager',
     type: 'dashboard',
