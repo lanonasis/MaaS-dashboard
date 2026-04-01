@@ -17,6 +17,8 @@ import type {
   DuplicatesResult,
   InsightsResult,
   MemoryHealth,
+  QueryScopeValue,
+  MemoryTypeValue,
 } from "@lanonasis/mem-intel-sdk";
 import { useSupabaseAuth } from "./useSupabaseAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,14 +92,30 @@ export interface DuplicatePair {
   recommendation: "keep_newer" | "keep_older" | "merge" | "review_manually";
 }
 
+export interface IntelligenceQueryContext {
+  organizationId?: string;
+  topicId?: string;
+  queryScope?: QueryScopeValue;
+  memoryTypes?: MemoryTypeValue[];
+}
+
 interface MemoryIntelligenceContextValue {
   userId: string | null;
   isReady: boolean;
   isKeyLoading: boolean;
-  analyzePatterns: (timeRangeDays?: number) => Promise<PatternAnalysis | null>;
-  getHealthCheck: () => Promise<HealthCheckResult | null>;
-  extractInsights: (topic?: string) => Promise<InsightResult[]>;
-  detectDuplicates: (threshold?: number) => Promise<DuplicatePair[]>;
+  analyzePatterns: (
+    timeRangeDays?: number,
+    context?: IntelligenceQueryContext
+  ) => Promise<PatternAnalysis | null>;
+  getHealthCheck: (context?: IntelligenceQueryContext) => Promise<HealthCheckResult | null>;
+  extractInsights: (
+    topic?: string,
+    context?: IntelligenceQueryContext
+  ) => Promise<InsightResult[]>;
+  detectDuplicates: (
+    threshold?: number,
+    context?: IntelligenceQueryContext
+  ) => Promise<DuplicatePair[]>;
 }
 
 const MemoryIntelligenceContext =
@@ -493,7 +511,10 @@ function MemoryIntelligenceProviderInner({
   const isReady = Boolean(userId && canAuth);
 
   const analyzePatterns = useCallback(
-    async (timeRangeDays = 30): Promise<PatternAnalysis | null> => {
+    async (
+      timeRangeDays = 30,
+      context: IntelligenceQueryContext = {},
+    ): Promise<PatternAnalysis | null> => {
       if (!userId || !canAuth) return null;
 
       let apiResult: PatternAnalysis | null = null;
@@ -502,6 +523,7 @@ function MemoryIntelligenceProviderInner({
           userId,
           timeRangeDays,
           responseFormat: "json",
+          ...context,
         });
         apiResult = response.data ?? null;
       } catch (error) {
@@ -519,7 +541,7 @@ function MemoryIntelligenceProviderInner({
   );
 
   const getHealthCheck =
-    useCallback(async (): Promise<HealthCheckResult | null> => {
+    useCallback(async (context: IntelligenceQueryContext = {}): Promise<HealthCheckResult | null> => {
       if (!userId || !canAuth) return null;
 
       let apiResult: MemoryHealth | null = null;
@@ -527,6 +549,7 @@ function MemoryIntelligenceProviderInner({
         const response = await client.healthCheck({
           userId,
           responseFormat: "json",
+          ...context,
         });
         apiResult = response.data ?? null;
       } catch (error) {
@@ -543,7 +566,10 @@ function MemoryIntelligenceProviderInner({
     }, [client, userId, canAuth]);
 
   const extractInsights = useCallback(
-    async (topic?: string): Promise<InsightResult[]> => {
+    async (
+      topic?: string,
+      context: IntelligenceQueryContext = {},
+    ): Promise<InsightResult[]> => {
       if (!userId || !canAuth) return [];
 
       try {
@@ -551,6 +577,7 @@ function MemoryIntelligenceProviderInner({
           userId,
           topic,
           responseFormat: "json",
+          ...context,
         });
         return mapInsights(response.data ?? null);
       } catch (error) {
@@ -562,7 +589,10 @@ function MemoryIntelligenceProviderInner({
   );
 
   const detectDuplicates = useCallback(
-    async (threshold = 0.9): Promise<DuplicatePair[]> => {
+    async (
+      threshold = 0.9,
+      context: IntelligenceQueryContext = {},
+    ): Promise<DuplicatePair[]> => {
       if (!userId || !canAuth) return [];
 
       try {
@@ -571,6 +601,7 @@ function MemoryIntelligenceProviderInner({
           similarityThreshold: threshold,
           maxPairs: 10,
           responseFormat: "json",
+          ...context,
         });
         return mapDuplicates(response.data ?? null);
       } catch (error) {
