@@ -3,134 +3,232 @@
  */
 
 import { useMemo } from 'react';
-import { createDashboardMemoryClient } from '@/lib/memory-sdk/dashboard-adapter';
+import { apiClient, type Memory } from '@/lib/api-client';
 import { useSupabaseAuth } from './useSupabaseAuth';
 
-// Type definitions for Memory operations (avoiding Node.js module import)
-export interface MemorySearchResult {
-  id: string;
-  title: string;
-  content: string;
-  type: 'context' | 'insight' | 'reference' | 'plan';
-  tags?: string[];
+export type MemoryType = Memory['type'];
+export interface MemorySearchResult extends Memory {
   similarity?: number;
-  created_at: string;
 }
 
 export interface CreateMemoryRequest {
   title: string;
   content: string;
-  memory_type?: 'context' | 'insight' | 'reference' | 'plan';
+  type?: MemoryType;
+  memory_type?: MemoryType;
   tags?: string[];
   metadata?: Record<string, unknown>;
 }
 
-export type MemoryType = 'context' | 'insight' | 'reference' | 'plan';
+interface MemorySearchParams {
+  query: string;
+  limit?: number;
+  threshold?: number;
+  types?: MemoryType[];
+  tags?: string[];
+}
+
+interface ListMemoriesParams {
+  limit?: number;
+  offset?: number;
+  types?: MemoryType[];
+  tags?: string[];
+}
+
+const normalizeTags = (tags: unknown): string[] => {
+  if (!Array.isArray(tags)) return [];
+  return tags
+    .filter((tag): tag is string => typeof tag === 'string')
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+};
+
+const resolveMemoryType = (payload: {
+  type?: MemoryType;
+  memory_type?: MemoryType;
+}) => payload.type ?? payload.memory_type;
+
+const includesAllTags = (memoryTags: unknown, requiredTags?: string[]) => {
+  if (!requiredTags?.length) return true;
+  const normalized = normalizeTags(memoryTags);
+  return requiredTags.every((tag) => normalized.includes(tag));
+};
+
+const includesType = (type: MemoryType, allowedTypes?: MemoryType[]) => {
+  if (!allowedTypes?.length) return true;
+  return allowedTypes.includes(type);
+};
 
 export function useMemoryClient() {
   const { user } = useSupabaseAuth();
 
-  // Create client instance (memoized)
+  // Use the canonical dashboard API client contract when authenticated.
   const memoryClient = useMemo(() => {
     if (!user) return null;
-    return createDashboardMemoryClient();
+    return apiClient;
   }, [user]);
+
+  const requireClient = () => {
+    if (!memoryClient) {
+      throw new Error('User not authenticated');
+    }
+    return memoryClient;
+  };
 
   /**
    * Search memories
    */
-  const searchMemories = async (params: {
-    query: string;
-    limit?: number;
-    threshold?: number;
-    types?: MemoryType[];
-    tags?: string[];
-  }): Promise<MemorySearchResult[]> => {
-    if (!memoryClient) {
-      throw new Error('User not authenticated');
+  const searchMemories = async (params: MemorySearchParams): Promise<MemorySearchResult[]> => {
+    const client = requireClient();
+    const response = await client.searchMemories({
+      query: params.query,
+      limit: params.limit,
+      similarity_threshold: params.threshold,
+    });
+
+    if (response.error) {
+      throw new Error(response.error);
     }
-    return memoryClient.search(params);
+
+    const results = (response.data || []).filter(
+      (memory) =>
+        includesType(memory.type, params.types) &&
+        includesAllTags(memory.tags, params.tags)
+    );
+
+    return results.map((memory) => ({
+      ...memory,
+      tags: normalizeTags(memory.tags),
+    }));
   };
 
   /**
    * Create a memory
    */
-  const createMemory = async (memory: {
-    title: string;
-    content: string;
-    type?: MemoryType;
-    tags?: string[];
-    metadata?: Record<string, unknown>;
-  }) => {
-    if (!memoryClient) {
-      throw new Error('User not authenticated');
+  const createMemory = async (memory: CreateMemoryRequest): Promise<Memory> => {
+    const client = requireClient();
+    const response = await client.createMemory({
+      title: memory.title,
+      content: memory.content,
+      type: resolveMemoryType(memory),
+      tags: memory.tags,
+      metadata: memory.metadata,
+    });
+
+    if (response.error || !response.data) {
+      throw new Error(response.error || 'Failed to create memory');
     }
-    return memoryClient.create(memory);
+
+    return {
+      ...response.data,
+      tags: normalizeTags(response.data.tags),
+    };
   };
 
   /**
    * Update a memory
    */
-  const updateMemory = async (id: string, updates: Partial<CreateMemoryRequest>) => {
-    if (!memoryClient) {
-      throw new Error('User not authenticated');
+  const updateMemory = async (
+    id: string,
+    updates: Partial<CreateMemoryRequest>
+  ): Promise<Memory> => {
+    const client = requireClient();
+    const { memory_type, ...rest } = updates;
+    const response = await client.updateMemory(id, {
+      ...rest,
+      type: rest.type ?? memory_type,
+    });
+
+    if (response.error || !response.data) {
+      throw new Error(response.error || 'Failed to update memory');
     }
-    return memoryClient.update(id, updates);
+
+    return {
+      ...response.data,
+      tags: normalizeTags(response.data.tags),
+    };
   };
 
   /**
    * Delete a memory
    */
-  const deleteMemory = async (id: string) => {
-    if (!memoryClient) {
-      throw new Error('User not authenticated');
+  const deleteMemory = async (id: string): Promise<void> => {
+    const client = requireClient();
+    const response = await client.deleteMemory(id);
+    if (response.error) {
+      throw new Error(response.error);
     }
-    return memoryClient.delete(id);
   };
 
   /**
    * Get memory by ID
    */
-  const getMemory = async (id: string) => {
-    if (!memoryClient) {
-      throw new Error('User not authenticated');
+  const getMemory = async (id: string): Promise<Memory> => {
+    const client = requireClient();
+    const response = await client.getMemory(id);
+    if (response.error || !response.data) {
+      throw new Error(response.error || 'Memory not found');
     }
-    return memoryClient.getById(id);
+
+    return {
+      ...response.data,
+      tags: normalizeTags(response.data.tags),
+    };
   };
 
   /**
    * List memories with pagination
    */
-  const listMemories = async (params?: {
-    limit?: number;
-    offset?: number;
-    types?: MemoryType[];
-    tags?: string[];
-  }) => {
-    if (!memoryClient) {
-      throw new Error('User not authenticated');
+  const listMemories = async (params?: ListMemoriesParams): Promise<Memory[]> => {
+    const client = requireClient();
+    const limit = params?.limit || 20;
+    const page = params?.offset !== undefined ? Math.floor(params.offset / limit) + 1 : 1;
+    const filteredType = params?.types?.length === 1 ? params.types[0] : undefined;
+
+    const response = await client.getMemories({
+      page,
+      limit,
+      type: filteredType,
+      tags: params?.tags,
+    });
+
+    if (response.error) {
+      throw new Error(response.error);
     }
-    return memoryClient.list(params);
+
+    return (response.data || [])
+      .filter((memory) => includesType(memory.type, params?.types))
+      .filter((memory) => includesAllTags(memory.tags, params?.tags))
+      .map((memory) => ({
+        ...memory,
+        tags: normalizeTags(memory.tags),
+      }));
   };
 
   /**
    * Bulk tag memories
    */
-  const bulkTagMemories = async (memoryIds: string[], tags: string[]) => {
-    if (!memoryClient) {
-      throw new Error('User not authenticated');
-    }
-    return memoryClient.bulkTag(memoryIds, tags);
+  const bulkTagMemories = async (memoryIds: string[], tags: string[]): Promise<void> => {
+    const normalizedTags = normalizeTags(tags);
+    await Promise.all(
+      memoryIds.map(async (id) => {
+        const memory = await getMemory(id);
+        const mergedTags = Array.from(new Set([...memory.tags, ...normalizedTags]));
+        await updateMemory(id, { tags: mergedTags });
+      })
+    );
   };
 
   /**
    * Get memory statistics
    */
   const getMemoryStats = async () => {
-    if (!memoryClient) {
-      throw new Error('User not authenticated');
+    const client = requireClient();
+    const response = await client.getUsageStats();
+    if (response.error) {
+      throw new Error(response.error);
     }
-    return memoryClient.getStats();
+    return response.data || null;
   };
 
   return {

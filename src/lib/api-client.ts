@@ -1,8 +1,13 @@
 /**
- * Centralized API client for MaaS Dashboard
- * Handles all communication with Onasis-CORE Gateway
- * Replaces direct Supabase usage with Core API calls
- * SECURITY: Uses secure in-memory token storage
+ * API client for MaaS Dashboard.
+ *
+ * Task #128 owner decision:
+ * - Supported dashboard auth owner model: direct-auth (Supabase session)
+ * - Central-auth refresh is transitional fallback only for legacy token paths
+ *
+ * Expected auth lifecycle:
+ * - Header priority: API key > Supabase session token > auth-gateway exchanged token > legacy secure storage token
+ * - 401 handling: refresh Supabase first, then transitional central-auth refresh fallback, then redirect to dashboard login
  */
 
 import { secureTokenStorage } from './secure-token-storage';
@@ -74,7 +79,7 @@ interface ApiKey {
 class ApiClient {
   /**
    * Get authentication headers for API requests
-   * Priority: API key > Auth-gateway token > Supabase session > Legacy token
+   * Priority: API key > Supabase session > Auth-gateway token > Legacy token
    */
   private async getAuthHeaders(apiKey?: string): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
@@ -94,14 +99,7 @@ class ApiClient {
       return headers;
     }
 
-    // Try auth-gateway token (unified token system)
-    const authGatewayToken = getAuthGatewayAccessToken();
-    if (authGatewayToken) {
-      headers['Authorization'] = `Bearer ${authGatewayToken}`;
-      return headers;
-    }
-
-    // Try Supabase session token - this is the most reliable source
+    // Owner path: Supabase session token.
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
@@ -110,6 +108,13 @@ class ApiClient {
       }
     } catch (error) {
       console.warn('[API Client] Failed to get Supabase session:', error);
+    }
+
+    // Transitional fallback: auth-gateway exchanged token.
+    const authGatewayToken = getAuthGatewayAccessToken();
+    if (authGatewayToken) {
+      headers['Authorization'] = `Bearer ${authGatewayToken}`;
+      return headers;
     }
 
     // Fallback to legacy token storage
@@ -124,7 +129,8 @@ class ApiClient {
   private async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {},
-    apiKey?: string
+    apiKey?: string,
+    allowAuthRetry: boolean = true
   ): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${MAAS_API_PREFIX}${endpoint}`;
 
@@ -149,27 +155,48 @@ class ApiClient {
 
       // Handle authentication errors
       if (response.status === 401) {
-        console.warn('[API Client] 401 Unauthorized - attempting token refresh');
-        secureTokenStorage.clear();
+        console.warn('[API Client] 401 Unauthorized - attempting auth refresh');
 
-        // Try to refresh token before redirecting
-        try {
-          await centralAuth.refreshToken();
-          // Retry the request with new token
-          return this.makeRequest(endpoint, options, apiKey);
-        } catch (refreshError) {
-          console.error('[API Client] Token refresh failed:', refreshError);
-          // Refresh failed, redirect to login
-          if (typeof window !== 'undefined' && window.location) {
-            const redirectUrl = `${window.location.origin}/auth/callback`;
-            const authUrl = new URL(`${API_BASE_URL}/auth/login`);
-            authUrl.searchParams.set('platform', 'dashboard');
-            authUrl.searchParams.set('redirect_url', redirectUrl);
-
-            window.location.href = authUrl.toString();
-          }
-          throw new Error('Authentication required - redirecting to login');
+        if (!allowAuthRetry) {
+          throw new Error('Authentication required');
         }
+
+        // Owner refresh path: refresh Supabase session first.
+        let refreshed = false;
+        try {
+          const {
+            data: { session: refreshedSession },
+            error: refreshError,
+          } = await supabase.auth.refreshSession();
+          if (refreshError) {
+            throw refreshError;
+          }
+          refreshed = Boolean(refreshedSession?.access_token);
+        } catch (refreshError) {
+          console.warn('[API Client] Supabase refresh failed:', refreshError);
+        }
+
+        // Transitional fallback: central-auth refresh for legacy token users.
+        if (!refreshed) {
+          try {
+            await centralAuth.refreshToken();
+            refreshed = true;
+          } catch (refreshError) {
+            console.warn('[API Client] Central auth refresh fallback failed:', refreshError);
+          }
+        }
+
+        if (refreshed) {
+          // Retry once with refreshed credentials.
+          return this.makeRequest(endpoint, options, apiKey, false);
+        }
+
+        // Refresh failed, clear transitional storage and redirect to login.
+        secureTokenStorage.clear();
+        if (typeof window !== 'undefined' && window.location) {
+          window.location.href = '/auth/login';
+        }
+        throw new Error('Authentication required - redirecting to login');
       }
 
       if (!response.ok) {
@@ -326,44 +353,40 @@ class ApiClient {
     });
   }
 
-  // Intelligence API Methods (Supabase Edge Functions)
-  // These use the Supabase project URL directly with X-API-Key auth
+  // Intelligence routing contract (#133):
+  // - Dashboard MUST call canonical platform routes: /api/v1/intelligence/*
+  // - Onasis-core owns the gateway/proxy mapping to Supabase Edge Functions
+  //   (see apps/onasis-core/_redirects and docs/supabase-api/DIRECT_API_ROUTES.md)
+  // - Browser clients in dashboard MUST NOT call /functions/v1/intelligence-* directly
 
   private async makeIntelligenceRequest<T>(
-    functionName: string,
+    routePath: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const url = `${supabaseUrl}/functions/v1/${functionName}`;
-
-    // Get API key for intelligence endpoints
-    const apiKey = import.meta.env.VITE_MEMORY_API_KEY || '';
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(apiKey && { 'X-API-Key': apiKey }),
-    };
-
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers: { ...headers, ...(options.headers as Record<string, string>) },
-      });
+      const response = await this.makeRequest<any>(`/intelligence/${routePath}`, options);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { error: data.error || `Request failed with status ${response.status}` };
+      // Edge intelligence responses are usually wrapped as:
+      // { success: true|false, data, error, usage, tier_info }.
+      // Keep the dashboard ApiResponse contract stable by unwrapping here.
+      if (response && typeof response === 'object' && 'success' in response) {
+        const envelope = response as { success: boolean; data?: T; error?: string };
+        if (!envelope.success) {
+          return { error: envelope.error || 'Intelligence API request failed' };
+        }
+        return { data: envelope.data };
       }
 
-      return { data };
-    } catch (error: any) {
-      return { error: error.message || 'Intelligence API request failed' };
+      // Compatibility for any non-envelope intelligence responses.
+      return response as ApiResponse<T>;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Intelligence API request failed';
+      return { error: message };
     }
   }
 
   async intelligenceHealthCheck(): Promise<ApiResponse<any>> {
-    return this.makeIntelligenceRequest<any>('intelligence-health-check', {
+    return this.makeIntelligenceRequest<any>('health-check', {
       method: 'POST',
     });
   }
@@ -373,7 +396,7 @@ class ApiClient {
     existing_tags?: string[];
     max_suggestions?: number;
   }): Promise<ApiResponse<any>> {
-    return this.makeIntelligenceRequest<any>('intelligence-suggest-tags', {
+    return this.makeIntelligenceRequest<any>('suggest-tags', {
       method: 'POST',
       body: JSON.stringify(params),
     });
@@ -384,7 +407,7 @@ class ApiClient {
     limit?: number;
     threshold?: number;
   }): Promise<ApiResponse<any>> {
-    return this.makeIntelligenceRequest<any>('intelligence-find-related', {
+    return this.makeIntelligenceRequest<any>('find-related', {
       method: 'POST',
       body: JSON.stringify(params),
     });
@@ -394,7 +417,7 @@ class ApiClient {
     threshold?: number;
     include_archived?: boolean;
   }): Promise<ApiResponse<any>> {
-    return this.makeIntelligenceRequest<any>('intelligence-detect-duplicates', {
+    return this.makeIntelligenceRequest<any>('detect-duplicates', {
       method: 'POST',
       body: JSON.stringify(params),
     });
@@ -406,7 +429,7 @@ class ApiClient {
     insight_types?: string[];
     topic_filter?: string;
   }): Promise<ApiResponse<any>> {
-    return this.makeIntelligenceRequest<any>('intelligence-extract-insights', {
+    return this.makeIntelligenceRequest<any>('extract-insights', {
       method: 'POST',
       body: JSON.stringify(params),
     });
@@ -416,7 +439,7 @@ class ApiClient {
     time_range_days?: number;
     include_content_analysis?: boolean;
   }): Promise<ApiResponse<any>> {
-    return this.makeIntelligenceRequest<any>('intelligence-analyze-patterns', {
+    return this.makeIntelligenceRequest<any>('analyze-patterns', {
       method: 'POST',
       body: JSON.stringify(params),
     });

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MCP Router Docs - Dashboard</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #111831;
+        --text: #e6ebff;
+        --muted: #a9b5de;
+        --accent: #4f8cff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+        background: radial-gradient(1200px 700px at 15% -10%, #1c2d64, var(--bg));
+        color: var(--text);
+        line-height: 1.5;
+      }
+      main {
+        max-width: 860px;
+        margin: 40px auto;
+        padding: 24px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 14px;
+      }
+      h1, h2 { margin-top: 0; }
+      h2 { margin-top: 24px; }
+      p, li { color: var(--muted); }
+      code {
+        color: var(--text);
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 1px 6px;
+        border-radius: 6px;
+      }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover { text-decoration: underline; }
+      .chip {
+        display: inline-block;
+        margin-right: 8px;
+        margin-bottom: 8px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: rgba(79, 140, 255, 0.15);
+        border: 1px solid rgba(79, 140, 255, 0.4);
+        color: #cddcff;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>MCP Router Documentation</h1>
+      <p>
+        This page is the dashboard target for <code>/docs/mcp-router</code>.
+        It documents the current dashboard runtime contract after auth and MCP integration stabilization.
+      </p>
+
+      <div>
+        <span class="chip">Task #131 complete</span>
+        <span class="chip">Task #132 complete</span>
+        <span class="chip">Task #133 intelligence route kept</span>
+      </div>
+
+      <h2>Routing Contract</h2>
+      <ul>
+        <li>Intelligence traffic must use <code>/api/v1/intelligence/*</code>.</li>
+        <li>Do not call browser-side Edge Function routes such as <code>/functions/v1/intelligence-*</code>.</li>
+        <li>MCP Services and API Keys UI are wired to live managers and production-backed data flows.</li>
+      </ul>
+
+      <h2>Dashboard API Base URL</h2>
+      <p>API base resolution in <code>src/lib/api-client.ts</code>:</p>
+      <ol>
+        <li><code>VITE_CORE_API_BASE_URL</code> (preferred)</li>
+        <li><code>VITE_API_URL</code> fallback (legacy; trailing <code>/v1</code> stripped)</li>
+        <li><code>https://api.lanonasis.com</code> default</li>
+      </ol>
+      <p>
+        Set origins only. Do not append <code>/api/v1</code> and avoid a trailing <code>/v1</code>
+        on <code>VITE_CORE_API_BASE_URL</code>.
+      </p>
+
+      <h2>Related Dashboard Docs</h2>
+      <ul>
+        <li><a href="/docs">API docs landing</a></li>
+        <li><a href="/dashboard/mcp-services">MCP Services page</a></li>
+        <li><a href="/dashboard/api-keys">MCP Router keys page</a></li>
+      </ul>
+    </main>
+  </body>
+</html>

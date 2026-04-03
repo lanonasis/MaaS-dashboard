@@ -12,7 +12,7 @@
       "args": [
         "-y",
         "@21st-dev/magic@latest",
-        "API_KEY=YOUR_MAGIC_API_KEY_HERE"
+        "API_KEY=${MAGIC_API_KEY}"
       ]
     },
     "perplexity-ask": {
@@ -22,7 +22,7 @@
         "server-perplexity-ask"
       ],
       "env": {
-        "PERPLEXITY_API_KEY": "YOUR_PERPLEXITY_API_KEY_HERE"
+        "PERPLEXITY_API_KEY": "${PERPLEXITY_API_KEY}"
       }
     },
     "github-mcp-server": {
@@ -32,7 +32,7 @@
         "@modelcontextprotocol/server-github"
       ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_PAT_HERE"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
     },
     "supabase-mcp-server": {
@@ -41,7 +41,7 @@
         "-y",
         "@supabase/mcp-server-supabase@latest",
         "--access-token",
-        "YOUR_SUPABASE_ACCESS_TOKEN_HERE"
+        "${SUPABASE_ACCESS_TOKEN}"
       ],
       "env": {}
     },
@@ -51,7 +51,7 @@
         "-y",
         "@stripe/mcp",
         "--tools=all",
-        "--api-key=YOUR_STRIPE_API_KEY_HERE"
+        "--api-key=${STRIPE_API_KEY}"
       ],
       "env": {}
     },
@@ -69,8 +69,8 @@
         "@browserbasehq/mcp"
       ],
       "env": {
-        "BROWSERBASE_API_KEY": "YOUR_BROWSERBASE_API_KEY_HERE",
-        "BROWSERBASE_PROJECT_ID": "YOUR_BROWSERBASE_PROJECT_ID_HERE"
+        "BROWSERBASE_API_KEY": "${BROWSERBASE_API_KEY}",
+        "BROWSERBASE_PROJECT_ID": "${BROWSERBASE_PROJECT_ID}"
       }
     },
     "playwright": {
@@ -88,7 +88,7 @@
         "@modelcontextprotocol/server-brave-search"
       ],
       "env": {
-        "BRAVE_API_KEY": "optional_but_gets_better_results"
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
       }
     },
     "puppeteer": {
@@ -111,8 +111,8 @@
         "1920"
       ],
       "env": {
-        "BROWSERBASE_API_KEY": "YOUR_BROWSERBASE_API_KEY_HERE",
-        "BROWSERBASE_PROJECT_ID": "YOUR_BROWSERBASE_PROJECT_ID_HERE"
+        "BROWSERBASE_API_KEY": "${BROWSERBASE_API_KEY}",
+        "BROWSERBASE_PROJECT_ID": "${BROWSERBASE_PROJECT_ID}"
       }
     },
     "LanOnasis": {
@@ -124,7 +124,7 @@
         "remote"
       ],
       "env": {
-        "LANONASIS_API_KEY": "sk_live_superadmin_placeholder",
+        "LANONASIS_API_KEY": "${LANONASIS_API_KEY}",
         "LANONASIS_API_URL": "https://api.lanonasis.com"
       }
     }

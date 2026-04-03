@@ -392,17 +392,22 @@ describe('ApiClient', () => {
     it('performs health check', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ status: 'healthy' }),
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: { status: 'healthy' },
+          }),
       });
 
       const result = await apiClient.intelligenceHealthCheck();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/functions/v1/intelligence-health-check'),
+        expect.stringContaining('/api/v1/intelligence/health-check'),
         expect.objectContaining({
           method: 'POST',
         })
       );
+      expect(mockFetch.mock.calls[0][0]).not.toContain('/functions/v1/intelligence-');
       expect(result.data?.status).toBe('healthy');
     });
 
@@ -410,7 +415,10 @@ describe('ApiClient', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () =>
-          Promise.resolve({ tags: ['ai', 'machine-learning', 'python'] }),
+          Promise.resolve({
+            success: true,
+            data: { tags: ['ai', 'machine-learning', 'python'] },
+          }),
       });
 
       const result = await apiClient.intelligenceSuggestTags({
@@ -419,7 +427,7 @@ describe('ApiClient', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/functions/v1/intelligence-suggest-tags'),
+        expect.stringContaining('/api/v1/intelligence/suggest-tags'),
         expect.objectContaining({
           method: 'POST',
         })
@@ -431,7 +439,10 @@ describe('ApiClient', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () =>
-          Promise.resolve({ related: [{ id: 'mem-2', similarity: 0.85 }] }),
+          Promise.resolve({
+            success: true,
+            data: { related: [{ id: 'mem-2', similarity: 0.85 }] },
+          }),
       });
 
       const result = await apiClient.intelligenceFindRelated({
@@ -440,7 +451,7 @@ describe('ApiClient', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/functions/v1/intelligence-find-related'),
+        expect.stringContaining('/api/v1/intelligence/find-related'),
         expect.any(Object)
       );
       expect(result.data?.related).toHaveLength(1);
@@ -451,16 +462,19 @@ describe('ApiClient', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            duplicates: [{ id1: 'mem-1', id2: 'mem-2', similarity: 0.95 }],
+            success: true,
+            data: {
+              duplicates: [{ id1: 'mem-1', id2: 'mem-2', similarity: 0.95 }],
+            },
           }),
       });
 
-      const result = await apiClient.intelligenceDetectDuplicates({
+      await apiClient.intelligenceDetectDuplicates({
         threshold: 0.9,
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/functions/v1/intelligence-detect-duplicates'),
+        expect.stringContaining('/api/v1/intelligence/detect-duplicates'),
         expect.any(Object)
       );
     });
@@ -470,16 +484,19 @@ describe('ApiClient', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            insights: [{ type: 'trend', description: 'Increasing activity' }],
+            success: true,
+            data: {
+              insights: [{ type: 'trend', description: 'Increasing activity' }],
+            },
           }),
       });
 
-      const result = await apiClient.intelligenceExtractInsights({
+      await apiClient.intelligenceExtractInsights({
         content: 'Project progress report',
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/functions/v1/intelligence-extract-insights'),
+        expect.stringContaining('/api/v1/intelligence/extract-insights'),
         expect.any(Object)
       );
     });
@@ -489,18 +506,34 @@ describe('ApiClient', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            patterns: { peak_hours: [9, 14, 18] },
+            success: true,
+            data: { patterns: { peak_hours: [9, 14, 18] } },
           }),
       });
 
-      const result = await apiClient.intelligenceAnalyzePatterns({
+      await apiClient.intelligenceAnalyzePatterns({
         time_range_days: 30,
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/functions/v1/intelligence-analyze-patterns'),
+        expect.stringContaining('/api/v1/intelligence/analyze-patterns'),
         expect.any(Object)
       );
+    });
+
+    it('returns ApiResponse error when intelligence envelope reports failure', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            success: false,
+            error: 'Feature not available',
+          }),
+      });
+
+      const result = await apiClient.intelligenceHealthCheck();
+
+      expect(result.error).toBe('Feature not available');
     });
   });
 

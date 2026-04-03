@@ -1,7 +1,8 @@
-// Central Authentication Gateway API Client
-// This module handles communication with the onasis-core auth gateway
-// Updated to use OAuth flow and platform-specific authentication
-// SECURITY: Uses in-memory token storage instead of localStorage to prevent XSS attacks
+// Central auth gateway bridge for dashboard.
+// Task #128 owner decision:
+// - Supported owner model: direct-auth (Supabase session is source of truth)
+// - This module is transitional for gateway bridging only (token exchange, SSO cookie sync, legacy refresh fallback)
+// - New dashboard auth flows must not depend on central auth as the primary interactive path
 
 import { secureTokenStorage } from './secure-token-storage';
 
@@ -137,56 +138,6 @@ class CentralAuthClient {
     }
 
     return response;
-  }
-
-  // OAuth redirect methods - redirect to onasis-core for authentication
-  async loginWithProvider(provider: string): Promise<void> {
-    const redirectUrl = `${window.location.origin}/auth/callback`;
-    const authUrl = new URL(`${API_BASE_URL}/auth/login`);
-    authUrl.searchParams.set('platform', PLATFORM);
-    authUrl.searchParams.set('provider', provider);
-    authUrl.searchParams.set('redirect_url', redirectUrl);
-    authUrl.searchParams.set('return_to', 'dashboard');
-    
-    // Store current path for post-auth redirect (use sessionStorage for better security)
-    const currentPath = window.location.pathname;
-    if (currentPath !== '/' && currentPath !== '/auth' && currentPath !== '/login') {
-      try {
-        sessionStorage.setItem('redirectAfterLogin', currentPath);
-      } catch (e) {
-        // Fallback to localStorage only if sessionStorage unavailable
-        console.warn('sessionStorage unavailable, using localStorage fallback');
-        localStorage.setItem('redirectAfterLogin', currentPath);
-      }
-    }
-    
-    window.location.href = authUrl.toString();
-  }
-
-  // Legacy login method - redirects to onasis-core login page
-  async login(email?: string, password?: string): Promise<never> {
-    console.warn('Traditional login deprecated. Redirecting to centralized auth...');
-    const redirectUrl = `${window.location.origin}/auth/callback`;
-    const authUrl = new URL(`${API_BASE_URL}/auth/login`);
-    authUrl.searchParams.set('platform', PLATFORM);
-    authUrl.searchParams.set('redirect_url', redirectUrl);
-    authUrl.searchParams.set('return_to', 'dashboard');
-    
-    window.location.href = authUrl.toString();
-    throw new Error('Redirecting to centralized authentication');
-  }
-
-  // Legacy signup method - redirects to onasis-core login page
-  async signup(email?: string, password?: string, name?: string): Promise<never> {
-    console.warn('Traditional signup deprecated. Redirecting to centralized auth...');
-    const redirectUrl = `${window.location.origin}/auth/callback`;
-    const authUrl = new URL(`${API_BASE_URL}/auth/login`);
-    authUrl.searchParams.set('platform', PLATFORM);
-    authUrl.searchParams.set('redirect_url', redirectUrl);
-    authUrl.searchParams.set('return_to', 'dashboard');
-    
-    window.location.href = authUrl.toString();
-    throw new Error('Redirecting to centralized authentication');
   }
 
   async refreshToken(): Promise<AuthSession> {

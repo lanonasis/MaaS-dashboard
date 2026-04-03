@@ -20,6 +20,7 @@ import type {
   MCPServiceCatalog,
   UserMCPService,
   CredentialField,
+  TestConnectionResult,
 } from '@/types/mcp-router';
 
 interface ServiceConfigureModalProps {
@@ -27,7 +28,10 @@ interface ServiceConfigureModalProps {
   existingConfig?: UserMCPService;
   onClose: () => void;
   onSave: (serviceKey: string, credentials: Record<string, string>) => Promise<void>;
-  onTest: (serviceKey: string) => Promise<void>;
+  onTest: (
+    serviceKey: string,
+    credentials?: Record<string, string>
+  ) => Promise<TestConnectionResult>;
 }
 
 export function ServiceConfigureModal({
@@ -43,6 +47,7 @@ export function ServiceConfigureModal({
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Initialize credentials with empty values
   useEffect(() => {
@@ -51,6 +56,9 @@ export function ServiceConfigureModal({
       initial[field.key] = '';
     }
     setCredentials(initial);
+    setErrors({});
+    setTestResult(null);
+    setSaveError(null);
   }, [service.credential_fields]);
 
   // Handle credential change
@@ -66,6 +74,7 @@ export function ServiceConfigureModal({
     }
     // Clear test result when credentials change
     setTestResult(null);
+    setSaveError(null);
   };
 
   // Toggle password visibility
@@ -109,36 +118,39 @@ export function ServiceConfigureModal({
 
   // Handle test connection
   const handleTestConnection = async () => {
-    if (!validateCredentials()) return;
+    const hasCredentialInput = Object.values(credentials).some(
+      value => value.trim().length > 0
+    );
+
+    if (hasCredentialInput && !validateCredentials()) return;
+
+    if (!hasCredentialInput && !existingConfig) {
+      setTestResult({
+        success: false,
+        message: 'Please enter your credentials before testing.',
+      });
+      return;
+    }
 
     setIsTestingConnection(true);
     setTestResult(null);
 
     try {
-      // Simulate test - in real implementation, would call API
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Mock success/failure based on if credentials are filled
-      const hasCredentials = Object.values(credentials).some(v => v.length > 0);
-      if (hasCredentials) {
-        setTestResult({
-          success: true,
-          message: 'Connection successful! Your credentials are valid.',
-        });
-      } else {
-        setTestResult({
-          success: false,
-          message: 'Please enter your credentials before testing.',
-        });
-      }
+      const result = await onTest(
+        service.service_key,
+        hasCredentialInput ? credentials : undefined
+      );
+      setTestResult({
+        success: result.success,
+        message: result.message,
+      });
     } catch (error: any) {
       setTestResult({
         success: false,
         message: error.message || 'Connection failed. Please check your credentials.',
       });
-    } finally {
-      setIsTestingConnection(false);
     }
+    setIsTestingConnection(false);
   };
 
   // Handle save
@@ -146,13 +158,13 @@ export function ServiceConfigureModal({
     if (!validateCredentials()) return;
 
     setIsSaving(true);
+    setSaveError(null);
     try {
       await onSave(service.service_key, credentials);
-    } catch (error) {
-      console.error('Failed to save:', error);
-    } finally {
-      setIsSaving(false);
+    } catch (error: any) {
+      setSaveError(error?.message || 'Failed to save configuration.');
     }
+    setIsSaving(false);
   };
 
   // Render credential field input
@@ -275,7 +287,6 @@ export function ServiceConfigureModal({
                 <div>
                   <p className="text-sm text-yellow-800">
                     This service is already configured. Enter new credentials to update.
-                    Leave fields empty to keep existing values.
                   </p>
                   <p className="text-xs text-yellow-600 mt-1">
                     Last updated: {new Date(existingConfig.updated_at).toLocaleString()}
@@ -333,6 +344,15 @@ export function ServiceConfigureModal({
               </div>
             </div>
           )}
+
+          {saveError && (
+            <div className="mt-4 p-4 rounded-lg bg-red-50 text-red-800">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+                <span className="text-sm font-medium">{saveError}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -340,7 +360,7 @@ export function ServiceConfigureModal({
           <Button
             variant="outline"
             onClick={handleTestConnection}
-            disabled={isTestingConnection}
+            disabled={isTestingConnection || isSaving}
           >
             {isTestingConnection ? (
               <>
@@ -353,10 +373,10 @@ export function ServiceConfigureModal({
           </Button>
 
           <div className="flex items-center space-x-3">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} disabled={isSaving || isTestingConnection}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button onClick={handleSave} disabled={isSaving || isTestingConnection}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

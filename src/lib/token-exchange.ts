@@ -27,6 +27,15 @@ interface TokenExchangeError {
 
 const AUTH_GATEWAY_URL = import.meta.env.VITE_AUTH_GATEWAY_URL || 'https://auth.lanonasis.com';
 const TOKEN_STORAGE_KEY = 'auth_gateway_tokens';
+type StoredAuthGatewayTokens = {
+  access_token: string;
+  refresh_token: string;
+  expires_at: number;
+  user: TokenExchangeResponse['user'];
+};
+
+// SECURITY: Keep auth-gateway tokens in memory only. Never persist to browser storage.
+let inMemoryAuthGatewayTokens: StoredAuthGatewayTokens | null = null;
 
 /**
  * Exchange Supabase token for auth-gateway tokens
@@ -77,20 +86,32 @@ export async function exchangeSupabaseToken(
 }
 
 /**
- * Store auth-gateway tokens in localStorage
- * These tokens are used for API/MCP/CLI calls
+ * Remove legacy persistent auth-gateway tokens from localStorage.
+ * Keeping this cleanup prevents stale sensitive data from lingering after deploy.
+ */
+function clearLegacyPersistentTokens(): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('[Token Exchange] Failed to clear legacy persisted token key:', error);
+  }
+}
+
+/**
+ * Store auth-gateway tokens in memory only.
  */
 function storeAuthGatewayTokens(tokens: TokenExchangeResponse): void {
-  try {
-    localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({
+  inMemoryAuthGatewayTokens = {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expires_at: Date.now() + (tokens.expires_in * 1000),
       user: tokens.user,
-    }));
-  } catch (error) {
-    console.error('[Token Exchange] Failed to store tokens:', error);
-  }
+  };
+
+  // Ensure old persistent tokens are removed during migration.
+  clearLegacyPersistentTokens();
 }
 
 /**
@@ -102,29 +123,21 @@ export function getAuthGatewayTokens(): {
   expires_at: number;
   user: TokenExchangeResponse['user'];
 } | null {
-  try {
-    // Ensure localStorage is available (for SSR compatibility)
-    if (typeof localStorage === 'undefined') {
-      return null;
-    }
-    
-    const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (!stored) return null;
+  // Keep cleanup idempotent in case users still have legacy persisted data.
+  clearLegacyPersistentTokens();
 
-    const tokens = JSON.parse(stored);
-
-    // Check if tokens are expired
-    if (tokens.expires_at && tokens.expires_at < Date.now()) {
-      console.warn('[Token Exchange] Stored tokens are expired');
-      clearAuthGatewayTokens();
-      return null;
-    }
-
-    return tokens;
-  } catch (error) {
-    console.error('[Token Exchange] Failed to retrieve tokens:', error);
+  if (!inMemoryAuthGatewayTokens) {
     return null;
   }
+
+  // Check if tokens are expired
+  if (inMemoryAuthGatewayTokens.expires_at < Date.now()) {
+    console.warn('[Token Exchange] In-memory auth-gateway tokens are expired');
+    clearAuthGatewayTokens();
+    return null;
+  }
+
+  return inMemoryAuthGatewayTokens;
 }
 
 /**
@@ -140,11 +153,8 @@ export function getAuthGatewayAccessToken(): string | null {
  * Clear stored auth-gateway tokens
  */
 export function clearAuthGatewayTokens(): void {
-  try {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-  } catch (error) {
-    console.error('[Token Exchange] Failed to clear tokens:', error);
-  }
+  inMemoryAuthGatewayTokens = null;
+  clearLegacyPersistentTokens();
 }
 
 /**

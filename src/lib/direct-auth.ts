@@ -1,19 +1,15 @@
 /**
  * Direct Supabase Authentication Client
  *
- * PERMANENT FIX for 5+ month authentication blocker
+ * Task #128 auth owner decision:
+ * - Supported dashboard auth owner model: direct-auth (this module)
+ * - Central auth is transitional only for gateway bridging (cookie/token exchange)
  *
- * Problem: api.lanonasis.com (onasis-core) has been broken, causing:
- * - Redirect loops
- * - OAuth callback failures
- * - Admin lockout
- * - Users unable to access dashboard
- *
- * Solution: Direct Supabase authentication with proper session management
- * - Bypasses broken central auth gateway
- * - Uses same Supabase project as MCP Core
- * - Maintains backward compatibility
- * - Provides clear error handling
+ * Expected lifecycle:
+ * - Redirects: interactive login/signup/oauth redirect to `${origin}/auth/callback`
+ * - Refresh: Supabase auto-refreshes; explicit refresh uses `refreshSession()`
+ * - Tokens: this client keeps Supabase session tokens in memory only
+ * - Metadata: only non-sensitive session/user metadata persists to localStorage
  */
 
 import { createClient, SupabaseClient, Session, User } from '@supabase/supabase-js';
@@ -40,10 +36,40 @@ interface UserProfile {
   created_at: string;
 }
 
+type StorageAdapter = {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+};
+
+const LEGACY_SENSITIVE_KEYS = [
+  'lanonasis_session',
+  'access_token',
+  'lanonasis_token',
+  'refresh_token',
+  'auth_gateway_tokens',
+];
+
+const createInMemoryStorage = (): StorageAdapter => {
+  const store = new Map<string, string>();
+  return {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+  };
+};
+
+const inMemorySessionStorage = createInMemoryStorage();
+
 class DirectAuthClient {
   private supabase: SupabaseClient;
-  private readonly SESSION_KEY = 'lanonasis_session';
+  private readonly SESSION_KEY = 'lanonasis_session_metadata';
   private readonly USER_KEY = 'lanonasis_user';
+  private readonly AUTH_TIMESTAMP_KEY = 'lanonasis_auth_timestamp';
 
   constructor() {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -57,7 +83,7 @@ class DirectAuthClient {
         persistSession: true,
         detectSessionInUrl: true,
         flowType: 'pkce', // More secure than implicit flow
-        storage: window.localStorage,
+        storage: inMemorySessionStorage,
         storageKey: this.SESSION_KEY,
       },
     });
@@ -317,22 +343,32 @@ class DirectAuthClient {
     }
   }
 
+  private clearLegacySensitiveStorage(): void {
+    LEGACY_SENSITIVE_KEYS.forEach((key) => localStorage.removeItem(key));
+  }
+
   /**
-   * Store session in localStorage
+   * Store only non-sensitive auth metadata in localStorage.
+   * Sensitive tokens remain in Supabase memory storage and are never mirrored.
    */
   private storeSession(session: Session): void {
-    localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+    const sessionMetadata = {
+      user_id: session.user?.id ?? null,
+      user_email: session.user?.email ?? null,
+      expires_at: session.expires_at ?? null,
+      expires_in: session.expires_in ?? null,
+      updated_at: new Date().toISOString(),
+    };
+    localStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionMetadata));
+    localStorage.setItem(this.AUTH_TIMESTAMP_KEY, String(Date.now()));
+
     if (session.user) {
       localStorage.setItem(this.USER_KEY, JSON.stringify(session.user));
-
-      // Maintain backward compatibility with central-auth keys
-      localStorage.setItem('access_token', session.access_token);
-      localStorage.setItem('lanonasis_token', session.access_token);
-      if (session.refresh_token) {
-        localStorage.setItem('refresh_token', session.refresh_token);
-      }
       localStorage.setItem('user_data', JSON.stringify(session.user));
     }
+
+    // Ensure legacy sensitive token keys are removed during migration.
+    this.clearLegacySensitiveStorage();
   }
 
   /**
@@ -342,15 +378,15 @@ class DirectAuthClient {
     // Clear direct auth keys
     localStorage.removeItem(this.SESSION_KEY);
     localStorage.removeItem(this.USER_KEY);
+    localStorage.removeItem(this.AUTH_TIMESTAMP_KEY);
 
-    // Clear central-auth compatibility keys
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('lanonasis_token');
-    localStorage.removeItem('refresh_token');
+    // Clear non-sensitive mirrored metadata and legacy compatibility keys
     localStorage.removeItem('user_data');
     localStorage.removeItem('lanonasis_user');
     localStorage.removeItem('lanonasis_current_session');
     localStorage.removeItem('lanonasis_current_user_id');
+
+    this.clearLegacySensitiveStorage();
   }
 
   /**

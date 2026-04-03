@@ -7,8 +7,17 @@
  * For persistence across page reloads, we use a secure approach:
  * - Only store refresh_token in httpOnly cookies (handled by backend)
  * - Access tokens are short-lived and stored in memory only
- * - On page load, use refresh_token to get new access_token
+ * - Non-sensitive user profile metadata may be persisted for UX convenience
  */
+
+const USER_DATA_STORAGE_KEY = 'user_data';
+const LEGACY_REFRESH_FALLBACK_KEY = 'refresh_token_fallback';
+const LEGACY_SENSITIVE_TOKEN_KEYS = [
+  'access_token',
+  'lanonasis_token',
+  'refresh_token',
+  'auth_gateway_tokens',
+];
 
 interface TokenStorage {
   accessToken: string | null;
@@ -51,34 +60,18 @@ class SecureTokenStorage {
   /**
    * Store refresh token
    * Note: In production, refresh tokens should be stored in httpOnly cookies by the backend
-   * This in-memory storage is a fallback for development
+   * This client-side fallback intentionally stays in-memory only.
    */
   setRefreshToken(token: string): void {
     this.storage.refreshToken = token;
-    // Also store in sessionStorage as a fallback (less secure than httpOnly cookies but better than localStorage)
-    // This allows token refresh on page reload
-    try {
-      sessionStorage.setItem('refresh_token_fallback', token);
-    } catch (e) {
-      console.warn('sessionStorage not available:', e);
-    }
   }
 
   /**
    * Get refresh token
-   * First tries memory, then falls back to sessionStorage
+   * Returns memory value only
    */
   getRefreshToken(): string | null {
-    if (this.storage.refreshToken) {
-      return this.storage.refreshToken;
-    }
-    
-    // Fallback to sessionStorage (cleared when tab closes)
-    try {
-      return sessionStorage.getItem('refresh_token_fallback');
-    } catch (e) {
-      return null;
-    }
+    return this.storage.refreshToken;
   }
 
   /**
@@ -88,7 +81,7 @@ class SecureTokenStorage {
   setUser(user: any): void {
     this.storage.user = user;
     try {
-      localStorage.setItem('user_data', JSON.stringify(user));
+      localStorage.setItem(USER_DATA_STORAGE_KEY, JSON.stringify(user));
     } catch (e) {
       console.warn('localStorage not available:', e);
     }
@@ -103,7 +96,7 @@ class SecureTokenStorage {
     }
     
     try {
-      const userData = localStorage.getItem('user_data');
+      const userData = localStorage.getItem(USER_DATA_STORAGE_KEY);
       return userData ? JSON.parse(userData) : null;
     } catch (e) {
       return null;
@@ -124,14 +117,12 @@ class SecureTokenStorage {
     // Clear fallback storage
     try {
       if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.removeItem('refresh_token_fallback');
+        sessionStorage.removeItem(LEGACY_REFRESH_FALLBACK_KEY);
       }
       if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('user_data');
-        // Clear legacy localStorage tokens for migration
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('lanonasis_token');
-        localStorage.removeItem('refresh_token');
+        localStorage.removeItem(USER_DATA_STORAGE_KEY);
+        // Clear legacy sensitive tokens and token containers.
+        LEGACY_SENSITIVE_TOKEN_KEYS.forEach((key) => localStorage.removeItem(key));
         localStorage.removeItem('lanonasis_user');
         localStorage.removeItem('lanonasis_current_session');
         localStorage.removeItem('lanonasis_current_user_id');
@@ -168,15 +159,9 @@ class SecureTokenStorage {
       if (typeof localStorage === 'undefined') {
         return;
       }
-      
-      // Migrate refresh token (only one we need to persist)
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (refreshToken) {
-        this.setRefreshToken(refreshToken);
-      }
 
-      // Migrate user data
-      const userData = localStorage.getItem('user_data');
+      // Migrate only non-sensitive user metadata.
+      const userData = localStorage.getItem(USER_DATA_STORAGE_KEY);
       if (userData) {
         try {
           this.setUser(JSON.parse(userData));
@@ -185,9 +170,11 @@ class SecureTokenStorage {
         }
       }
 
-      // Clear old localStorage tokens (they'll be refreshed on next API call)
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('lanonasis_token');
+      // Remove legacy persisted sensitive tokens.
+      LEGACY_SENSITIVE_TOKEN_KEYS.forEach((key) => localStorage.removeItem(key));
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(LEGACY_REFRESH_FALLBACK_KEY);
+      }
     } catch (e) {
       console.warn('Migration from localStorage failed:', e);
     }
@@ -199,4 +186,3 @@ export const secureTokenStorage = new SecureTokenStorage();
 
 // Export class for testing
 export { SecureTokenStorage };
-

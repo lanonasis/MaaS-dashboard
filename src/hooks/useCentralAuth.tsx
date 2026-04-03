@@ -1,14 +1,17 @@
-// Central Authentication Hook with Supabase Fallback
-// This hook provides a unified interface for authentication that can use either
-// the central auth gateway or fallback to Supabase
+// Compatibility auth hook for dashboard.
+// Task #128 owner decision:
+// - Supported owner model: direct-auth (Supabase)
+// - Central auth is transitional bridge only (SSO sync + cookie clearing)
+//
+// Expected lifecycle:
+// - Redirect/login/signup/callback flow is Supabase-owned (`/auth/callback`)
+// - Refresh lifecycle is Supabase session lifecycle
+// - Token exchange to auth-gateway is best-effort bridging, not ownership
 
 import { useState, useEffect, createContext, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import {
-  centralAuth,
-  type AuthSession as CentralAuthSession,
-} from "@/lib/central-auth";
+import { centralAuth } from "@/lib/central-auth";
 import { secureTokenStorage } from "@/lib/secure-token-storage";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
@@ -26,7 +29,7 @@ type Profile = {
 interface CentralAuthContextType {
   user: User | null;
   profile: Profile | null;
-  session: Session | CentralAuthSession | null;
+  session: Session | null;
   isLoading: boolean;
   isUsingCentralAuth: boolean;
   signIn: (email: string, password: string) => Promise<void>;
@@ -40,16 +43,100 @@ const CentralAuthContext = createContext<CentralAuthContextType | undefined>(
   undefined
 );
 
-const readEnvFlag = (key: string, fallback: boolean) => {
-  const metaEnv = (import.meta as { env?: Record<string, string | undefined> })
-    ?.env;
-  const raw =
-    metaEnv?.[key] ??
-    (typeof process !== "undefined" ? process.env?.[key] : undefined);
-  if (raw === undefined) {
-    return fallback;
+const DASHBOARD_AUTH_OWNER_MODEL = "direct-auth";
+const CENTRAL_AUTH_REAUTH_FLAG = "lanonasis_central_auth_reauth_required_v136";
+const LEGACY_SENSITIVE_TOKEN_KEYS = [
+  "access_token",
+  "lanonasis_token",
+  "refresh_token",
+  "auth_gateway_tokens",
+];
+const LEGACY_CALLBACK_METADATA_KEYS = [
+  "lanonasis_current_session",
+  "lanonasis_current_user_id",
+  "lanonasis_auth_timestamp",
+  "lanonasis_user",
+];
+const LEGACY_SESSION_STORAGE_KEYS = ["refresh_token_fallback"];
+
+const hasSupabaseCallbackParams = (
+  searchParams: URLSearchParams,
+  hash: string
+): boolean => {
+  const hashParams = new URLSearchParams(hash.replace(/^#/, ""));
+  return Boolean(
+    searchParams.get("code") ||
+      searchParams.get("error") ||
+      searchParams.get("error_description") ||
+      hashParams.get("access_token") ||
+      hashParams.get("error")
+  );
+};
+
+const hasLegacyCentralCallbackParams = (
+  searchParams: URLSearchParams
+): boolean => {
+  return Boolean(
+    searchParams.get("token") ||
+      searchParams.get("access_token") ||
+      searchParams.get("refresh_token") ||
+      searchParams.get("session") ||
+      searchParams.get("user_id") ||
+      searchParams.get("timestamp")
+  );
+};
+
+const hasLegacyCentralStorageArtifacts = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
   }
-  return String(raw).toLowerCase() === "true";
+
+  return (
+    [...LEGACY_SENSITIVE_TOKEN_KEYS, ...LEGACY_CALLBACK_METADATA_KEYS].some(
+      (key) => Boolean(localStorage.getItem(key))
+    ) ||
+    LEGACY_SESSION_STORAGE_KEYS.some((key) =>
+      typeof sessionStorage !== "undefined"
+        ? Boolean(sessionStorage.getItem(key))
+        : false
+    )
+  );
+};
+
+const clearLegacyCentralArtifacts = (includeMetadata: boolean): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  LEGACY_SENSITIVE_TOKEN_KEYS.forEach((key) => localStorage.removeItem(key));
+  LEGACY_SESSION_STORAGE_KEYS.forEach((key) => {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(key);
+    }
+  });
+
+  if (includeMetadata) {
+    LEGACY_CALLBACK_METADATA_KEYS.forEach((key) => localStorage.removeItem(key));
+  }
+};
+
+const markCentralAuthReauthRequired = (): void => {
+  if (typeof sessionStorage === "undefined") {
+    return;
+  }
+  sessionStorage.setItem(CENTRAL_AUTH_REAUTH_FLAG, "1");
+};
+
+const consumeCentralAuthReauthRequired = (): boolean => {
+  if (typeof sessionStorage === "undefined") {
+    return false;
+  }
+
+  const flagged = sessionStorage.getItem(CENTRAL_AUTH_REAUTH_FLAG) === "1";
+  if (flagged) {
+    sessionStorage.removeItem(CENTRAL_AUTH_REAUTH_FLAG);
+  }
+  return flagged;
 };
 
 export const CentralAuthProvider = ({
@@ -59,11 +146,9 @@ export const CentralAuthProvider = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [session, setSession] = useState<Session | CentralAuthSession | null>(
-    null
-  );
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUsingCentralAuth, setIsUsingCentralAuth] = useState(false);
+  const isUsingCentralAuth = false;
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -89,112 +174,101 @@ export const CentralAuthProvider = ({
   }, []);
 
   const initializeAuth = async (): Promise<(() => void) | undefined> => {
-    const useCentralAuth = readEnvFlag("VITE_USE_CENTRAL_AUTH", false);
-    const useFallbackAuth = readEnvFlag("VITE_USE_FALLBACK_AUTH", true);
-
     console.log("CentralAuthProvider: initializeAuth called", {
-      USE_CENTRAL_AUTH: useCentralAuth,
-      USE_FALLBACK_AUTH: useFallbackAuth,
+      DASHBOARD_AUTH_OWNER_MODEL,
+      CENTRAL_AUTH_ROLE: "non-interactive bridge only",
     });
     setIsLoading(true);
 
-    // Try central auth first if enabled
-    if (useCentralAuth) {
-      try {
-        console.log("CentralAuthProvider: Checking central auth health");
-        const isHealthy = await centralAuth.healthCheck();
-        console.log(
-          "CentralAuthProvider: Central auth health status",
-          isHealthy
-        );
-        if (isHealthy) {
-          console.log("CentralAuthProvider: Getting current session");
-          const centralSession = await centralAuth.getCurrentSession();
-          console.log(
-            "CentralAuthProvider: Current session result",
-            centralSession
-          );
-          if (centralSession) {
-            setSession(centralSession);
-            setUser(centralSession.user as User);
-            setIsUsingCentralAuth(true);
-            await fetchProfile(centralSession.user.id);
-            setIsLoading(false);
-            return undefined;
-          }
-        }
-      } catch (error) {
-        console.warn(
-          "Central auth not available, falling back to Supabase:",
-          error
-        );
-      }
-    }
+    const searchParams = new URLSearchParams(window.location.search);
+    const supabaseCallbackInProgress = hasSupabaseCallbackParams(
+      searchParams,
+      window.location.hash
+    );
+    const legacyCentralCallbackInUrl =
+      hasLegacyCentralCallbackParams(searchParams) && !supabaseCallbackInProgress;
 
-    // Fallback to Supabase
-    if (useFallbackAuth) {
-      try {
-        const {
-          data: { session: supabaseSession },
-          error,
-        } = await supabase.auth.getSession();
-        if (error) {
-          console.error("Error fetching Supabase session:", error);
-        } else if (supabaseSession) {
-          setSession(supabaseSession);
-          setUser(supabaseSession.user);
-          setIsUsingCentralAuth(false);
+    // Always remove persisted sensitive artifacts from deprecated central-auth flows.
+    clearLegacyCentralArtifacts(false);
+
+    try {
+      const {
+        data: { session: supabaseSession },
+        error,
+      } = await supabase.auth.getSession();
+      if (error) {
+        console.error("Error fetching Supabase session:", error);
+      } else if (supabaseSession) {
+        setSession(supabaseSession);
+        setUser(supabaseSession.user);
+        await fetchProfile(supabaseSession.user.id);
+
+        // Best-effort SSO cookie sync for cross-subdomain auth.
+        if (supabaseSession.access_token) {
+          centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
+            .catch((err) => console.warn("SSO cookie sync on load failed:", err));
+        }
+      } else if (legacyCentralCallbackInUrl) {
+        // No compatible session exists for deprecated central-auth callback tokens.
+        clearLegacyCentralArtifacts(true);
+        markCentralAuthReauthRequired();
+        setIsLoading(false);
+        navigate("/?showAuth=true&reauth=central-auth-migration", {
+          replace: true,
+        });
+        return undefined;
+      } else if (hasLegacyCentralStorageArtifacts()) {
+        // Stale central-auth session metadata should not survive rollout.
+        clearLegacyCentralArtifacts(true);
+      }
+
+      if (!supabaseSession && consumeCentralAuthReauthRequired()) {
+        toast({
+          title: "Sign in required",
+          description:
+            "Your previous central-auth session was retired. Please sign in again using direct auth.",
+        });
+      }
+
+      // Set up Supabase auth state listener
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (event, supabaseSession) => {
+        console.log(
+          "Supabase auth state change:",
+          event,
+          supabaseSession?.user?.email
+        );
+        setSession(supabaseSession);
+        setUser(supabaseSession?.user || null);
+
+        if (supabaseSession?.user) {
           await fetchProfile(supabaseSession.user.id);
 
-          // Sync SSO cookies on page load with existing session
-          if (supabaseSession.access_token) {
+          // Best-effort SSO cookie sync for cross-subdomain auth.
+          if (event === "SIGNED_IN" && supabaseSession.access_token) {
             centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
-              .catch((err) => console.warn("SSO cookie sync on load failed:", err));
+              .catch((err) => console.warn("SSO cookie sync failed:", err));
           }
+
+          // Handle OAuth callback
+          if (
+            event === "SIGNED_IN" &&
+            supabaseSession.user.app_metadata.provider !== "email"
+          ) {
+            await handleOAuthUser(supabaseSession.user);
+          }
+        } else {
+          setProfile(null);
         }
+      });
 
-        // Set up Supabase auth state listener
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (event, supabaseSession) => {
-          console.log(
-            "Supabase auth state change:",
-            event,
-            supabaseSession?.user?.email
-          );
-          setSession(supabaseSession);
-          setUser(supabaseSession?.user || null);
+      setIsLoading(false);
 
-          if (supabaseSession?.user) {
-            await fetchProfile(supabaseSession.user.id);
-
-            // Sync SSO cookies for cross-subdomain authentication
-            if (event === "SIGNED_IN" && supabaseSession.access_token) {
-              centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
-                .catch((err) => console.warn("SSO cookie sync failed:", err));
-            }
-
-            // Handle OAuth callback
-            if (
-              event === "SIGNED_IN" &&
-              supabaseSession.user.app_metadata.provider !== "email"
-            ) {
-              await handleOAuthUser(supabaseSession.user);
-            }
-          } else {
-            setProfile(null);
-          }
-        });
-
-        setIsLoading(false);
-
-        // Cleanup subscription on unmount
-        return () => subscription.unsubscribe();
-      } catch (error) {
-        console.error("Error initializing Supabase auth:", error);
-        setIsLoading(false);
-      }
-    } else {
+      // Cleanup subscription on unmount
+      return () => subscription.unsubscribe();
+    } catch (error) {
+      console.error("Error initializing Supabase auth:", error);
       setIsLoading(false);
     }
 
@@ -283,57 +357,33 @@ export const CentralAuthProvider = ({
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const useCentralAuth = readEnvFlag("VITE_USE_CENTRAL_AUTH", false);
-      const useFallbackAuth = readEnvFlag("VITE_USE_FALLBACK_AUTH", true);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      // Try central auth first if enabled
-      if (useCentralAuth && isUsingCentralAuth) {
-        try {
-          // centralAuth.login() redirects and never returns
-          // The auth callback handler will complete the flow
-          await centralAuth.login(email, password);
-          // Code after this will never execute due to redirect
-          return;
-        } catch (centralError) {
-          console.warn(
-            "Central auth login failed, falling back to Supabase:",
-            centralError
-          );
+      if (error) throw error;
+
+      toast({
+        title: "Successfully signed in",
+        description: "Welcome back!",
+      });
+
+      // Try sessionStorage first, fallback to localStorage
+      let redirectPath = null;
+      try {
+        redirectPath = sessionStorage.getItem("redirectAfterLogin");
+        if (redirectPath) {
+          sessionStorage.removeItem("redirectAfterLogin");
+        }
+      } catch (e) {
+        // Fallback to localStorage
+        redirectPath = localStorage.getItem("redirectAfterLogin");
+        if (redirectPath) {
+          localStorage.removeItem("redirectAfterLogin");
         }
       }
-
-      // Fallback to Supabase
-      if (useFallbackAuth) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
-        toast({
-          title: "Successfully signed in",
-          description: "Welcome back!",
-        });
-
-        // Try sessionStorage first, fallback to localStorage
-        let redirectPath = null;
-        try {
-          redirectPath = sessionStorage.getItem("redirectAfterLogin");
-          if (redirectPath) {
-            sessionStorage.removeItem("redirectAfterLogin");
-          }
-        } catch (e) {
-          // Fallback to localStorage
-          redirectPath = localStorage.getItem("redirectAfterLogin");
-          if (redirectPath) {
-            localStorage.removeItem("redirectAfterLogin");
-          }
-        }
-        navigate(redirectPath || "/dashboard");
-      } else {
-        throw new Error("No authentication method available");
-      }
+      navigate(redirectPath || "/dashboard");
     } catch (error: unknown) {
       toast({
         title: "Error signing in",
@@ -351,48 +401,24 @@ export const CentralAuthProvider = ({
   const signUp = async (email: string, password: string, name: string) => {
     setIsLoading(true);
     try {
-      const useCentralAuth = readEnvFlag("VITE_USE_CENTRAL_AUTH", false);
-      const useFallbackAuth = readEnvFlag("VITE_USE_FALLBACK_AUTH", true);
-
-      // Try central auth first if enabled
-      if (useCentralAuth) {
-        try {
-          // centralAuth.signup() redirects and never returns
-          // The auth callback handler will complete the flow
-          await centralAuth.signup(email, password, name);
-          // Code after this will never execute due to redirect
-          return;
-        } catch (centralError) {
-          console.warn(
-            "Central auth signup failed, falling back to Supabase:",
-            centralError
-          );
-        }
-      }
-
-      // Fallback to Supabase
-      if (useFallbackAuth) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: name,
-            },
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
           },
-        });
+        },
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast({
-          title: "Account created successfully",
-          description: "Please check your email to verify your account.",
-        });
+      toast({
+        title: "Account created successfully",
+        description: "Please check your email to verify your account.",
+      });
 
-        navigate("/auth/login");
-      } else {
-        throw new Error("No authentication method available");
-      }
+      navigate("/auth/login");
     } catch (error: unknown) {
       toast({
         title: "Error creating account",
@@ -412,12 +438,8 @@ export const CentralAuthProvider = ({
       // Clear SSO cookies for cross-subdomain logout
       await centralAuth.clearSSOCookies();
 
-      if (isUsingCentralAuth) {
-        await centralAuth.logout();
-      } else {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
-      }
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
 
       setSession(null);
       setUser(null);
@@ -469,6 +491,20 @@ export const CentralAuthProvider = ({
           navigate("/dashboard");
         }, 1000);
       } else {
+        const searchParams = new URLSearchParams(window.location.search);
+        const legacyCentralCallbackInUrl =
+          hasLegacyCentralCallbackParams(searchParams) &&
+          !hasSupabaseCallbackParams(searchParams, window.location.hash);
+
+        if (legacyCentralCallbackInUrl) {
+          clearLegacyCentralArtifacts(true);
+          markCentralAuthReauthRequired();
+          navigate("/?showAuth=true&reauth=central-auth-migration", {
+            replace: true,
+          });
+          return;
+        }
+
         navigate("/auth");
       }
     } catch (error) {

@@ -1,9 +1,32 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
+const MCP_ROUTER_DOCS_PATH = "/docs/mcp-router";
+const MCP_ROUTER_DOCS_TARGET = "/docs/mcp-router/index.html";
+
+const mcpRouterDocsAliasPlugin = (): Plugin => ({
+  name: "mcp-router-docs-alias",
+  configureServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url === MCP_ROUTER_DOCS_PATH) {
+        req.url = MCP_ROUTER_DOCS_TARGET;
+      }
+      next();
+    });
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url === MCP_ROUTER_DOCS_PATH) {
+        req.url = MCP_ROUTER_DOCS_TARGET;
+      }
+      next();
+    });
+  },
+});
+
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   // Set base path for proper asset resolution
   base: '/', // Since we're deploying to dashboard.lanonasis.com root
   server: {
@@ -19,6 +42,7 @@ export default defineConfig(({ mode }) => ({
     }
   },
   plugins: [
+    mcpRouterDocsAliasPlugin(),
     react(),
   ],
   resolve: {

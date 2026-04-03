@@ -1,11 +1,12 @@
 // MCP Router - API Keys Management Page
 // Manage API keys with service scoping
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Plus,
   Key,
@@ -17,158 +18,139 @@ import {
   Clock,
   ExternalLink,
   RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
-import type { APIKey, ScopeType } from '@/types/mcp-router';
+import { APIKeyManager } from '@/lib/mcp-router/api-keys';
+import { UserServicesManager } from '@/lib/mcp-router/user-services';
+import type { APIKey, ScopeType, CreateAPIKeyRequest, ServiceEnvironment } from '@/types/mcp-router';
 
-// Mock data for demonstration
-const mockAPIKeys: APIKey[] = [
-  {
-    id: '1',
-    user_id: 'user-1',
-    key_prefix: 'lano_prod_lxyz',
-    key_hash: 'hash1',
-    name: 'Production App',
-    description: 'Main production application key',
-    encrypted_key: 'encrypted',
-    scope_type: 'specific',
-    allowed_environments: ['production'],
-    rate_limit_per_minute: 60,
-    rate_limit_per_day: 10000,
-    last_used_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    last_used_ip: '192.168.1.1',
-    is_active: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-    updated_at: new Date().toISOString(),
-    scopes: [
-      {
-        id: 's1',
-        api_key_id: '1',
-        service_key: 'stripe',
-        created_at: new Date().toISOString(),
-        service: {
-          id: '1',
-          service_key: 'stripe',
-          display_name: 'Stripe',
-          description: 'Payment processing',
-          category: 'payment',
-          credential_fields: [],
-          is_available: true,
-          is_beta: false,
-          requires_approval: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      },
-      {
-        id: 's2',
-        api_key_id: '1',
-        service_key: 'github',
-        created_at: new Date().toISOString(),
-        service: {
-          id: '2',
-          service_key: 'github',
-          display_name: 'GitHub',
-          description: 'Version control',
-          category: 'devops',
-          credential_fields: [],
-          is_available: true,
-          is_beta: false,
-          requires_approval: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      },
-    ],
-  },
-  {
-    id: '2',
-    user_id: 'user-1',
-    key_prefix: 'lano_test_abcd',
-    key_hash: 'hash2',
-    name: 'Testing Key',
-    description: 'For development and testing',
-    encrypted_key: 'encrypted',
-    scope_type: 'all',
-    allowed_environments: ['development', 'staging'],
-    rate_limit_per_minute: 120,
-    rate_limit_per_day: 50000,
-    last_used_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    last_used_ip: '127.0.0.1',
-    is_active: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-    updated_at: new Date().toISOString(),
-    scopes: [],
-  },
-  {
-    id: '3',
-    user_id: 'user-1',
-    key_prefix: 'lano_prod_old1',
-    key_hash: 'hash3',
-    name: 'Legacy App',
-    description: 'Old application (deprecated)',
-    encrypted_key: 'encrypted',
-    scope_type: 'specific',
-    allowed_environments: ['production'],
-    rate_limit_per_minute: 30,
-    rate_limit_per_day: 5000,
-    is_active: false,
-    revoked_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-    revoked_reason: 'Replaced with new key',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 90).toISOString(),
-    updated_at: new Date().toISOString(),
-    scopes: [
-      {
-        id: 's3',
-        api_key_id: '3',
-        service_key: 'stripe',
-        created_at: new Date().toISOString(),
-      },
-    ],
-  },
-];
+type ConfiguredServiceOption = {
+  service_key: string;
+  display_name: string;
+  is_enabled: boolean;
+};
 
-const mockConfiguredServices = [
-  { service_key: 'stripe', display_name: 'Stripe', is_enabled: true },
-  { service_key: 'github', display_name: 'GitHub', is_enabled: true },
-  { service_key: 'openai', display_name: 'OpenAI', is_enabled: true },
-  { service_key: 'slack', display_name: 'Slack', is_enabled: false },
-];
+const MASTER_PASSWORD_STORAGE_KEY = 'dashboard.mcp_router.master_password';
+
+const getMCPRouterMasterPassword = (): string => {
+  const envPassword =
+    import.meta.env.VITE_MCP_ROUTER_MASTER_PASSWORD ||
+    import.meta.env.VITE_API_KEY_ENCRYPTION_KEY;
+
+  if (typeof envPassword === 'string' && envPassword.trim().length > 0) {
+    return envPassword;
+  }
+
+  if (typeof window === 'undefined') {
+    return 'dashboard-local-master-password';
+  }
+
+  const existing = window.localStorage.getItem(MASTER_PASSWORD_STORAGE_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  const generated = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? `dashboard-local-${crypto.randomUUID()}`
+    : `dashboard-local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  window.localStorage.setItem(MASTER_PASSWORD_STORAGE_KEY, generated);
+  return generated;
+};
+
+const formatDate = (date?: string) => {
+  if (!date) return 'Never';
+  return new Date(date).toLocaleString();
+};
+
+const formatRelativeTime = (date?: string) => {
+  if (!date) return 'Never';
+  const now = Date.now();
+  const d = new Date(date);
+  const diff = now - d.getTime();
+
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} mins ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)} days ago`;
+  return d.toLocaleDateString();
+};
 
 export function APIKeysPage() {
-  const [apiKeys, setAPIKeys] = useState<APIKey[]>(mockAPIKeys);
+  const [apiKeys, setAPIKeys] = useState<APIKey[]>([]);
+  const [configuredServices, setConfiguredServices] = useState<ConfiguredServiceOption[]>([]);
+  const [loadingKeys, setLoadingKeys] = useState(true);
+  const [loadingServices, setLoadingServices] = useState(true);
+  const [keysUnavailable, setKeysUnavailable] = useState(false);
+  const [servicesUnavailable, setServicesUnavailable] = useState(false);
+  const [keysError, setKeysError] = useState<string | null>(null);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedKey, setSelectedKey] = useState<APIKey | null>(null);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<{ key: APIKey; fullKey: string } | null>(null);
 
-  // Stats - use state to cache current time for purity
-  const [renderTime] = useState(() => Date.now());
-  const stats = {
+  const masterPassword = useMemo(() => getMCPRouterMasterPassword(), []);
+  const apiKeyManager = useMemo(() => new APIKeyManager(masterPassword), [masterPassword]);
+  const userServicesManager = useMemo(() => new UserServicesManager(masterPassword), [masterPassword]);
+
+  const loadAPIKeys = useCallback(async () => {
+    setLoadingKeys(true);
+    try {
+      const keys = await apiKeyManager.getAPIKeys();
+      setAPIKeys(keys);
+      setKeysUnavailable(false);
+      setKeysError(null);
+    } catch (error: any) {
+      setAPIKeys([]);
+      setKeysUnavailable(true);
+      setKeysError(error?.message || 'API keys backend is not ready in this environment yet.');
+    } finally {
+      setLoadingKeys(false);
+    }
+  }, [apiKeyManager]);
+
+  const loadConfiguredServices = useCallback(async () => {
+    setLoadingServices(true);
+    try {
+      const services = await userServicesManager.getEnabledServices();
+      setConfiguredServices(
+        services.map(service => ({
+          service_key: service.service_key,
+          display_name: service.service?.display_name || service.service_key,
+          is_enabled: service.is_enabled,
+        }))
+      );
+      setServicesUnavailable(false);
+      setServicesError(null);
+    } catch (error: any) {
+      setConfiguredServices([]);
+      setServicesUnavailable(true);
+      setServicesError(error?.message || 'Configured services backend is not ready in this environment yet.');
+    } finally {
+      setLoadingServices(false);
+    }
+  }, [userServicesManager]);
+
+  const refreshPageData = useCallback(async () => {
+    await Promise.all([loadAPIKeys(), loadConfiguredServices()]);
+  }, [loadAPIKeys, loadConfiguredServices]);
+
+  useEffect(() => {
+    void refreshPageData();
+  }, [refreshPageData]);
+
+  const stats = useMemo(() => ({
     total: apiKeys.length,
     active: apiKeys.filter(k => k.is_active).length,
     revoked: apiKeys.filter(k => !k.is_active).length,
     expiringSoon: apiKeys.filter(k => {
       if (!k.expires_at) return false;
-      const expiresIn = new Date(k.expires_at).getTime() - renderTime;
-      return expiresIn > 0 && expiresIn < 7 * 24 * 60 * 60 * 1000; // 7 days
+      const expiresIn = new Date(k.expires_at).getTime() - Date.now();
+      return expiresIn > 0 && expiresIn < 7 * 24 * 60 * 60 * 1000;
     }).length,
-  };
-
-  const formatDate = (date?: string) => {
-    if (!date) return 'Never';
-    return new Date(date).toLocaleString();
-  };
-
-  const formatRelativeTime = (date?: string) => {
-    if (!date) return 'Never';
-    const d = new Date(date);
-    const diff = renderTime - d.getTime();
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} mins ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
-    if (diff < 604800000) return `${Math.floor(diff / 86400000)} days ago`;
-    return d.toLocaleDateString();
-  };
+  }), [apiKeys]);
 
   const copyToClipboard = async (text: string, keyId: string) => {
     await navigator.clipboard.writeText(text);
@@ -176,44 +158,68 @@ export function APIKeysPage() {
     setTimeout(() => setCopiedKeyId(null), 2000);
   };
 
+  const handleCreateKey = async (request: CreateAPIKeyRequest) => {
+    const created = await apiKeyManager.createAPIKey(request);
+
+    setAPIKeys(prev => [created.api_key, ...prev]);
+    setNewlyCreatedKey({ key: created.api_key, fullKey: created.full_key });
+
+    return {
+      key: created.api_key,
+      fullKey: created.full_key,
+    };
+  };
+
   const handleRevokeKey = async (keyId: string) => {
     if (!confirm('Are you sure you want to revoke this API key? This action cannot be undone.')) {
       return;
     }
-    setAPIKeys(prev =>
-      prev.map(k =>
-        k.id === keyId
-          ? {
-              ...k,
-              is_active: false,
-              revoked_at: new Date().toISOString(),
-              revoked_reason: 'Manually revoked',
-            }
-          : k
-      )
-    );
+
+    try {
+      await apiKeyManager.revokeAPIKey(keyId, 'Manually revoked from dashboard');
+      await loadAPIKeys();
+    } catch (error: any) {
+      alert(error?.message || 'Failed to revoke API key');
+    }
   };
 
   const handleDeleteKey = async (keyId: string) => {
     if (!confirm('Are you sure you want to permanently delete this API key?')) {
       return;
     }
-    setAPIKeys(prev => prev.filter(k => k.id !== keyId));
+
+    try {
+      await apiKeyManager.deleteAPIKey(keyId);
+      setAPIKeys(prev => prev.filter(k => k.id !== keyId));
+    } catch (error: any) {
+      alert(error?.message || 'Failed to delete API key');
+    }
   };
 
   const handleReactivateKey = async (keyId: string) => {
-    setAPIKeys(prev =>
-      prev.map(k =>
-        k.id === keyId
-          ? { ...k, is_active: true, revoked_at: undefined, revoked_reason: undefined }
-          : k
-      )
-    );
+    try {
+      const reactivated = await apiKeyManager.reactivateAPIKey(keyId);
+      setAPIKeys(prev => prev.map(k => (k.id === reactivated.id ? reactivated : k)));
+    } catch (error: any) {
+      alert(error?.message || 'Failed to reactivate API key');
+    }
+  };
+
+  const handleSaveKey = async (
+    keyId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      rate_limit_per_minute?: number;
+      rate_limit_per_day?: number;
+    }
+  ) => {
+    const updated = await apiKeyManager.updateAPIKey(keyId, updates);
+    setAPIKeys(prev => prev.map(k => (k.id === updated.id ? updated : k)));
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">MCP Router Keys</h1>
@@ -226,14 +232,39 @@ export function APIKeysPage() {
             <ExternalLink className="h-4 w-4 mr-2" />
             Documentation
           </Button>
-          <Button onClick={() => setShowCreateModal(true)}>
+          <Button variant="outline" onClick={() => void refreshPageData()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)} disabled={keysUnavailable}>
             <Plus className="h-4 w-4 mr-2" />
             Create API Key
           </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {keysUnavailable && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>API keys backend not available yet</AlertTitle>
+          <AlertDescription>
+            MCP Router API keys could not be loaded from `api_keys` / `api_key_scopes`.
+            {keysError ? ` Error: ${keysError}` : ''}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {servicesUnavailable && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Configured services unavailable</AlertTitle>
+          <AlertDescription>
+            Service-specific scoping is temporarily unavailable because configured services could not be loaded.
+            {servicesError ? ` Error: ${servicesError}` : ''}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6">
@@ -284,7 +315,6 @@ export function APIKeysPage() {
         </Card>
       </div>
 
-      {/* Newly Created Key Alert */}
       {newlyCreatedKey && (
         <Card className="border-green-500 bg-green-50 dark:bg-green-950">
           <CardContent className="p-6">
@@ -292,9 +322,9 @@ export function APIKeysPage() {
               <div className="flex items-start space-x-4">
                 <CheckCircle className="h-6 w-6 text-green-600 mt-0.5" />
                 <div>
-                  <h3 className="font-semibold text-green-900 dark:text-green-100">API Key Created Successfully!</h3>
+                  <h3 className="font-semibold text-green-900 dark:text-green-100">API Key Created Successfully</h3>
                   <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                    Make sure to copy your API key now. You won't be able to see it again!
+                    Make sure to copy your API key now. You will not be able to see it again.
                   </p>
                   <div className="mt-3 flex items-center space-x-2">
                     <code className="px-3 py-2 bg-white dark:bg-green-900 rounded border text-sm font-mono">
@@ -314,11 +344,7 @@ export function APIKeysPage() {
                   </div>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setNewlyCreatedKey(null)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setNewlyCreatedKey(null)}>
                 Dismiss
               </Button>
             </div>
@@ -326,198 +352,192 @@ export function APIKeysPage() {
         </Card>
       )}
 
-      {/* API Keys List */}
       <Card>
         <CardHeader>
           <CardTitle>Your Router Keys</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {apiKeys.map((key) => (
-              <div
-                key={key.id}
-                className={`p-4 border rounded-lg ${
-                  key.is_active ? 'bg-card' : 'bg-muted/50 opacity-75'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <h3 className="font-semibold text-foreground">{key.name}</h3>
-                      {key.is_active ? (
-                        <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                          Revoked
-                        </Badge>
-                      )}
-                      {key.scope_type === 'all' ? (
-                        <Badge variant="outline">All Services</Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          {key.scopes?.length || 0} Service{(key.scopes?.length || 0) !== 1 ? 's' : ''}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {key.description && (
-                      <p className="text-sm text-muted-foreground mt-1">{key.description}</p>
-                    )}
-
-                    <div className="mt-3 flex items-center space-x-2">
-                      <code className="px-2 py-1 bg-muted rounded text-sm font-mono">
-                        {key.key_prefix}...
-                      </code>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard(key.key_prefix, key.id)}
-                      >
-                        {copiedKeyId === key.id ? (
-                          <CheckCircle className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-
-                    {/* Service Scopes */}
-                    {key.scope_type === 'specific' && key.scopes && key.scopes.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {key.scopes.map((scope) => (
-                          <Badge
-                            key={scope.id}
-                            variant="secondary"
-                            className="text-xs"
-                          >
-                            {scope.service?.display_name || scope.service_key}
+          {loadingKeys ? (
+            <div className="py-10 text-center text-muted-foreground">Loading API keys...</div>
+          ) : keysUnavailable ? (
+            <div className="py-10 text-center text-muted-foreground">
+              API key management is not available yet for this environment.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {apiKeys.map((key) => (
+                <div
+                  key={key.id}
+                  className={`p-4 border rounded-lg ${
+                    key.is_active ? 'bg-card' : 'bg-muted/50 opacity-75'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3">
+                        <h3 className="font-semibold text-foreground">{key.name}</h3>
+                        {key.is_active ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            Active
                           </Badge>
-                        ))}
+                        ) : (
+                          <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                            Revoked
+                          </Badge>
+                        )}
+                        {key.scope_type === 'all' ? (
+                          <Badge variant="outline">All Services</Badge>
+                        ) : (
+                          <Badge variant="outline">
+                            {key.scopes?.length || 0} Service{(key.scopes?.length || 0) !== 1 ? 's' : ''}
+                          </Badge>
+                        )}
                       </div>
-                    )}
 
-                    {/* Key Details */}
-                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Environments:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {key.allowed_environments.map((env) => (
-                            <Badge key={env} variant="outline" className="text-xs">
-                              {env}
+                      {key.description && (
+                        <p className="text-sm text-muted-foreground mt-1">{key.description}</p>
+                      )}
+
+                      <div className="mt-3 flex items-center space-x-2">
+                        <code className="px-2 py-1 bg-muted rounded text-sm font-mono">
+                          {key.key_prefix}...
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(key.key_prefix, key.id)}
+                        >
+                          {copiedKeyId === key.id ? (
+                            <CheckCircle className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {key.scope_type === 'specific' && key.scopes && key.scopes.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {key.scopes.map((scope) => (
+                            <Badge key={scope.id} variant="secondary" className="text-xs">
+                              {scope.service?.display_name || scope.service_key}
                             </Badge>
                           ))}
                         </div>
+                      )}
+
+                      <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Environments:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {(key.allowed_environments || []).map((env) => (
+                              <Badge key={env} variant="outline" className="text-xs">
+                                {env}
+                              </Badge>
+                            ))}
+                            {(!key.allowed_environments || key.allowed_environments.length === 0) && (
+                              <span className="text-muted-foreground">None</span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Rate Limit:</span>
+                          <p className="font-medium text-foreground">
+                            {key.rate_limit_per_minute}/min, {key.rate_limit_per_day.toLocaleString()}/day
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Last Used:</span>
+                          <p className="font-medium text-foreground">{formatRelativeTime(key.last_used_at)}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Created:</span>
+                          <p className="font-medium text-foreground">{formatRelativeTime(key.created_at)}</p>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Rate Limit:</span>
-                        <p className="font-medium text-foreground">
-                          {key.rate_limit_per_minute}/min, {key.rate_limit_per_day.toLocaleString()}/day
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Last Used:</span>
-                        <p className="font-medium text-foreground">{formatRelativeTime(key.last_used_at)}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Created:</span>
-                        <p className="font-medium text-foreground">{formatRelativeTime(key.created_at)}</p>
-                      </div>
+
+                      {!key.is_active && key.revoked_at && (
+                        <div className="mt-3 p-2 bg-red-50 dark:bg-red-950 rounded text-sm text-red-800 dark:text-red-200">
+                          <strong>Revoked:</strong> {formatDate(key.revoked_at)}
+                          {key.revoked_reason && <span> - {key.revoked_reason}</span>}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Revoked Info */}
-                    {!key.is_active && key.revoked_at && (
-                      <div className="mt-3 p-2 bg-red-50 dark:bg-red-950 rounded text-sm text-red-800 dark:text-red-200">
-                        <strong>Revoked:</strong> {formatDate(key.revoked_at)}
-                        {key.revoked_reason && <span> - {key.revoked_reason}</span>}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center space-x-2 ml-4">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelectedKey(key)}
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    {key.is_active ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                        onClick={() => handleRevokeKey(key.id)}
-                      >
-                        <XCircle className="h-4 w-4" />
+                    <div className="flex items-center space-x-2 ml-4">
+                      <Button size="sm" variant="outline" onClick={() => setSelectedKey(key)}>
+                        <Settings className="h-4 w-4" />
                       </Button>
-                    ) : (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
-                          onClick={() => handleReactivateKey(key.id)}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
+                      {key.is_active ? (
                         <Button
                           size="sm"
                           variant="outline"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                          onClick={() => handleDeleteKey(key.id)}
+                          onClick={() => void handleRevokeKey(key.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <XCircle className="h-4 w-4" />
                         </Button>
-                      </>
-                    )}
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                            onClick={() => void handleReactivateKey(key.id)}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                            onClick={() => void handleDeleteKey(key.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
 
-            {apiKeys.length === 0 && (
-              <div className="text-center py-12">
-                <Key className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-1">No API keys</h3>
-                <p className="text-muted-foreground mb-4">
-                  Create your first API key to start using the MCP Router
-                </p>
-                <Button onClick={() => setShowCreateModal(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create API Key
-                </Button>
-              </div>
-            )}
-          </div>
+              {apiKeys.length === 0 && (
+                <div className="text-center py-12">
+                  <Key className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-1">No API keys</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Create your first API key to start using the MCP Router
+                  </p>
+                  <Button onClick={() => setShowCreateModal(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create API Key
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Create API Key Modal */}
       {showCreateModal && (
         <CreateAPIKeyModal
-          configuredServices={mockConfiguredServices}
+          configuredServices={configuredServices}
+          servicesUnavailable={servicesUnavailable || loadingServices}
           onClose={() => setShowCreateModal(false)}
-          onCreate={(key, fullKey) => {
-            setAPIKeys(prev => [key, ...prev]);
-            setNewlyCreatedKey({ key, fullKey });
+          onCreate={async (request) => {
+            const created = await handleCreateKey(request);
             setShowCreateModal(false);
+            return created;
           }}
         />
       )}
 
-      {/* Edit API Key Modal */}
       {selectedKey && (
         <EditAPIKeyModal
           apiKey={selectedKey}
-          configuredServices={mockConfiguredServices}
           onClose={() => setSelectedKey(null)}
-          onSave={(updated) => {
-            setAPIKeys(prev =>
-              prev.map(k => (k.id === updated.id ? updated : k))
-            );
+          onSave={async (updates) => {
+            await handleSaveKey(selectedKey.id, updates);
             setSelectedKey(null);
           }}
         />
@@ -526,26 +546,59 @@ export function APIKeysPage() {
   );
 }
 
-// Create API Key Modal Component
 function CreateAPIKeyModal({
   configuredServices,
+  servicesUnavailable,
   onClose,
   onCreate,
 }: {
-  configuredServices: { service_key: string; display_name: string; is_enabled: boolean }[];
+  configuredServices: ConfiguredServiceOption[];
+  servicesUnavailable: boolean;
   onClose: () => void;
-  onCreate: (key: APIKey, fullKey: string) => void;
+  onCreate: (request: CreateAPIKeyRequest) => Promise<{ key: APIKey; fullKey: string }>;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [scopeType, setScopeType] = useState<ScopeType>('all');
   const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
-  const [environments, setEnvironments] = useState<Set<string>>(new Set(['production']));
+  const [environments, setEnvironments] = useState<Set<ServiceEnvironment>>(new Set(['production']));
   const [rateLimitMinute, setRateLimitMinute] = useState(60);
   const [rateLimitDay, setRateLimitDay] = useState(10000);
   const [isCreating, setIsCreating] = useState(false);
 
   const enabledServices = configuredServices.filter(s => s.is_enabled);
+  const canUseSpecificScope = !servicesUnavailable && enabledServices.length > 0;
+
+  useEffect(() => {
+    if (!canUseSpecificScope && scopeType === 'specific') {
+      setScopeType('all');
+      setSelectedServices(new Set());
+    }
+  }, [canUseSpecificScope, scopeType]);
+
+  const toggleService = (serviceKey: string) => {
+    setSelectedServices(prev => {
+      const next = new Set(prev);
+      if (next.has(serviceKey)) {
+        next.delete(serviceKey);
+      } else {
+        next.add(serviceKey);
+      }
+      return next;
+    });
+  };
+
+  const toggleEnvironment = (env: ServiceEnvironment) => {
+    setEnvironments(prev => {
+      const next = new Set(prev);
+      if (next.has(env)) {
+        next.delete(env);
+      } else {
+        next.add(env);
+      }
+      return next;
+    });
+  };
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -566,64 +619,20 @@ function CreateAPIKeyModal({
     setIsCreating(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const fullKey = `lano_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 40)}`;
-      const key: APIKey = {
-        id: `key-${Date.now()}`,
-        user_id: 'user-1',
-        key_prefix: fullKey.substring(0, 12),
-        key_hash: 'hash',
+      await onCreate({
         name: name.trim(),
         description: description.trim() || undefined,
-        encrypted_key: 'encrypted',
         scope_type: scopeType,
-        allowed_environments: Array.from(environments) as any,
+        service_keys: scopeType === 'specific' ? Array.from(selectedServices) : undefined,
+        allowed_environments: Array.from(environments),
         rate_limit_per_minute: rateLimitMinute,
         rate_limit_per_day: rateLimitDay,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        scopes: scopeType === 'specific'
-          ? Array.from(selectedServices).map(sk => ({
-              id: `scope-${Date.now()}-${sk}`,
-              api_key_id: `key-${Date.now()}`,
-              service_key: sk,
-              created_at: new Date().toISOString(),
-              service: configuredServices.find(s => s.service_key === sk) as any,
-            }))
-          : [],
-      };
-
-      onCreate(key, fullKey);
+      });
+    } catch (error: any) {
+      alert(error?.message || 'Failed to create API key');
     } finally {
       setIsCreating(false);
     }
-  };
-
-  const toggleService = (serviceKey: string) => {
-    setSelectedServices(prev => {
-      const next = new Set(prev);
-      if (next.has(serviceKey)) {
-        next.delete(serviceKey);
-      } else {
-        next.add(serviceKey);
-      }
-      return next;
-    });
-  };
-
-  const toggleEnvironment = (env: string) => {
-    setEnvironments(prev => {
-      const next = new Set(prev);
-      if (next.has(env)) {
-        next.delete(env);
-      } else {
-        next.add(env);
-      }
-      return next;
-    });
   };
 
   return (
@@ -637,35 +646,20 @@ function CreateAPIKeyModal({
         </div>
 
         <div className="px-6 py-4 overflow-y-auto max-h-[60vh] space-y-6">
-          {/* Name */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
               Name <span className="text-red-500">*</span>
             </label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Production App Key"
-            />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Production App Key" />
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Description
-            </label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description"
-            />
+            <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" />
           </div>
 
-          {/* Scope Type */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Service Access
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Service Access</label>
             <div className="space-y-2">
               <label className="flex items-center space-x-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50">
                 <input
@@ -676,36 +670,31 @@ function CreateAPIKeyModal({
                 />
                 <div>
                   <span className="font-medium text-foreground">All Enabled Services</span>
-                  <p className="text-sm text-muted-foreground">Access all services you've configured</p>
+                  <p className="text-sm text-muted-foreground">Access all services you configured</p>
                 </div>
               </label>
-              <label className="flex items-center space-x-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50">
+              <label className={`flex items-center space-x-3 p-3 border border-border rounded-lg ${canUseSpecificScope ? 'cursor-pointer hover:bg-muted/50' : 'opacity-60 cursor-not-allowed'}`}>
                 <input
                   type="radio"
                   checked={scopeType === 'specific'}
-                  onChange={() => setScopeType('specific')}
+                  onChange={() => canUseSpecificScope && setScopeType('specific')}
                   className="h-4 w-4"
+                  disabled={!canUseSpecificScope}
                 />
                 <div>
                   <span className="font-medium text-foreground">Specific Services</span>
-                  <p className="text-sm text-muted-foreground">Choose which services this key can access</p>
+                  <p className="text-sm text-muted-foreground">Choose exactly which services this key can access</p>
                 </div>
               </label>
             </div>
           </div>
 
-          {/* Service Selection */}
           {scopeType === 'specific' && (
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Select Services
-              </label>
+              <label className="block text-sm font-medium text-foreground mb-2">Select Services</label>
               <div className="space-y-2 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
                 {enabledServices.map((service) => (
-                  <label
-                    key={service.service_key}
-                    className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded"
-                  >
+                  <label key={service.service_key} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded">
                     <input
                       type="checkbox"
                       checked={selectedServices.has(service.service_key)}
@@ -715,22 +704,24 @@ function CreateAPIKeyModal({
                     <span className="text-foreground">{service.display_name}</span>
                   </label>
                 ))}
-                {enabledServices.length === 0 && (
+                {servicesUnavailable && (
                   <p className="text-sm text-muted-foreground p-2">
-                    No services configured. Go to MCP Services to set them up.
+                    Service scope data is not available yet. Use "All Enabled Services" for now.
+                  </p>
+                )}
+                {!servicesUnavailable && enabledServices.length === 0 && (
+                  <p className="text-sm text-muted-foreground p-2">
+                    No enabled services configured. Go to MCP Services to set them up.
                   </p>
                 )}
               </div>
             </div>
           )}
 
-          {/* Environments */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Allowed Environments
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Allowed Environments</label>
             <div className="flex flex-wrap gap-2">
-              {['production', 'staging', 'development'].map((env) => (
+              {(['production', 'staging', 'development'] as ServiceEnvironment[]).map((env) => (
                 <label
                   key={env}
                   className={`flex items-center space-x-2 px-3 py-2 border rounded-lg cursor-pointer ${
@@ -751,12 +742,9 @@ function CreateAPIKeyModal({
             </div>
           </div>
 
-          {/* Rate Limits */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Rate Limit (per minute)
-              </label>
+              <label className="block text-sm font-medium text-foreground mb-1">Rate Limit (per minute)</label>
               <Input
                 type="number"
                 value={rateLimitMinute}
@@ -766,9 +754,7 @@ function CreateAPIKeyModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Rate Limit (per day)
-              </label>
+              <label className="block text-sm font-medium text-foreground mb-1">Rate Limit (per day)</label>
               <Input
                 type="number"
                 value={rateLimitDay}
@@ -781,10 +767,8 @@ function CreateAPIKeyModal({
         </div>
 
         <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-border bg-muted/50">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleCreate} disabled={isCreating}>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => void handleCreate()} disabled={isCreating}>
             {isCreating ? 'Creating...' : 'Create API Key'}
           </Button>
         </div>
@@ -793,32 +777,40 @@ function CreateAPIKeyModal({
   );
 }
 
-// Edit API Key Modal Component (simplified)
 function EditAPIKeyModal({
   apiKey,
-  configuredServices,
   onClose,
   onSave,
 }: {
   apiKey: APIKey;
-  configuredServices: { service_key: string; display_name: string; is_enabled: boolean }[];
   onClose: () => void;
-  onSave: (updated: APIKey) => void;
+  onSave: (updates: {
+    name?: string;
+    description?: string;
+    rate_limit_per_minute?: number;
+    rate_limit_per_day?: number;
+  }) => Promise<void>;
 }) {
   const [name, setName] = useState(apiKey.name);
   const [description, setDescription] = useState(apiKey.description || '');
   const [rateLimitMinute, setRateLimitMinute] = useState(apiKey.rate_limit_per_minute);
   const [rateLimitDay, setRateLimitDay] = useState(apiKey.rate_limit_per_day);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
-    onSave({
-      ...apiKey,
-      name: name.trim(),
-      description: description.trim() || undefined,
-      rate_limit_per_minute: rateLimitMinute,
-      rate_limit_per_day: rateLimitDay,
-      updated_at: new Date().toISOString(),
-    });
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        rate_limit_per_minute: rateLimitMinute,
+        rate_limit_per_day: rateLimitDay,
+      });
+    } catch (error: any) {
+      alert(error?.message || 'Failed to update API key');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -844,9 +836,7 @@ function EditAPIKeyModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Rate Limit (per minute)
-              </label>
+              <label className="block text-sm font-medium text-foreground mb-1">Rate Limit (per minute)</label>
               <Input
                 type="number"
                 value={rateLimitMinute}
@@ -855,9 +845,7 @@ function EditAPIKeyModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Rate Limit (per day)
-              </label>
+              <label className="block text-sm font-medium text-foreground mb-1">Rate Limit (per day)</label>
               <Input
                 type="number"
                 value={rateLimitDay}
@@ -869,10 +857,10 @@ function EditAPIKeyModal({
         </div>
 
         <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-border bg-muted/50">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => void handleSave()} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
-          <Button onClick={handleSave}>Save Changes</Button>
         </div>
       </div>
     </div>
