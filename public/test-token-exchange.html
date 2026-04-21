@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Exchange Test - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .test-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status.pending {
+            background: #fef3cd;
+            color: #856404;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .info-box {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+
+        .info-box pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .summary {
+            background: #e7f3ff;
+            border: 2px solid #2196F3;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .summary h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+
+        .log-entry {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .log-entry.info {
+            background: #e3f2fd;
+            border-left: 3px solid #2196F3;
+        }
+
+        .log-entry.success {
+            background: #e8f5e9;
+            border-left: 3px solid #4CAF50;
+        }
+
+        .log-entry.error {
+            background: #ffebee;
+            border-left: 3px solid #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Token Exchange Test Suite</h1>
+            <p>Dashboard → Supabase → Auth-Gateway → API</p>
+        </div>
+
+        <div class="content">
+            <!-- Test 1: Check Supabase Session -->
+            <div class="test-section">
+                <h2>1. Supabase Session <span id="test1-status" class="status pending">PENDING</span></h2>
+                <button onclick="checkSupabaseSession()">Check Supabase Session</button>
+                <div id="test1-result" class="info-box" style="display: none;"></div>
+            </div>
+
+            <!-- Test 2: Check Auth-Gateway Tokens -->
+            <div class="test-section">
+                <h2>2. Auth-Gateway Tokens <span id="test2-status" class="status pending">PENDING</span></h2>
+                <button onclick="checkAuthGatewayTokens()">Check Auth-Gateway Tokens</button>
+                <div id="test2-result" class="info-box" style="display: none;"></div>
+            </div>
+
+            <!-- Test 3: Manual Token Exchange -->
+            <div class="test-section">
+                <h2>3. Manual Token Exchange <span id="test3-status" class="status pending">PENDING</span></h2>
+                <button onclick="manualTokenExchange()">Exchange Token Manually</button>
+                <div id="test3-result" class="info-box" style="display: none;"></div>
+            </div>
+
+            <!-- Test 4: API Call with Auth-Gateway Token -->
+            <div class="test-section">
+                <h2>4. API Call with Auth-Gateway Token <span id="test4-status" class="status pending">PENDING</span></h2>
+                <button onclick="testApiCall()">Test API Call</button>
+                <div id="test4-result" class="info-box" style="display: none;"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button onclick="runAllTests()">🚀 Run All Tests</button>
+                <button onclick="clearResults()">🗑️ Clear Results</button>
+                <button onclick="exportResults()">📋 Export Results</button>
+            </div>
+
+            <!-- Summary -->
+            <div id="summary" class="summary" style="display: none;">
+                <h3>Test Summary</h3>
+                <div id="summary-content"></div>
+            </div>
+
+            <!-- Event Log -->
+            <div class="test-section">
+                <h2>Event Log</h2>
+                <div id="event-log"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const AUTH_GATEWAY_URL = 'https://auth.lanonasis.com';
+        const API_URL = 'https://api.lanonasis.com';
+        const SUPABASE_URL = 'https://mxtsdgkwzjzlttpotole.supabase.co';
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('event-log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.insertBefore(entry, logDiv.firstChild);
+        }
+
+        function updateStatus(testNum, status) {
+            const statusEl = document.getElementById(`test${testNum}-status`);
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = status.toUpperCase();
+        }
+
+        function showResult(testNum, content) {
+            const resultEl = document.getElementById(`test${testNum}-result`);
+            resultEl.style.display = 'block';
+            resultEl.innerHTML = `<pre>${content}</pre>`;
+        }
+
+        async function checkSupabaseSession() {
+            log('Checking Supabase session...', 'info');
+            try {
+                const session = localStorage.getItem('lanonasis_session');
+                if (!session) {
+                    updateStatus(1, 'error');
+                    showResult(1, 'No Supabase session found. Please log in first.');
+                    log('No Supabase session found', 'error');
+                    return null;
+                }
+
+                const sessionData = JSON.parse(session);
+                const user = sessionData.user;
+                const accessToken = sessionData.access_token;
+
+                if (!accessToken) {
+                    updateStatus(1, 'error');
+                    showResult(1, 'No access token in session');
+                    log('No access token in Supabase session', 'error');
+                    return null;
+                }
+
+                updateStatus(1, 'success');
+                showResult(1, JSON.stringify({
+                    user_id: user?.id,
+                    email: user?.email,
+                    token_preview: accessToken.substring(0, 20) + '...',
+                    expires_at: sessionData.expires_at
+                }, null, 2));
+                log('Supabase session valid', 'success');
+
+                return sessionData;
+            } catch (error) {
+                updateStatus(1, 'error');
+                showResult(1, `Error: ${error.message}`);
+                log(`Supabase session check failed: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        async function checkAuthGatewayTokens() {
+            log('Checking auth-gateway tokens...', 'info');
+            try {
+                const tokens = localStorage.getItem('auth_gateway_tokens');
+                if (!tokens) {
+                    updateStatus(2, 'error');
+                    showResult(2, 'No auth-gateway tokens found. Run token exchange first.');
+                    log('No auth-gateway tokens in localStorage', 'error');
+                    return null;
+                }
+
+                const tokenData = JSON.parse(tokens);
+                const now = Date.now();
+                const isExpired = tokenData.expires_at < now;
+
+                if (isExpired) {
+                    updateStatus(2, 'error');
+                    showResult(2, 'Auth-gateway tokens are expired');
+                    log('Auth-gateway tokens expired', 'error');
+                    return null;
+                }
+
+                updateStatus(2, 'success');
+                showResult(2, JSON.stringify({
+                    token_preview: tokenData.access_token.substring(0, 20) + '...',
+                    expires_at: new Date(tokenData.expires_at).toLocaleString(),
+                    user: tokenData.user,
+                    time_remaining: Math.round((tokenData.expires_at - now) / 1000) + 's'
+                }, null, 2));
+                log('Auth-gateway tokens valid', 'success');
+
+                return tokenData;
+            } catch (error) {
+                updateStatus(2, 'error');
+                showResult(2, `Error: ${error.message}`);
+                log(`Auth-gateway token check failed: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        async function manualTokenExchange() {
+            log('Starting manual token exchange...', 'info');
+            try {
+                const session = await checkSupabaseSession();
+                if (!session) {
+                    updateStatus(3, 'error');
+                    showResult(3, 'No Supabase session. Cannot exchange token.');
+                    return;
+                }
+
+                log('Calling token exchange endpoint...', 'info');
+                const response = await fetch(`${AUTH_GATEWAY_URL}/v1/auth/token/exchange`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json',
+                        'X-Project-Scope': 'lanonasis-maas'
+                    },
+                    body: JSON.stringify({
+                        project_scope: 'lanonasis-maas',
+                        platform: 'web'
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(`Token exchange failed: ${response.status} - ${error}`);
+                }
+
+                const tokens = await response.json();
+
+                // Store tokens
+                localStorage.setItem('auth_gateway_tokens', JSON.stringify({
+                    access_token: tokens.access_token,
+                    refresh_token: tokens.refresh_token,
+                    expires_at: Date.now() + (tokens.expires_in * 1000),
+                    user: tokens.user
+                }));
+
+                updateStatus(3, 'success');
+                showResult(3, JSON.stringify(tokens, null, 2));
+                log('Token exchange successful', 'success');
+
+                return tokens;
+            } catch (error) {
+                updateStatus(3, 'error');
+                showResult(3, `Error: ${error.message}`);
+                log(`Token exchange failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function testApiCall() {
+            log('Testing API call with auth-gateway token...', 'info');
+            try {
+                const tokens = await checkAuthGatewayTokens();
+                if (!tokens) {
+                    updateStatus(4, 'error');
+                    showResult(4, 'No valid auth-gateway tokens. Run token exchange first.');
+                    return;
+                }
+
+                log('Calling MaaS API health endpoint...', 'info');
+                const response = await fetch(`${API_URL}/api/v1/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${tokens.access_token}`,
+                        'X-Platform': 'dashboard',
+                        'X-Project-Scope': 'maas'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(`API call failed: ${response.status} - ${JSON.stringify(data)}`);
+                }
+
+                updateStatus(4, 'success');
+                showResult(4, JSON.stringify({
+                    status: response.status,
+                    response: data
+                }, null, 2));
+                log('API call successful', 'success');
+
+                return data;
+            } catch (error) {
+                updateStatus(4, 'error');
+                showResult(4, `Error: ${error.message}`);
+                log(`API call failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function runAllTests() {
+            log('Running all tests...', 'info');
+            const results = {
+                supabaseSession: false,
+                authGatewayTokens: false,
+                tokenExchange: false,
+                apiCall: false
+            };
+
+            try {
+                // Test 1
+                const session = await checkSupabaseSession();
+                results.supabaseSession = !!session;
+
+                // Test 2
+                let tokens = await checkAuthGatewayTokens();
+                results.authGatewayTokens = !!tokens;
+
+                // Test 3 - only if no valid tokens
+                if (!tokens) {
+                    tokens = await manualTokenExchange();
+                    results.tokenExchange = !!tokens;
+                } else {
+                    log('Skipping token exchange (valid tokens found)', 'info');
+                    updateStatus(3, 'success');
+                    showResult(3, 'Skipped - valid tokens already exist');
+                    results.tokenExchange = true;
+                }
+
+                // Test 4
+                const apiResult = await testApiCall();
+                results.apiCall = !!apiResult;
+
+                // Show summary
+                showSummary(results);
+            } catch (error) {
+                log(`Test suite failed: ${error.message}`, 'error');
+                showSummary(results);
+            }
+        }
+
+        function showSummary(results) {
+            const summary = document.getElementById('summary');
+            const content = document.getElementById('summary-content');
+
+            const total = Object.keys(results).length;
+            const passed = Object.values(results).filter(r => r).length;
+            const failed = total - passed;
+
+            content.innerHTML = `
+                <p><strong>Total Tests:</strong> ${total}</p>
+                <p><strong>Passed:</strong> ${passed}</p>
+                <p><strong>Failed:</strong> ${failed}</p>
+                <p><strong>Success Rate:</strong> ${Math.round((passed / total) * 100)}%</p>
+            `;
+
+            summary.style.display = 'block';
+            log(`Test summary: ${passed}/${total} passed`, passed === total ? 'success' : 'error');
+        }
+
+        function clearResults() {
+            for (let i = 1; i <= 4; i++) {
+                updateStatus(i, 'pending');
+                document.getElementById(`test${i}-result`).style.display = 'none';
+            }
+            document.getElementById('summary').style.display = 'none';
+            document.getElementById('event-log').innerHTML = '';
+            log('Results cleared', 'info');
+        }
+
+        function exportResults() {
+            const results = {
+                timestamp: new Date().toISOString(),
+                tests: []
+            };
+
+            for (let i = 1; i <= 4; i++) {
+                const status = document.getElementById(`test${i}-status`).textContent;
+                const result = document.getElementById(`test${i}-result`).textContent;
+                results.tests.push({
+                    test: i,
+                    status,
+                    result
+                });
+            }
+
+            const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `token-exchange-test-${Date.now()}.json`;
+            a.click();
+            log('Results exported', 'success');
+        }
+
+        // Auto-run on page load if session exists
+        window.addEventListener('load', () => {
+            log('Page loaded. Ready to test.', 'info');
+            if (localStorage.getItem('lanonasis_session')) {
+                log('Supabase session detected. You can run tests.', 'success');
+            } else {
+                log('No Supabase session. Please log in to the Dashboard first.', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
