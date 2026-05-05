@@ -1,8 +1,17 @@
-// Central auth gateway bridge for dashboard.
-// Task #128 owner decision:
-// - Supported owner model: direct-auth (Supabase session is source of truth)
-// - This module is transitional for gateway bridging only (token exchange, SSO cookie sync, legacy refresh fallback)
-// - New dashboard auth flows must not depend on central auth as the primary interactive path
+/**
+ * Central Auth Gateway Bridge for Dashboard
+ *
+ * @deprecated as of task #128/#129: dashboard now uses direct-auth (direct Supabase sessions)
+ * as the primary owner model. This module is retained only for:
+ *   - Token exchange bridging (Supabase session -> gateway cookie sync)
+ *   - Legacy refresh token fallback when direct-auth is unavailable
+ *   - SSO cookie lifecycle on .lanonasis.com
+ *
+ * New dashboard auth flows must not depend on central-auth as the primary interactive path.
+ * All dashboard interactive auth (login, signup, OAuth) routes through direct-auth.
+ *
+ * Expected removal: after legacy cookie-sync patterns are fully removed from the codebase.
+ */
 
 import { secureTokenStorage } from './secure-token-storage';
 
@@ -55,6 +64,10 @@ const API_BASE_URL = import.meta.env.VITE_AUTH_GATEWAY_URL || import.meta.env.VI
 const PROJECT_SCOPE = import.meta.env.VITE_PROJECT_SCOPE || 'app_maas_dashboard';
 const PLATFORM = 'web';
 
+/**
+ * @deprecated CentralAuthClient is deprecated — use direct-auth (DirectAuthClient) for all
+ * dashboard auth. CentralAuthClient is only for gateway token-exchange bridging.
+ */
 class CentralAuthClient {
   constructor() {
     // Migrate from localStorage on initialization (one-time migration)

@@ -68,7 +68,7 @@ vi.mock("@/integrations/supabase/client", () => {
     const builder = {
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
-      maybeSingle: vi.fn(() => Promise.resolve(mockProfileResponse)),
+      maybeSingle: vi.fn(() => Promise.resolve({ ...mockProfileResponse })),
       insert: vi.fn(() => Promise.resolve({ error: null })),
     };
     return builder;
@@ -130,7 +130,10 @@ describe("useCentralAuth Hook", () => {
   });
 
   describe("Initialization", () => {
-    it("should initialize with central auth when healthy", async () => {
+    it("should initialize with direct-auth (Supabase) session", async () => {
+      // The hook uses direct-auth (Supabase) as the auth owner model per Task #128.
+      // central-auth.healthCheck/getCurrentSession are NOT called on init;
+      // central-auth is only used for best-effort SSO cookie sync (exchangeSupabaseToken).
       const mockSession = {
         access_token: "token-123",
         user: {
@@ -139,8 +142,10 @@ describe("useCentralAuth Hook", () => {
         },
       };
 
-      mockHealthCheck.mockResolvedValue(true);
-      mockGetCurrentSession.mockResolvedValue(mockSession);
+      mockSupabaseAuth.getSession.mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
 
       const { result } = renderHook(() => useCentralAuth(), {
         wrapper: createWrapper,
@@ -152,16 +157,22 @@ describe("useCentralAuth Hook", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(mockHealthCheck).toHaveBeenCalled();
-      expect(mockGetCurrentSession).toHaveBeenCalled();
+      // Supabase session is loaded via direct-auth
+      expect(mockSupabaseAuth.getSession).toHaveBeenCalled();
+      // central-auth is NOT called on init (healthCheck/getCurrentSession are bridge-only)
+      expect(mockHealthCheck).not.toHaveBeenCalled();
+      expect(mockGetCurrentSession).not.toHaveBeenCalled();
+      // session is set from Supabase
       expect(result.current.session).toEqual(mockSession);
       expect(result.current.user).toEqual(mockSession.user);
+      // isUsingCentralAuth is always false (direct-auth is the owner model)
+      expect(result.current.isUsingCentralAuth).toBe(false);
     });
 
-    it("should fallback to Supabase when central auth is unhealthy", async () => {
-      mockHealthCheck.mockResolvedValue(false);
+    it("should handle no session gracefully", async () => {
       mockSupabaseAuth.getSession.mockResolvedValue({
         data: { session: null },
+        error: null,
       });
 
       const { result } = renderHook(() => useCentralAuth(), {
@@ -172,15 +183,14 @@ describe("useCentralAuth Hook", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(mockHealthCheck).toHaveBeenCalled();
       expect(mockSupabaseAuth.getSession).toHaveBeenCalled();
+      expect(result.current.session).toBeNull();
+      expect(result.current.user).toBeNull();
+      expect(result.current.profile).toBeNull();
     });
 
     it("should handle initialization errors gracefully", async () => {
-      mockHealthCheck.mockRejectedValue(new Error("Network error"));
-      mockSupabaseAuth.getSession.mockResolvedValue({
-        data: { session: null },
-      });
+      mockSupabaseAuth.getSession.mockRejectedValue(new Error("Network error"));
 
       const { result } = renderHook(() => useCentralAuth(), {
         wrapper: createWrapper,
@@ -190,15 +200,18 @@ describe("useCentralAuth Hook", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      // Should fallback to Supabase
-      expect(mockSupabaseAuth.getSession).toHaveBeenCalled();
+      expect(result.current.session).toBeNull();
+      expect(result.current.user).toBeNull();
     });
   });
 
   describe("Login", () => {
-    it("should sign in with Supabase when no central session", async () => {
-      mockHealthCheck.mockResolvedValue(true);
-      mockGetCurrentSession.mockResolvedValue(null);
+    it("should sign in with Supabase credentials", async () => {
+      // signIn always uses direct-auth (Supabase) per Task #128 owner model
+      mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
 
       const { result } = renderHook(() => useCentralAuth(), {
         wrapper: createWrapper,
@@ -216,13 +229,12 @@ describe("useCentralAuth Hook", () => {
         email: "test@example.com",
         password: "password123",
       });
+      // central-auth.login is never used (direct-auth is the owner model)
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
     it("should surface sign-in errors via toast", async () => {
       const error = new Error("Invalid credentials");
-      mockHealthCheck.mockResolvedValue(true);
-      mockGetCurrentSession.mockResolvedValue(null);
       mockSupabaseAuth.signInWithPassword.mockResolvedValue({
         data: { session: null },
         error,
@@ -256,14 +268,18 @@ describe("useCentralAuth Hook", () => {
 
   describe("Logout", () => {
     it("should logout and clear session", async () => {
+      // signOut clears SSO cookies via centralAuth.clearSSOCookies() then calls supabase.auth.signOut()
+      // central-auth.logout() is NOT called (that method is for full central-auth logout flows)
       const mockSession = {
         access_token: "token-123",
         user: { id: "user-123", email: "test@example.com" },
       };
 
-      mockHealthCheck.mockResolvedValue(true);
-      mockGetCurrentSession.mockResolvedValue(mockSession);
-      mockLogout.mockResolvedValue(undefined);
+      mockSupabaseAuth.getSession.mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+      mockSupabaseAuth.signOut.mockResolvedValue({ error: null });
 
       const { result } = renderHook(() => useCentralAuth(), {
         wrapper: createWrapper,
@@ -277,16 +293,24 @@ describe("useCentralAuth Hook", () => {
         await result.current.signOut();
       });
 
-      expect(mockLogout).toHaveBeenCalled();
+      // clearSSOCookies is called (best-effort cross-subdomain logout)
+      expect(mockClearSSOCookies).toHaveBeenCalled();
+      // central-auth.logout() is NOT called
+      expect(mockLogout).not.toHaveBeenCalled();
+      // Supabase signOut is called
+      expect(mockSupabaseAuth.signOut).toHaveBeenCalled();
+
       await waitFor(() => {
         expect(result.current.session).toBeNull();
         expect(result.current.user).toBeNull();
+        expect(result.current.profile).toBeNull();
       });
     });
   });
 
   describe("Session Management", () => {
     it("should fetch user profile on login", async () => {
+      // Profile is fetched via Supabase after session is established (direct-auth owner model)
       const mockSession = {
         access_token: "token-123",
         user: { id: "user-123", email: "test@example.com" },
@@ -301,9 +325,12 @@ describe("useCentralAuth Hook", () => {
         role: "user",
       };
 
-      mockHealthCheck.mockResolvedValue(true);
-      mockGetCurrentSession.mockResolvedValue(mockSession);
+      mockSupabaseAuth.getSession.mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
       mockProfileResponse.data = mockProfile;
+      mockProfileResponse.error = null;
 
       const { result } = renderHook(() => useCentralAuth(), {
         wrapper: createWrapper,

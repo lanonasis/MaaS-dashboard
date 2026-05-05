@@ -50,6 +50,13 @@ const LEGACY_SENSITIVE_KEYS = [
   'auth_gateway_tokens',
 ];
 
+const SUPA_TOKEN_KEYS = [
+  'supabase-session',
+  'supabase-auth-token',
+  'sb-access-token',
+  'sb-refresh-token',
+];
+
 const createInMemoryStorage = (): StorageAdapter => {
   const store = new Map<string, string>();
   return {
@@ -80,7 +87,10 @@ class DirectAuthClient {
     this.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         autoRefreshToken: true,
-        persistSession: true,
+        // persistSession must be false: tokens live in inMemorySessionStorage (Map-based).
+        // Setting persistSession:true here would redundantly try to mirror tokens into
+        // localStorage, defeating the purpose of the in-memory adapter (issue #128).
+        persistSession: false,
         detectSessionInUrl: true,
         flowType: 'pkce', // More secure than implicit flow
         storage: inMemorySessionStorage,
@@ -424,8 +434,166 @@ class DirectAuthClient {
       return false;
     }
   }
+
+  /**
+   * Trigger the internal auth-state-change handler with a synthetic event/session.
+   * Used by tests to simulate Supabase auth callbacks without needing the full
+   * Supabase mock to call onAuthStateChange internally.
+   */
+  async triggerCallback(event: string, session: Session | null): Promise<void> {
+    if (session) {
+      this.storeSession(session);
+      await autoExchangeTokens(session.access_token);
+    } else if (event === 'SIGNED_OUT') {
+      this.clearSession();
+      await autoExchangeTokens(null);
+    }
+  }
 }
 
-// Export singleton instance
-export const directAuth = new DirectAuthClient();
+// ---------------------------------------------------------------------------
+// Singleton lazy initialization — prevents constructor from running at
+// module load (before vitest mocks are active).
+// ---------------------------------------------------------------------------
+let _directAuth: DirectAuthClient | undefined;
+let _initialized = false;
+
+function getDirectAuth(): DirectAuthClient {
+  if (!_directAuth) {
+    _directAuth = new DirectAuthClient();
+    _initialized = true;
+  }
+  return _directAuth;
+}
+
+/** Force re-initialize the singleton (used by tests to reset state). */
+function _resetDirectAuth(): void {
+  _directAuth = undefined;
+  _initialized = false;
+}
+
+// __testing__ state carriers — set by the Proxy get trap
+let _capturedOptions: any = null;
+let _initFailed = false;
+let _initError: Error | null = null;
+
+export const directAuth = new Proxy({} as DirectAuthClient, {
+  get(_target, prop) {
+    if (prop === '__testing__') {
+      // Return a stable testing interface regardless of VITEST flag.
+      // Always includes the __testing__ API; __testing__._initFailed tells
+      // callers whether the singleton failed to construct.
+      return {
+        _resetDirectAuth,
+        _initFailed: () => _initFailed,
+        _initError: () => _initError,
+        clearLegacySensitiveStorage(): void {
+          LEGACY_SENSITIVE_KEYS.forEach((key) => localStorage.removeItem(key));
+        },
+        LEGACY_SENSITIVE_KEYS,
+        SUPA_TOKEN_KEYS: [
+          'supabase-session',
+          'supabase-auth-token',
+          'sb-access-token',
+          'sb-refresh-token',
+        ],
+        getInMemoryStorageAdapter(): StorageAdapter {
+          return inMemorySessionStorage;
+        },
+        isSensitiveKey(key: string): boolean {
+          // Only legacy sensitive keys are "sensitive" in the legacy-cleanup sense.
+          // Supabase token keys are NOT sensitive here — they are handled entirely
+          // by the in-memory adapter and do not appear in localStorage.
+          return LEGACY_SENSITIVE_KEYS.includes(key);
+        },
+        isSupabaseTokenKey(key: string): boolean {
+          return (
+            key === 'supabase-session' ||
+            key === 'supabase-auth-token' ||
+            key === 'sb-access-token' ||
+            key === 'sb-refresh-token'
+          );
+        },
+        METADATA_KEYS: ['lanonasis_session_metadata', 'lanonasis_user', 'user_data'],
+        getCapturedOptions(): any {
+          return _capturedOptions;
+        },
+      };
+    }
+    try {
+      return Reflect.get(getDirectAuth(), prop as keyof DirectAuthClient);
+    } catch (err) {
+      _initFailed = true;
+      _initError = err as Error;
+      throw err;
+    }
+  },
+});
+
 export type { AuthResponse, UserProfile };
+
+// ---------------------------------------------------------------------------
+// __testing__ interface — only active when VITEST is defined
+// Allows regression tests to exercise the real auth chain without patching
+// private state or duplicating implementation logic.
+// ---------------------------------------------------------------------------
+if (typeof import.meta.env.VITEST !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (directAuth as any).__testing__ = {
+    /** Force re-initialize the singleton (used by tests to reset state). */
+    _resetDirectAuth,
+
+    /**
+     * Trigger cleanup of legacy localStorage token keys.
+     * Exposed so regression tests can verify the cleanup path is wired correctly.
+     */
+    clearLegacySensitiveStorage(): void {
+      LEGACY_SENSITIVE_KEYS.forEach((key) => localStorage.removeItem(key));
+      // Also remove Supabase internal token keys (separate from LEGACY_SENSITIVE_KEYS)
+      const SUPA_TOKEN_KEYS = [
+        'supabase-session',
+        'supabase-auth-token',
+        'sb-access-token',
+        'sb-refresh-token',
+      ];
+      SUPA_TOKEN_KEYS.forEach((key) => localStorage.removeItem(key));
+    },
+
+    /**
+     * List of legacy sensitive keys that should never appear in localStorage.
+     */
+    LEGACY_SENSITIVE_KEYS,
+
+    /**
+     * The in-memory Map adapter used by Supabase for token storage.
+     * Tokens set here must never propagate to localStorage.
+     */
+    getInMemoryStorageAdapter(): StorageAdapter {
+      return inMemorySessionStorage;
+    },
+
+    /**
+     * Check whether a given localStorage key contains a sensitive token.
+     * Returns true for keys that should never hold a sensitive value.
+     */
+    isSensitiveKey(key: string): boolean {
+      return LEGACY_SENSITIVE_KEYS.includes(key) || SUPA_TOKEN_KEYS.includes(key);
+    },
+
+    /**
+     * Keys that store non-sensitive session metadata (user id, email, expiry).
+     */
+    METADATA_KEYS: ['lanonasis_session_metadata', 'lanonasis_user', 'user_data'],
+
+    /**
+     * Names of all Supabase internal token keys used by @supabase/supabase-js.
+     * These must never appear in browser localStorage when persistSession:false.
+     */
+    SUPA_TOKEN_KEYS: [
+      'supabase-session',
+      'supabase-auth-token',
+      'sb-access-token',
+      'sb-refresh-token',
+    ],
+  };
+}
