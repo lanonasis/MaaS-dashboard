@@ -298,7 +298,7 @@ export class AIOrchestrator {
 
     // Check for web scraping intent first
     if (scrapeKeywords.some(kw => lowerInput.includes(kw))) {
-      const urlMatch = userInput.match(/(?:https?:\/\/)?(?:www\.)?[\w\-.]+(?:\.[\w\-]+)+[^\s]*/);
+      const urlMatch = userInput.match(/(?:https?:\/\/)?(?:www\.)?[\w.-]+(?:\.[\w-]+)+[^\s]*/);
       if (urlMatch) {
         return {
           type: 'execute_action',
@@ -448,7 +448,7 @@ export class AIOrchestrator {
 
     // Web scraping patterns
     if (lowerInput.includes('scrape') || lowerInput.includes('extract data')) {
-      const urlMatch = input.match(/(?:https?:\/\/)?(?:www\.)?[\w\-.]+(?:\.[\w\-]+)+[^\s]*/);
+      const urlMatch = input.match(/(?:https?:\/\/)?(?:www\.)?[\w.-]+(?:\.[\w-]+)+[^\s]*/);
       if (urlMatch) {
         return {
           action: 'dashboard.web_scraper.scrape',

@@ -94,6 +94,13 @@ class ApiClient {
         headers['Authorization'] = apiKey;
         headers['X-API-Key'] = apiKey;
       } else {
+<<<<<<< HEAD
+||||||| 0cd4c74
+        headers['Authorization'] = `Bearer ${apiKey}`;
+=======
+        // lano_* and all other platform keys must go via X-API-Key only.
+        // Sending them as Bearer triggers OAuth introspection and causes 401s.
+>>>>>>> 81bacb159c407a62568340aca67762c7073c4868
         headers['X-API-Key'] = apiKey;
       }
       return headers;
