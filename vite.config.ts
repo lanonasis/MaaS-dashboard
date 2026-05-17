@@ -31,10 +31,10 @@ export default defineConfig(() => ({
   base: '/', // Since we're deploying to dashboard.lanonasis.com root
   server: {
     host: "0.0.0.0",
-    port: 5000,
+    port: parseInt(process.env.PORT ?? "5000"),
     allowedHosts: true,
     hmr: {
-      clientPort: 5000
+      clientPort: parseInt(process.env.PORT ?? "5000"),
     },
     watch: {
       // Ignore cache directories to prevent file descriptor exhaustion
