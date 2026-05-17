@@ -20,6 +20,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
 import { APIKeyManager } from '@/lib/mcp-router/api-keys';
 import { UserServicesManager } from '@/lib/mcp-router/user-services';
 import type { APIKey, ScopeType, CreateAPIKeyRequest, ServiceEnvironment } from '@/types/mcp-router';
@@ -77,6 +78,7 @@ const formatRelativeTime = (date?: string) => {
 };
 
 export function APIKeysPage() {
+  const { toast } = useToast();
   const [apiKeys, setAPIKeys] = useState<APIKey[]>([]);
   const [configuredServices, setConfiguredServices] = useState<ConfiguredServiceOption[]>([]);
   const [loadingKeys, setLoadingKeys] = useState(true);
@@ -178,8 +180,8 @@ export function APIKeysPage() {
     try {
       await apiKeyManager.revokeAPIKey(keyId, 'Manually revoked from dashboard');
       await loadAPIKeys();
-    } catch (error: any) {
-      alert(error?.message || 'Failed to revoke API key');
+    } catch {
+      toast({ title: 'Could not revoke key', description: 'Please try again or contact support.', variant: 'destructive' });
     }
   };
 
@@ -191,8 +193,8 @@ export function APIKeysPage() {
     try {
       await apiKeyManager.deleteAPIKey(keyId);
       setAPIKeys(prev => prev.filter(k => k.id !== keyId));
-    } catch (error: any) {
-      alert(error?.message || 'Failed to delete API key');
+    } catch {
+      toast({ title: 'Could not delete key', description: 'Please try again or contact support.', variant: 'destructive' });
     }
   };
 
@@ -200,8 +202,8 @@ export function APIKeysPage() {
     try {
       const reactivated = await apiKeyManager.reactivateAPIKey(keyId);
       setAPIKeys(prev => prev.map(k => (k.id === reactivated.id ? reactivated : k)));
-    } catch (error: any) {
-      alert(error?.message || 'Failed to reactivate API key');
+    } catch {
+      toast({ title: 'Could not reactivate key', description: 'Please try again or contact support.', variant: 'destructive' });
     }
   };
 
@@ -246,10 +248,10 @@ export function APIKeysPage() {
       {keysUnavailable && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>API keys backend not available yet</AlertTitle>
+          <AlertTitle>Can't load your keys right now</AlertTitle>
           <AlertDescription>
-            MCP Router API keys could not be loaded from `api_keys` / `api_key_scopes`.
-            {keysError ? ` Error: ${keysError}` : ''}
+            We're having trouble connecting. Please refresh the page or try again in a moment.
+            If this keeps happening, contact support.
           </AlertDescription>
         </Alert>
       )}
@@ -257,10 +259,9 @@ export function APIKeysPage() {
       {servicesUnavailable && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Configured services unavailable</AlertTitle>
+          <AlertTitle>Can't load your services right now</AlertTitle>
           <AlertDescription>
-            Service-specific scoping is temporarily unavailable because configured services could not be loaded.
-            {servicesError ? ` Error: ${servicesError}` : ''}
+            We couldn't fetch your connected services. You can still use 'All Services' access for now.
           </AlertDescription>
         </Alert>
       )}
@@ -354,7 +355,7 @@ export function APIKeysPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Your Router Keys</CardTitle>
+          <CardTitle>Your MCP Router Keys</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingKeys ? (
@@ -557,6 +558,7 @@ function CreateAPIKeyModal({
   onClose: () => void;
   onCreate: (request: CreateAPIKeyRequest) => Promise<{ key: APIKey; fullKey: string }>;
 }) {
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [scopeType, setScopeType] = useState<ScopeType>('all');
@@ -602,17 +604,17 @@ function CreateAPIKeyModal({
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      alert('Please enter a name for the API key');
+      toast({ title: 'Name required', description: 'Please enter a name for this key.', variant: 'destructive' });
       return;
     }
 
     if (scopeType === 'specific' && selectedServices.size === 0) {
-      alert('Please select at least one service');
+      toast({ title: 'Service required', description: 'Please select at least one service.', variant: 'destructive' });
       return;
     }
 
     if (environments.size === 0) {
-      alert('Please select at least one environment');
+      toast({ title: 'Environment required', description: 'Please select at least one environment.', variant: 'destructive' });
       return;
     }
 
@@ -628,8 +630,8 @@ function CreateAPIKeyModal({
         rate_limit_per_minute: rateLimitMinute,
         rate_limit_per_day: rateLimitDay,
       });
-    } catch (error: any) {
-      alert(error?.message || 'Failed to create API key');
+    } catch {
+      toast({ title: 'Could not create key', description: 'Please try again or contact support.', variant: 'destructive' });
     } finally {
       setIsCreating(false);
     }
@@ -791,6 +793,7 @@ function EditAPIKeyModal({
     rate_limit_per_day?: number;
   }) => Promise<void>;
 }) {
+  const { toast } = useToast();
   const [name, setName] = useState(apiKey.name);
   const [description, setDescription] = useState(apiKey.description || '');
   const [rateLimitMinute, setRateLimitMinute] = useState(apiKey.rate_limit_per_minute);
@@ -806,8 +809,8 @@ function EditAPIKeyModal({
         rate_limit_per_minute: rateLimitMinute,
         rate_limit_per_day: rateLimitDay,
       });
-    } catch (error: any) {
-      alert(error?.message || 'Failed to update API key');
+    } catch {
+      toast({ title: 'Could not update key', description: 'Please try again or contact support.', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
