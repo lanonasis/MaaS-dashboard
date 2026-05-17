@@ -82,7 +82,7 @@ const NAV_SECTIONS: NavSection[] = [
     defaultOpen: true,
     items: [
       { id: 'mcp-services', label: 'API Services', icon: Box, path: '/dashboard/mcp-services', badge: 'New', shortcut: 'G S' },
-      { id: 'api-keys', label: 'Router Keys', icon: Key, path: '/dashboard/api-keys', shortcut: 'G K' },
+      { id: 'api-keys', label: 'MCP Router Keys', icon: Key, path: '/dashboard/api-keys', shortcut: 'G K' },
       { id: 'mcp-usage', label: 'Usage Analytics', icon: TrendingUp, path: '/dashboard/mcp-usage' },
       { id: 'mcp-tracking', label: 'Request Tracking', icon: Activity, path: '/dashboard/mcp-tracking' },
       { id: 'extensions', label: 'MCP Extensions', icon: Settings, path: '/dashboard/extensions' },

@@ -380,7 +380,7 @@ const MCPServerManager: React.FC = () => {
             <div className="text-sm">
               <p className="font-medium">How Extensions Work</p>
               <p className="text-muted-foreground">
-                Enable extensions to grant your Router Keys access to these services.
+                Enable extensions to grant your MCP Router Keys access to these services.
                 When you make API calls with your key, enabled extensions are automatically available.
                 Your credentials are encrypted and never exposed.
               </p>
@@ -410,7 +410,7 @@ const MCPServerManager: React.FC = () => {
                 <Server className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Active Extensions</h3>
                 <p className="text-muted-foreground text-center max-w-sm">
-                  Enable extensions from the "All Extensions" tab to start using them with your Router Keys.
+                  Enable extensions from the "All Extensions" tab to start using them with your MCP Router Keys.
                 </p>
               </CardContent>
             </Card>
@@ -458,7 +458,7 @@ const MCPServerManager: React.FC = () => {
                 onChange={(e) => setApiKeyInput(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Your API key is encrypted and stored securely. It will only be used when you make requests through your Router Keys.
+                Your API key is encrypted and stored securely. It will only be used when you make requests through your MCP Router Keys.
               </p>
             </div>
 

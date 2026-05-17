@@ -45,7 +45,7 @@ const DESKTOP_BREAKPOINT = 1024;
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   'overview':          { title: 'Overview' },
-  'api-keys':          { title: 'Router Keys',       subtitle: 'Manage API access keys' },
+  'api-keys':          { title: 'MCP Router Keys',   subtitle: 'Manage API access keys' },
   'orchestrator':      { title: 'Orchestrator',      subtitle: 'AI workflow automation' },
   'ai-tools':          { title: 'AI Tools' },
   'memory-visualizer': { title: 'Context Explorer' },

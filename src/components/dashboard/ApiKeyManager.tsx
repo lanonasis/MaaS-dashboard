@@ -39,6 +39,7 @@ interface ApiKey {
   key?: string;
   // Service scoping: 'all' or 'specific'
   service?: string;
+  key_context?: 'personal' | 'team' | 'enterprise' | 'legacy';
   user_id: string;
   name: string;
   expires_at: string | null;
@@ -848,6 +849,11 @@ export const ApiKeyManager = () => {
                                   className="ml-2 text-xs"
                                 >
                                   Expired
+                                </Badge>
+                              )}
+                              {key.key_context && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  {key.key_context}
                                 </Badge>
                               )}
                             </h3>
