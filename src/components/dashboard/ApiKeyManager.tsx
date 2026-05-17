@@ -33,12 +33,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 // Define ApiKey type locally since we're using Supabase directly
+type KeyContext = 'personal' | 'team' | 'enterprise';
+
 interface ApiKey {
   id: string;
   // key is only shown immediately after creation; not stored in DB
   key?: string;
   // Service scoping: 'all' or 'specific'
   service?: string;
+  // Memory context: personal (user_id-isolated), team, enterprise
+  key_context?: KeyContext;
   user_id: string;
   name: string;
   expires_at: string | null;
@@ -121,6 +125,9 @@ export const ApiKeyManager = () => {
   const [activityKeyName, setActivityKeyName] = useState<string>('');
   const [activityRecords, setActivityRecords] = useState<ActivityRecord[]>([]);
   const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+
+  // Memory context scoping
+  const [keyContext, setKeyContext] = useState<KeyContext>('personal');
 
   // Service scoping state
   const [serviceType, setServiceType] = useState<'all' | 'specific'>('all');
@@ -335,6 +342,7 @@ export const ApiKeyManager = () => {
             key: formattedKey,  // Store plain key (required by schema)
             key_hash: keyHash,   // SHA-256 hash for validation
             service: serviceType,  // 'all' or 'specific'
+            key_context: keyContext,
             user_id: user.id,
             expires_at: expirationDate,
             is_active: true,
@@ -359,6 +367,7 @@ export const ApiKeyManager = () => {
               name: keyName.trim(),
               key: formattedKey,
               service: serviceType,  // 'all' or 'specific'
+              key_context: keyContext,
               user_id: user.id,
               expires_at: expirationDate,
               is_active: true,
@@ -563,6 +572,22 @@ export const ApiKeyManager = () => {
                   />
                 </div>
                 <div className="grid gap-2">
+                  <Label htmlFor="key-context">Memory Context</Label>
+                  <Select value={keyContext} onValueChange={(v) => setKeyContext(v as KeyContext)}>
+                    <SelectTrigger id="key-context">
+                      <SelectValue placeholder="Select memory context" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="personal">Personal — your memories only</SelectItem>
+                      <SelectItem value="team">Team — shared with your team</SelectItem>
+                      <SelectItem value="enterprise">Enterprise — organisation-wide</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Controls which memories this key can read and write. Personal keys are isolated to your account.
+                  </p>
+                </div>
+                <div className="grid gap-2">
                   <Label htmlFor="service">Service Access</Label>
                   <Select value={serviceType} onValueChange={(v) => setServiceType(v as 'all' | 'specific')}>
                     <SelectTrigger id="service">
@@ -725,6 +750,10 @@ export const ApiKeyManager = () => {
                       <span className="font-medium">{keyName}</span>
                     </p>
                     <p className="text-foreground">
+                      <span className="text-muted-foreground">Context:</span>{" "}
+                      <span className="font-medium capitalize">{keyContext}</span>
+                    </p>
+                    <p className="text-foreground">
                       <span className="text-muted-foreground">Services:</span>{" "}
                       <span className="font-medium">
                         {serviceType === "all"
@@ -783,6 +812,7 @@ export const ApiKeyManager = () => {
                     onClick={() => {
                       setGeneratedKey("");
                       setKeyName("");
+                      setKeyContext("personal");
                       setServiceType("all");
                       setSelectedServices([]);
                       setKeyExpiration("never");

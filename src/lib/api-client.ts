@@ -94,7 +94,7 @@ class ApiClient {
         headers['Authorization'] = apiKey;
         headers['X-API-Key'] = apiKey;
       } else {
-        headers['Authorization'] = `Bearer ${apiKey}`;
+        headers['X-API-Key'] = apiKey;
       }
       return headers;
     }
