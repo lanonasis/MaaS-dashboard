@@ -36,6 +36,7 @@ export interface CreateMemoryRequest {
   memory_type?: MemoryType;
   tags?: string[];
   metadata?: Record<string, unknown>;
+  topic_key?: string;
 }
 
 export interface SearchMemoryRequest {
@@ -45,6 +46,9 @@ export interface SearchMemoryRequest {
   memory_types?: MemoryType[];
   tags?: string[];
   status?: string;
+  topic_key?: string;
+  response_mode?: string;
+  include_deleted?: boolean;
 }
 
 export type MemoryType = 'context' | 'insight' | 'reference' | 'plan';
@@ -173,6 +177,9 @@ async search(params: {
   threshold?: number;
   types?: MemoryType[];
   tags?: string[];
+  topic_key?: string;
+  response_mode?: string;
+  include_deleted?: boolean;
 }): Promise<MemorySearchResult[]> {
   const client = await this.getClient();
 
@@ -182,6 +189,9 @@ async search(params: {
     threshold: params.threshold || 0.7,
     memory_types: params.types,
     tags: params.tags,
+    topic_key: params.topic_key,
+    response_mode: params.response_mode,
+    include_deleted: params.include_deleted,
     status: 'active'
   };
 
@@ -218,6 +228,7 @@ async create(memory: {
   type?: MemoryType;
   tags?: string[];
   metadata?: Record<string, unknown>;
+  topic_key?: string;
 }): Promise<MemoryEntry> {
   const client = await this.getClient();
 
@@ -242,6 +253,7 @@ async create(memory: {
     memory_type: memory.type || 'context',
     tags: safeTags,
     metadata: memory.metadata ?? {},
+    topic_key: memory.topic_key,
   };
 
   const response: any = await client.createMemory(createParams);
@@ -312,6 +324,8 @@ async list(params?: {
   offset?: number;
   types?: MemoryType[];
   tags?: string[];
+  topic_key?: string;
+  include_deleted?: boolean;
 }): Promise<MemoryEntry[]> {
   const client = await this.getClient();
   const limit = params?.limit || 20;
@@ -323,6 +337,8 @@ async list(params?: {
     page,
     memory_type: params?.types?.[0],
     tags: params?.tags,
+    topic_key: params?.topic_key,
+    include_deleted: params?.include_deleted,
     status: 'active'
   });
 
