@@ -41,13 +41,8 @@ interface ApiKey {
   key?: string;
   // Service scoping: 'all' or 'specific'
   service?: string;
-<<<<<<< HEAD
   // Memory context: personal (user_id-isolated), team, enterprise
   key_context?: KeyContext;
-||||||| 0cd4c74
-=======
-  key_context?: 'personal' | 'team' | 'enterprise' | 'legacy';
->>>>>>> 81bacb159c407a62568340aca67762c7073c4868
   user_id: string;
   name: string;
   expires_at: string | null;

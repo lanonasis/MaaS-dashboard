@@ -45,13 +45,15 @@ if (typeof window !== 'undefined') {
 
 describe('SecureTokenStorage security behavior', () => {
   let storage: SecureTokenStorage;
+  let ls: Storage;
+  let ss: Storage;
 
   beforeEach(() => {
     // Reset stores and mock call counts between tests
     lsStore.clear();
     ssStore.clear();
-    const ls = target.localStorage;
-    const ss = target.sessionStorage;
+    ls = target.localStorage;
+    ss = target.sessionStorage;
     vi.mocked(ls.getItem).mockReset();
     vi.mocked(ls.setItem).mockReset();
     vi.mocked(ls.removeItem).mockReset();

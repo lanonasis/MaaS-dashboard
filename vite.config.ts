@@ -62,6 +62,7 @@ export default defineConfig(() => ({
     ],
   },
   optimizeDeps: {
+    entries: ['index.html'],
     exclude: ['@lanonasis/memory-client', '@lanonasis/mem-intel-sdk'],
   },
   build: {

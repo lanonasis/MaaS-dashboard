@@ -102,7 +102,7 @@ describe('ApiClient', () => {
         expect.any(String),
         expect.objectContaining({
           headers: expect.objectContaining({
-            Authorization: 'Bearer test-api-key',
+            'X-API-Key': 'test-api-key',
           }),
         })
       );
