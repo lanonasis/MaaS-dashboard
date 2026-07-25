@@ -32,9 +32,13 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import {
+  applyConsumerTag,
+  resolveConsumer,
+  type KeyConsumer,
+} from "./api-key-consumer";
 // Define ApiKey type locally since we're using Supabase directly
 type KeyContext = 'personal' | 'team' | 'enterprise';
-type KeyConsumer = 'claude' | 'hermes' | 'openclaw';
 
 type ApiKeyBinding = {
   client_id?: KeyConsumer;
@@ -111,24 +115,6 @@ async function sha256Hex(input: string): Promise<string> {
 // Helper to format service type for display
 function getServiceTypeDisplayName(serviceType: string): string {
   return serviceType === "specific" ? "Specific Services" : "All Services";
-}
-
-function resolveConsumer(key: Pick<ApiKey, 'consumer' | 'binding' | 'name'>): KeyConsumer | undefined {
-  if (key.consumer) {
-    return key.consumer;
-  }
-
-  if (key.binding?.client_id) {
-    return key.binding.client_id;
-  }
-
-  const match = /^\[(claude|hermes|openclaw)\]\s+/i.exec(key.name);
-  return match?.[1]?.toLowerCase() as KeyConsumer | undefined;
-}
-
-function applyConsumerTag(name: string, consumer: KeyConsumer | 'unbound'): string {
-  const baseName = name.replace(/^\[(claude|hermes|openclaw)\]\s+/i, '').trim();
-  return consumer === 'unbound' ? baseName : `[${consumer}] ${baseName}`;
 }
 
 export const ApiKeyManager = () => {
@@ -863,6 +849,7 @@ export const ApiKeyManager = () => {
                       setGeneratedKey("");
                       setKeyName("");
                       setKeyContext("personal");
+                      setConsumer("unbound");
                       setServiceType("all");
                       setSelectedServices([]);
                       setKeyExpiration("never");
