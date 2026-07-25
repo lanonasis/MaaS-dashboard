@@ -34,6 +34,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 // Define ApiKey type locally since we're using Supabase directly
 type KeyContext = 'personal' | 'team' | 'enterprise';
+type KeyConsumer = 'claude' | 'hermes' | 'openclaw';
+
+type ApiKeyBinding = {
+  client_id?: KeyConsumer;
+};
 
 interface ApiKey {
   id: string;
@@ -43,6 +48,8 @@ interface ApiKey {
   service?: string;
   // Memory context: personal (user_id-isolated), team, enterprise
   key_context?: KeyContext;
+  binding?: ApiKeyBinding | null;
+  consumer?: KeyConsumer;
   user_id: string;
   name: string;
   expires_at: string | null;
@@ -106,6 +113,24 @@ function getServiceTypeDisplayName(serviceType: string): string {
   return serviceType === "specific" ? "Specific Services" : "All Services";
 }
 
+function resolveConsumer(key: Pick<ApiKey, 'consumer' | 'binding' | 'name'>): KeyConsumer | undefined {
+  if (key.consumer) {
+    return key.consumer;
+  }
+
+  if (key.binding?.client_id) {
+    return key.binding.client_id;
+  }
+
+  const match = /^\[(claude|hermes|openclaw)\]\s+/i.exec(key.name);
+  return match?.[1]?.toLowerCase() as KeyConsumer | undefined;
+}
+
+function applyConsumerTag(name: string, consumer: KeyConsumer | 'unbound'): string {
+  const baseName = name.replace(/^\[(claude|hermes|openclaw)\]\s+/i, '').trim();
+  return consumer === 'unbound' ? baseName : `[${consumer}] ${baseName}`;
+}
+
 export const ApiKeyManager = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("create");
@@ -128,6 +153,7 @@ export const ApiKeyManager = () => {
 
   // Memory context scoping
   const [keyContext, setKeyContext] = useState<KeyContext>('personal');
+  const [consumer, setConsumer] = useState<KeyConsumer | 'unbound'>('unbound');
 
   // Service scoping state
   const [serviceType, setServiceType] = useState<'all' | 'specific'>('all');
@@ -205,8 +231,11 @@ export const ApiKeyManager = () => {
       if (error) throw error;
 
       // Defensive: ensure data is array before mapping
-      const keys = Array.isArray(data) ? data : [];
-      setApiKeys(keys);
+      const keys = (Array.isArray(data) ? data : []).map((key) => ({
+        ...key,
+        consumer: resolveConsumer(key as ApiKey),
+      }));
+      setApiKeys(keys as ApiKey[]);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to fetch API keys";
@@ -329,6 +358,8 @@ export const ApiKeyManager = () => {
 
       // Hash before storing; only the hashed form goes to the database
       const keyHash = await sha256Hex(formattedKey);
+      const binding = consumer === 'unbound' ? {} : { client_id: consumer };
+      const taggedName = applyConsumerTag(keyName.trim(), consumer);
 
       // Try inserting with key_hash first (preferred method)
       let data: any = null;
@@ -338,11 +369,12 @@ export const ApiKeyManager = () => {
         const result = await supabase
           .from("api_keys")
           .insert({
-            name: keyName.trim(),
+            name: taggedName,
             key: formattedKey,  // Store plain key (required by schema)
             key_hash: keyHash,   // SHA-256 hash for validation
             service: serviceType,  // 'all' or 'specific'
             key_context: keyContext,
+            binding,
             user_id: user.id,
             expires_at: expirationDate,
             is_active: true,
@@ -364,10 +396,11 @@ export const ApiKeyManager = () => {
           const result = await supabase
             .from("api_keys")
             .insert({
-              name: keyName.trim(),
+              name: taggedName,
               key: formattedKey,
               service: serviceType,  // 'all' or 'specific'
               key_context: keyContext,
+              binding,
               user_id: user.id,
               expires_at: expirationDate,
               is_active: true,
@@ -585,6 +618,23 @@ export const ApiKeyManager = () => {
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     Controls which memories this key can read and write. Personal keys are isolated to your account.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="consumer-binding">Consumer Binding</Label>
+                  <Select value={consumer} onValueChange={(v) => setConsumer(v as KeyConsumer | 'unbound')}>
+                    <SelectTrigger id="consumer-binding">
+                      <SelectValue placeholder="Select consumer binding" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unbound">Unbound — reusable across clients</SelectItem>
+                      <SelectItem value="claude">Claude only</SelectItem>
+                      <SelectItem value="hermes">Hermes only</SelectItem>
+                      <SelectItem value="openclaw">OpenClaw only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Bound keys are accepted only by the selected client. Unbound keys keep legacy cross-client behaviour.
                   </p>
                 </div>
                 <div className="grid gap-2">
@@ -883,6 +933,11 @@ export const ApiKeyManager = () => {
                               {key.key_context && (
                                 <Badge variant="secondary" className="ml-2 text-xs">
                                   {key.key_context}
+                                </Badge>
+                              )}
+                              {key.consumer && (
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  {key.consumer}
                                 </Badge>
                               )}
                             </h3>
