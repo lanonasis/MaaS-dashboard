@@ -340,21 +340,21 @@ export const SupabaseAuthProvider = ({
             });
             setProfile(insertData[0] as Profile);
 
-            // Seed default context entries for new users
+            // Seed default continuity entries for new users
             const defaultContextEntries = [
               {
-                title: 'Welcome to LanOnasis',
-                content: '# Welcome to LanOnasis\n\nWelcome to LanOnasis where your context becomes money or value. This is your personal context store - a place to keep important information, notes, and knowledge that AI assistants can reference to provide you with personalized help.',
+                title: 'Continuity begins here',
+                content: '# Continuity begins here\n\nThis is your continuity surface — a longitudinal thinking partner that helps you see what has been emerging over time. The Continuity Concierge searches your continuity for recurring themes, identity evolution, and unresolved questions; explains which memories informed the answer; and offers a brief when you want pattern over retrieval.\n\nYou are not here to store notes. You are here to think with someone who has been paying attention.',
                 type: 'context',
                 tags: ['welcome', 'getting-started'],
-                metadata: { source: 'system', is_default: true, title: 'Welcome to LanOnasis' }
+                metadata: { source: 'system', is_default: true, title: 'Continuity begins here' }
               },
               {
-                title: 'Getting Started with Context Store',
-                content: '# Getting Started with Context Store\n\nTips for using Context Store:\n\n1. Add project notes to remember important decisions\n2. Store API documentation snippets for quick reference\n3. Save workflow templates for repeated tasks\n4. Use tags to organize related context entries\n5. The AI assistant can search and reference your context to provide personalized help',
+                title: 'How to use the continuity surface',
+                content: '# How to use the continuity surface\n\nThe continuity surface is not a notes app. Three things to know:\n\n1. Ask the Concierge for a brief — "what have I been thinking about lately?" — and it will surface the recurring themes and unresolved threads visible across your history.\n2. Ask for synthesis — "connect these two decisions" — and it will name the patterns, drift, and convergence between them.\n3. Capture a reference — "remember this" — and the Concierge will save it for future continuity, not as a note to retrieve, but as a thread to weave into what is emerging.\n\nWhat the Concierge surfaces: recurring themes, identity evolution, unresolved questions, drift, convergence. What you can do: think with it, ask for a brief, ask for synthesis, capture a reference.',
                 type: 'knowledge',
                 tags: ['tips', 'getting-started', 'tutorial'],
-                metadata: { source: 'system', is_default: true, title: 'Getting Started with Context Store' }
+                metadata: { source: 'system', is_default: true, title: 'How to use the continuity surface' }
               }
             ];
 

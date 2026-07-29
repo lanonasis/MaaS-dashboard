@@ -101,7 +101,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     id: 'context',
-    title: 'Context Store',
+    title: 'Continuity',
     icon: Database,
     defaultOpen: false,
     items: [

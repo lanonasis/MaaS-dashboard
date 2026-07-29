@@ -30,7 +30,7 @@
     "tags": "Tags",
     "created": "Created",
     "updated": "Updated",
-    "store": "Context Store",
+    "store": "Continuity",
     "explorer": "Context Explorer",
     "analytics": "Context Analytics",
     "quick_save": "Quick Save",
@@ -45,7 +45,7 @@
   },
   "navigation": {
     "home": "Home",
-    "context": "Context Store",
+    "context": "Continuity",
     "profile": "Profile",
     "help": "Help"
   },
