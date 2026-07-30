@@ -15,6 +15,7 @@ import {
   ExternalLink,
   AlertCircle,
   Info,
+  Key,
 } from 'lucide-react';
 import type {
   MCPServiceCatalog,
