@@ -28,6 +28,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
@@ -334,6 +335,10 @@ const Dashboard = () => {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Language / locale selector — Testsprite E2E target.
+                    Renders on every dashboard route so the control is always visible. */}
+                <LanguageSwitcher />
+
                 <Button
                   variant="outline"
                   size="sm"
