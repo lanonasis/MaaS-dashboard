@@ -19,6 +19,8 @@ import {
   ExternalLink,
   RefreshCw,
   AlertCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { APIKeyManager } from '@/lib/mcp-router/api-keys';
@@ -92,6 +94,7 @@ export function APIKeysPage() {
   const [selectedKey, setSelectedKey] = useState<APIKey | null>(null);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<{ key: APIKey; fullKey: string } | null>(null);
+  const [visibleKeyIds, setVisibleKeyIds] = useState<Set<string>>(new Set());
 
   const masterPassword = useMemo(() => getMCPRouterMasterPassword(), []);
   const apiKeyManager = useMemo(() => new APIKeyManager(masterPassword), [masterPassword]);
@@ -317,24 +320,47 @@ export function APIKeysPage() {
       </div>
 
       {newlyCreatedKey && (
-        <Card className="border-green-500 bg-green-50 dark:bg-green-950">
+        <Card className="border-green-500 bg-green-50 dark:bg-green-950" data-testid="new-api-key-created-card">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-4">
                 <CheckCircle className="h-6 w-6 text-green-600 mt-0.5" />
                 <div>
-                  <h3 className="font-semibold text-green-900 dark:text-green-100">API Key Created Successfully</h3>
+                  <h3 className="font-semibold text-green-900 dark:text-green-100" data-testid="api-key-success-title">API Key Created Successfully</h3>
                   <p className="text-sm text-green-700 dark:text-green-300 mt-1">
                     Make sure to copy your API key now. You will not be able to see it again.
                   </p>
                   <div className="mt-3 flex items-center space-x-2">
-                    <code className="px-3 py-2 bg-white dark:bg-green-900 rounded border text-sm font-mono">
-                      {newlyCreatedKey.fullKey}
+                    <code className="px-3 py-2 bg-white dark:bg-green-900 rounded border text-sm font-mono" data-testid="new-api-key-display">
+                      {visibleKeyIds.has('new') ? newlyCreatedKey.fullKey : 'sk_live_' + '•'.repeat(32)}
                     </code>
                     <Button
-                      size="sm"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        const newSet = new Set(visibleKeyIds);
+                        if (newSet.has('new')) {
+                          newSet.delete('new');
+                        } else {
+                          newSet.add('new');
+                        }
+                        setVisibleKeyIds(newSet);
+                      }}
+                      data-testid="toggle-key-visibility-new"
+                      aria-label={visibleKeyIds.has('new') ? "Hide API key" : "Show API key"}
+                    >
+                      {visibleKeyIds.has('new') ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      size="icon"
                       variant="outline"
                       onClick={() => copyToClipboard(newlyCreatedKey.fullKey, 'new')}
+                      data-testid="copy-api-key-button"
+                      aria-label="Copy API key"
                     >
                       {copiedKeyId === 'new' ? (
                         <CheckCircle className="h-4 w-4 text-green-600" />
