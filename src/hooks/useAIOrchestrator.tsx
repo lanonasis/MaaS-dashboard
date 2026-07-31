@@ -1,12 +1,15 @@
 /**
  * React Hook for AI Orchestrator
- * Provides easy access to the AI assistant in any component
+ * Provides easy access to the Continuity Concierge in any component.
+ *
+ * The orchestrator powers the concierge: a longitudinal thinking partner
+ * that grounds responses in user memory and surfaces recurring themes.
  *
  * Features:
  * - AI-powered responses using LLM backend
- * - Personalized context from user data and memories
- * - Workflow planning and generation
- * - Tool execution via MCP integration
+ * - Personalized context from user data and memories (continuity grounding)
+ * - Brief and synthesis across sessions
+ * - Tool integration via MCP for the continuity surface
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -54,7 +57,7 @@ export function useAIOrchestrator() {
   }, [orchestrator, session?.access_token]);
 
   /**
-   * Send a message to the AI assistant
+   * Send a message to the Continuity Concierge
    */
   const sendMessage = useCallback(async (message: string) => {
     if (!orchestrator || !message.trim()) {
@@ -73,7 +76,7 @@ export function useAIOrchestrator() {
     } catch (error: any) {
       console.error('AI Orchestrator error:', error);
       toast({
-        title: 'AI Assistant Error',
+        title: 'Concierge Error',
         description: error.message || 'Failed to process request',
         variant: 'destructive'
       });

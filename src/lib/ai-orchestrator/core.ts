@@ -870,7 +870,7 @@ export class AIOrchestrator {
     // Greetings
     if (lowerInput.match(/^(hi|hello|hey|good morning|good afternoon|good evening)/i)) {
       const timeGreeting = new Date().getHours() < 12 ? 'morning' : (new Date().getHours() < 18 ? 'afternoon' : 'evening');
-      return `Good ${timeGreeting}${userName ? `, ${userName}` : ''}! I'm your AI assistant. I can help you:\n\n- **Create workflows** for complex tasks\n- **Search your memories** for relevant context\n- **Store important information** for future reference\n- **Answer questions** about your stored data\n\nWhat would you like to work on today?`;
+      return `Good ${timeGreeting}${userName ? `, ${userName}` : ''}! I'm the Continuity Concierge, your longitudinal thinking partner.\n\nI work with you across sessions to:\n- **Recall continuity** — surface memories, prior decisions, and recurring themes\n- **Notice patterns** — identity evolution, unresolved threads, and emergent questions\n- **Brief and synthesize** — turn scattered context into a coherent picture\n\nI do NOT execute workflows or store things on your behalf. I surface; you decide.\n\nWhat would you like to think through today?`;
     }
 
     // Thanks/acknowledgment

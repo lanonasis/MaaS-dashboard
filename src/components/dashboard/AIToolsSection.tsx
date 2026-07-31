@@ -17,11 +17,11 @@ export function AIToolsSection() {
         </div>
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            AI Assistant Configuration
+            Concierge Configuration
             <Sparkles className="h-6 w-6 text-blue-600" />
           </h1>
           <p className="text-muted-foreground mt-1">
-            Empower your AI assistant with tools and integrations
+            Configure the continuity surface — which tools and integrations your concierge draws on
           </p>
         </div>
       </div>
