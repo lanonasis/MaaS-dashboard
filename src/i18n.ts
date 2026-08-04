@@ -26,6 +26,14 @@ i18n
     resources,
     fallbackLng: 'en',
     debug: false, // Disable debug to reduce console noise
+    // Persist user-selected locale across reloads. i18next-browser-languagedetector
+    // defaults to localStorage with the key `i18nextLng`, but listing it explicitly
+    // makes the contract visible to E2E tests and future readers.
+    detection: {
+      order: ['localStorage', 'navigator', 'htmlTag'],
+      caches: ['localStorage'],
+      lookupLocalStorage: 'i18nextLng',
+    },
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default
     },
