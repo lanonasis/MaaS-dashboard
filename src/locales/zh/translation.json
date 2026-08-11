@@ -1,19 +1,19 @@
 {
   "header": {
     "nav": {
-      "home": "Home",
-      "features": "Features",
-      "pricing": "Pricing",
-      "about": "About",
-      "contact": "Contact"
+      "home": "首页",
+      "features": "功能",
+      "pricing": "定价",
+      "about": "关于",
+      "contact": "联系我们"
     },
-    "login": "Login",
-    "signup": "Sign Up",
     "theme": {
-      "light": "Light",
-      "dark": "Dark",
-      "system": "System"
-    }
+      "light": "浅色",
+      "dark": "深色",
+      "system": "系统"
+    },
+    "login": "登录",
+    "signup": "注册"
   },
   "dashboard": {
     "title": "Dashboard",

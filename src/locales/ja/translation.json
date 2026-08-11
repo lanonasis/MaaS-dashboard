@@ -1,19 +1,19 @@
 {
   "header": {
     "nav": {
-      "home": "Home",
-      "features": "Features",
-      "pricing": "Pricing",
-      "about": "About",
-      "contact": "Contact"
+      "home": "ホーム",
+      "features": "機能",
+      "pricing": "料金",
+      "about": "会社概要",
+      "contact": "お問い合わせ"
     },
-    "login": "Login",
-    "signup": "Sign Up",
     "theme": {
-      "light": "Light",
-      "dark": "Dark",
-      "system": "System"
-    }
+      "light": "ライト",
+      "dark": "ダーク",
+      "system": "システム"
+    },
+    "login": "ログイン",
+    "signup": "新規登録"
   },
   "dashboard": {
     "title": "Dashboard",

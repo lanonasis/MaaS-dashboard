@@ -1,19 +1,19 @@
 {
   "header": {
     "nav": {
-      "home": "Home",
-      "features": "Features",
-      "pricing": "Pricing",
-      "about": "About",
-      "contact": "Contact"
+      "home": "Главная",
+      "features": "Функции",
+      "pricing": "Цены",
+      "about": "О нас",
+      "contact": "Контакты"
     },
-    "login": "Login",
-    "signup": "Sign Up",
     "theme": {
-      "light": "Light",
-      "dark": "Dark",
-      "system": "System"
-    }
+      "light": "Светлая",
+      "dark": "Тёмная",
+      "system": "Системная"
+    },
+    "login": "Войти",
+    "signup": "Регистрация"
   },
   "dashboard": {
     "title": "Dashboard",
