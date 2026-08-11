@@ -1,19 +1,19 @@
 {
   "header": {
     "nav": {
-      "home": "Home",
-      "features": "Features",
-      "pricing": "Pricing",
-      "about": "About",
-      "contact": "Contact"
+      "home": "Startseite",
+      "features": "Funktionen",
+      "pricing": "Preise",
+      "about": "Über uns",
+      "contact": "Kontakt"
     },
-    "login": "Login",
-    "signup": "Sign Up",
     "theme": {
-      "light": "Light",
-      "dark": "Dark",
+      "light": "Hell",
+      "dark": "Dunkel",
       "system": "System"
-    }
+    },
+    "login": "Anmelden",
+    "signup": "Registrieren"
   },
   "dashboard": {
     "title": "Dashboard",

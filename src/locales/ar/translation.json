@@ -1,19 +1,19 @@
 {
   "header": {
     "nav": {
-      "home": "Home",
-      "features": "Features",
-      "pricing": "Pricing",
-      "about": "About",
-      "contact": "Contact"
+      "home": "الرئيسية",
+      "features": "المميزات",
+      "pricing": "الأسعار",
+      "about": "عن الشركة",
+      "contact": "اتصل بنا"
     },
-    "login": "Login",
-    "signup": "Sign Up",
     "theme": {
-      "light": "Light",
-      "dark": "Dark",
-      "system": "System"
-    }
+      "light": "فاتح",
+      "dark": "داكن",
+      "system": "النظام"
+    },
+    "login": "تسجيل الدخول",
+    "signup": "إنشاء حساب"
   },
   "dashboard": {
     "title": "Dashboard",
