@@ -35,6 +35,25 @@ export const getRedirectUrl = () => {
   return 'https://dashboard.lanonasis.com/auth/callback';
 };
 
+// Password-recovery redirect — must land on the reset-password route so the
+// SetNewPassword component can mount with the recovery session and capture a
+// new password. (Previously this pointed at /auth/callback, which forced
+// users into an infinite redirect-to-dashboard loop with no UI to set a
+// new password.)
+export const getPasswordResetUrl = () => {
+  if (typeof window === 'undefined') return 'https://dashboard.lanonasis.com/auth/reset-password';
+
+  const isLocalDevelopment = window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname.match(/^192\.168\./);
+
+  if (isLocalDevelopment) {
+    return `${window.location.origin}/auth/reset-password`;
+  }
+
+  return 'https://dashboard.lanonasis.com/auth/reset-password';
+};
+
 // OAuth callback URL for provider configurations
 export const getOAuthCallbackUrl = () => {
   if (typeof window === 'undefined') return 'https://dashboard.lanonasis.com/auth/callback';

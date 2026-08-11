@@ -62,7 +62,7 @@ export const Footer = () => {
                   href="https://lanonasis.com#ecosystem"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-300"
                 >
-                  Features
+                  Platform Features
                 </a>
               </li>
               <li>

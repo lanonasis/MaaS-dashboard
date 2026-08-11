@@ -8,7 +8,7 @@ import { AnimatedButton } from '@/components/ui/AnimatedButton';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { supabase, getRedirectUrl } from '@/integrations/supabase/client';
+import { supabase, getRedirectUrl, getPasswordResetUrl } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleIcon, GitHubIcon, LinkedInIcon, DiscordIcon, AppleIcon, MicrosoftIcon, TwitterIcon, NotionIcon } from '@/components/icons/social-providers';
 
@@ -143,7 +143,7 @@ const AuthForm = () => {
         switchMode('login');
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-          redirectTo: getRedirectUrl(),
+          redirectTo: getPasswordResetUrl(),
         });
 
         if (error) throw error;
