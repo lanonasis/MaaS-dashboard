@@ -1,0 +1,14 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "submit": "Submit",
+    "success": "Success",
+    "error": "Error",
+    "loading": "Loading...",
+    "noData": "No data available"
+  }
+}

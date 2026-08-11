@@ -1,0 +1,81 @@
+{
+  "header": {
+    "nav": {
+      "home": "Home",
+      "features": "Features",
+      "pricing": "Pricing",
+      "about": "About",
+      "contact": "Contact"
+    },
+    "login": "Login",
+    "signup": "Sign Up",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome to LanOnasis",
+    "overview": "Overview",
+    "analytics": "Analytics",
+    "settings": "Settings"
+  },
+  "context": {
+    "create": "Create Context",
+    "search": "Search Context",
+    "title": "Title",
+    "content": "Content",
+    "tags": "Tags",
+    "created": "Created",
+    "updated": "Updated",
+    "store": "Continuity",
+    "explorer": "Context Explorer",
+    "analytics": "Context Analytics",
+    "quick_save": "Quick Save",
+    "total_entries": "Total Entries"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "signup": "Sign Up",
+    "email": "Email",
+    "password": "Password"
+  },
+  "navigation": {
+    "home": "Home",
+    "context": "Continuity",
+    "profile": "Profile",
+    "help": "Help"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "update": "Update"
+  },
+  "status": {
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "noData": "No data available"
+  },
+  "concierge": {
+    "title": "Continuity Concierge",
+    "greeting": "Good {timeGreeting}{name}! I'm the Continuity Concierge, your longitudinal thinking partner.",
+    "persona": "I'm the Continuity Concierge, your longitudinal thinking partner. I recall continuity across sessions, surface recurring themes, and synthesize what you've been working on. I don't execute workflows or store things for you — you own your memory; I just help you see it.",
+    "configuration_title": "Concierge Configuration",
+    "configuration_subtitle": "Configure the continuity surface — which tools and integrations your concierge draws on",
+    "tools_title": "Concierge Tools Configuration",
+    "tools_subtitle": "Configure which tools your concierge can surface, grounded in your continuity",
+    "tool_enabled_toast": "{toolName} is now available to your concierge",
+    "tool_built_in_available": "This is a built-in dashboard tool. It's always available to your concierge.",
+    "platform_tools_available": "These are built-in platform tools that are always available to your concierge.",
+    "personal_tools_grounding": "Connect your personal productivity tools to give your concierge more continuity and grounding.",
+    "error_title": "Concierge Error",
+    "send_message_label": "Send a message to the Continuity Concierge"
+  }
+}
