@@ -48,9 +48,11 @@ export const LanguageSwitcher: React.FC = () => {
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         data-language={currentLanguage.code}
+        data-testid="language-selector-button"
+        data-language-name={currentLanguage.name}
       >
         <Globe className="h-4 w-4" aria-hidden="true" />
-        <span className="hidden sm:inline-block">{currentLanguage.name}</span>
+        <span className="hidden sm:inline-block" data-testid="language-current-name">{currentLanguage.name}</span>
         <span className="sm:hidden" aria-hidden="true">{currentLanguage.flag}</span>
         <span className="sr-only">Language: {currentLanguage.name}</span>
         <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />

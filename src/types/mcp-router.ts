@@ -45,6 +45,10 @@ export interface MCPServiceCatalog {
   mcp_args?: string[];
   mcp_env_mapping?: Record<string, string>;
 
+  // OAuth support
+  oauth_url?: string;
+  auth_type?: 'api_key' | 'oauth' | 'both';
+
   // Service metadata
   documentation_url?: string;
   base_url?: string;
