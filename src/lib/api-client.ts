@@ -6,13 +6,17 @@
  * - Central-auth refresh is transitional fallback only for legacy token paths
  *
  * Expected auth lifecycle:
- * - Header priority: API key > Supabase session token > auth-gateway exchanged token > legacy secure storage token
+ * - Header priority: API key > auth-gateway exchanged token > Supabase-to-gateway exchange > legacy secure storage token
  * - 401 handling: refresh Supabase first, then transitional central-auth refresh fallback, then redirect to dashboard login
  */
 
 import { secureTokenStorage } from './secure-token-storage';
 import { centralAuth } from './central-auth';
-import { getAuthGatewayAccessToken } from './token-exchange';
+import {
+  clearAuthGatewayTokens,
+  exchangeSupabaseToken,
+  getAuthGatewayAccessToken,
+} from './token-exchange';
 import { supabase } from '@/integrations/supabase/client';
 
 const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || import.meta.env.VITE_API_URL?.replace('/v1', '') || 'https://api.lanonasis.com';
@@ -85,7 +89,7 @@ interface ApiKey {
 class ApiClient {
   /**
    * Get authentication headers for API requests
-   * Priority: API key > Supabase session > Auth-gateway token > Legacy token
+   * Priority: API key > Auth-gateway token > Supabase-to-gateway exchange > Legacy token
    */
   private async getAuthHeaders(apiKey?: string): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
@@ -107,22 +111,24 @@ class ApiClient {
       return headers;
     }
 
-    // Owner path: Supabase session token.
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-        return headers;
-      }
-    } catch (error) {
-      console.warn('[API Client] Failed to get Supabase session:', error);
-    }
-
-    // Transitional fallback: auth-gateway exchanged token.
     const authGatewayToken = getAuthGatewayAccessToken();
     if (authGatewayToken) {
       headers['Authorization'] = `Bearer ${authGatewayToken}`;
       return headers;
+    }
+
+    // Supabase owns the dashboard session, but gateway routes require a
+    // gateway-issued token. Exchange in memory and never send the raw
+    // Supabase bearer to gateway-only endpoints.
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const exchanged = await exchangeSupabaseToken(session.access_token);
+        headers['Authorization'] = `Bearer ${exchanged.access_token}`;
+        return headers;
+      }
+    } catch (error) {
+      console.warn('[API Client] Failed to exchange Supabase session:', error);
     }
 
     // Fallback to legacy token storage
@@ -167,6 +173,12 @@ class ApiClient {
 
         if (!allowAuthRetry) {
           throw new Error('Authentication required');
+        }
+
+        // A gateway token can be revoked before its local expiry. Discard it
+        // before rebuilding the bridge from the canonical Supabase session.
+        if (!apiKey) {
+          clearAuthGatewayTokens();
         }
 
         // Owner refresh path: refresh Supabase session first.
