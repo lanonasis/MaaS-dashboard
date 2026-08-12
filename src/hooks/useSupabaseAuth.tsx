@@ -53,6 +53,32 @@ export const SupabaseAuthProvider = ({
 
   // Track last synced token to avoid duplicate SSO syncs
   const lastSyncedTokenRef = useRef<string | null>(null);
+  const authGenerationRef = useRef(0);
+  const deferredAuthTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const ssoQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const clearDeferredAuthWork = () => {
+    deferredAuthTimersRef.current.forEach((timer) => clearTimeout(timer));
+    deferredAuthTimersRef.current.clear();
+  };
+
+  const deferAuthWork = (generation: number, work: () => void | Promise<void>) => {
+    const timer = setTimeout(() => {
+      deferredAuthTimersRef.current.delete(timer);
+      if (generation !== authGenerationRef.current) return;
+      void work();
+    }, 0);
+    deferredAuthTimersRef.current.add(timer);
+  };
+
+  const enqueueSsoWork = (work: () => Promise<unknown>) => {
+    ssoQueueRef.current = ssoQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await work();
+      });
+    return ssoQueueRef.current;
+  };
 
   useEffect(() => {
     console.log("SupabaseAuthProvider: Initializing auth");
@@ -82,6 +108,8 @@ export const SupabaseAuthProvider = ({
 
     return () => {
       clearTimeout(timeoutId);
+      authGenerationRef.current += 1;
+      clearDeferredAuthWork();
       if (cleanup) {
         cleanup();
       }
@@ -141,9 +169,11 @@ export const SupabaseAuthProvider = ({
         if (accessToken && accessToken !== lastSyncedTokenRef.current) {
           lastSyncedTokenRef.current = accessToken;
           console.log("SupabaseAuthProvider: Initial SSO sync on session restore");
-          centralAuth.exchangeSupabaseToken(accessToken).catch((error) => {
-            console.warn("SupabaseAuthProvider: Initial SSO sync failed (non-critical):", error);
-          });
+          void enqueueSsoWork(() =>
+            centralAuth.exchangeSupabaseToken(accessToken).catch((error) => {
+              console.warn("SupabaseAuthProvider: Initial SSO sync failed (non-critical):", error);
+            })
+          );
         }
       } else {
         console.log("SupabaseAuthProvider: No session found");
@@ -168,6 +198,9 @@ export const SupabaseAuthProvider = ({
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange((event, supabaseSession) => {
+        const authGeneration = ++authGenerationRef.current;
+        clearDeferredAuthWork();
+
         console.log(
           "Supabase auth state change:",
           event,
@@ -181,11 +214,11 @@ export const SupabaseAuthProvider = ({
           // Supabase holds an auth lock while invoking this callback. Defer
           // every async API side effect until after the callback returns or
           // later auth calls such as updateUser() can deadlock.
-          setTimeout(() => {
-            void fetchProfile(supabaseSession.user.id).catch((error) => {
+          deferAuthWork(authGeneration, () =>
+            fetchProfile(supabaseSession.user.id, authGeneration).catch((error) => {
               console.error("Error fetching profile after auth change:", error);
-            });
-          }, 0);
+            })
+          );
 
           if (event === "SIGNED_IN") {
             // Sync with auth-gateway to set SSO cookies for cross-subdomain auth
@@ -195,8 +228,10 @@ export const SupabaseAuthProvider = ({
               lastSyncedTokenRef.current = accessToken;
               console.log("SupabaseAuthProvider: Syncing SSO cookies with auth-gateway");
 
-              setTimeout(() => {
-                void centralAuth.exchangeSupabaseToken(accessToken)
+              deferAuthWork(authGeneration, () =>
+                enqueueSsoWork(async () => {
+                  if (authGeneration !== authGenerationRef.current) return;
+                  await centralAuth.exchangeSupabaseToken(accessToken)
                   .then((success) => {
                     if (success) {
                       console.log("SupabaseAuthProvider: SSO cookies synced successfully");
@@ -207,7 +242,8 @@ export const SupabaseAuthProvider = ({
                   .catch((error) => {
                     console.warn("SupabaseAuthProvider: SSO sync error (non-critical):", error);
                   });
-              }, 0);
+                })
+              );
             }
 
             // Show welcome toast
@@ -236,8 +272,11 @@ export const SupabaseAuthProvider = ({
           if (event === "SIGNED_OUT") {
             // Clear SSO cookies from auth-gateway (non-blocking)
             console.log("SupabaseAuthProvider: Clearing SSO cookies");
-            centralAuth.clearSSOCookies().catch((error) => {
-              console.warn("SupabaseAuthProvider: Failed to clear SSO cookies:", error);
+            void enqueueSsoWork(async () => {
+              if (authGeneration !== authGenerationRef.current) return;
+              await centralAuth.clearSSOCookies().catch((error) => {
+                console.warn("SupabaseAuthProvider: Failed to clear SSO cookies:", error);
+              });
             });
 
             // Redirect to home page on sign out
@@ -275,7 +314,10 @@ export const SupabaseAuthProvider = ({
     }
   };
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, authGeneration?: number) => {
+    const isCurrentAuthGeneration = () =>
+      authGeneration === undefined || authGeneration === authGenerationRef.current;
+
     try {
       console.log("SupabaseAuthProvider: fetchProfile called", {
         userId,
@@ -294,6 +336,8 @@ export const SupabaseAuthProvider = ({
         console.error("Error fetching user profile:", error);
         return;
       }
+
+      if (!isCurrentAuthGeneration()) return;
 
       if (data) {
         console.log("SupabaseAuthProvider: Profile found", {
@@ -314,6 +358,8 @@ export const SupabaseAuthProvider = ({
           userData = fetchedUser;
         }
 
+        if (!isCurrentAuthGeneration()) return;
+
         // If no profile exists yet, create a basic one with only existing columns
         if (userData) {
           const basicProfile = {
@@ -332,16 +378,18 @@ export const SupabaseAuthProvider = ({
           if (insertError) {
             console.error("Error creating user profile:", insertError);
             // Fall back to a profile object for the UI
-            setProfile({
-              ...basicProfile,
-              company_name: null,
-              avatar_url: null,
-              role: "user",
-            });
+            if (isCurrentAuthGeneration()) {
+              setProfile({
+                ...basicProfile,
+                company_name: null,
+                avatar_url: null,
+                role: "user",
+              });
+            }
             return;
           }
 
-          if (insertData && insertData[0]) {
+          if (insertData && insertData[0] && isCurrentAuthGeneration()) {
             console.log("SupabaseAuthProvider: Profile created", {
               profileId: insertData[0].id,
             });

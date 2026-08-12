@@ -328,9 +328,10 @@ describe("useCentralAuth Hook", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
+      expect(authStateHandler).toBeDefined();
       let callbackResult: unknown;
       act(() => {
-        callbackResult = authStateHandler?.("USER_UPDATED", {
+        callbackResult = authStateHandler!("USER_UPDATED", {
           access_token: "updated-token",
           user: {
             id: "user-123",
@@ -341,6 +342,46 @@ describe("useCentralAuth Hook", () => {
       });
 
       expect(callbackResult).toBeUndefined();
+    });
+
+    it("lets sign-out cancel deferred sign-in work and win SSO cleanup", async () => {
+      let authStateHandler:
+        | ((event: string, session: any) => unknown)
+        | undefined;
+      mockSupabaseAuth.onAuthStateChange.mockImplementationOnce((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useCentralAuth(), {
+        wrapper: createWrapper,
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(authStateHandler).toBeDefined();
+      act(() => {
+        authStateHandler!("SIGNED_IN", {
+          access_token: "updated-token",
+          user: {
+            id: "user-123",
+            email: "test@example.com",
+            app_metadata: { provider: "email" },
+          },
+        });
+        authStateHandler!("SIGNED_OUT", null);
+      });
+
+      await waitFor(() => {
+        expect(mockClearSSOCookies).toHaveBeenCalledTimes(1);
+      });
+      expect(mockExchangeSupabaseToken).not.toHaveBeenCalled();
+      expect(result.current.user).toBeNull();
+      expect(result.current.profile).toBeNull();
     });
 
     it("should fetch user profile on login", async () => {

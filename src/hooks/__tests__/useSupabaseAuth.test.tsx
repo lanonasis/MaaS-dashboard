@@ -152,15 +152,48 @@ describe('useSupabaseAuth', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
+      expect(authStateHandler).toBeDefined();
       let callbackResult: unknown;
       act(() => {
-        callbackResult = authStateHandler?.('USER_UPDATED', {
+        callbackResult = authStateHandler!('USER_UPDATED', {
           access_token: 'updated-token',
           user: { id: 'user-123', email: 'test@example.com' },
         });
       });
 
       expect(callbackResult).toBeUndefined();
+    });
+
+    it('cancels deferred profile work when sign-out follows sign-in', async () => {
+      let authStateHandler: ((event: string, session: any) => unknown) | undefined;
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(authStateHandler).toBeDefined();
+      act(() => {
+        authStateHandler!('SIGNED_IN', {
+          access_token: 'updated-token',
+          user: { id: 'user-123', email: 'test@example.com' },
+        });
+        authStateHandler!('SIGNED_OUT', null);
+        vi.runOnlyPendingTimers();
+      });
+
+      expect(mockFromSelect).not.toHaveBeenCalled();
+      expect(result.current.user).toBeNull();
+      expect(result.current.profile).toBeNull();
     });
 
     it('sets user and session when session exists', async () => {

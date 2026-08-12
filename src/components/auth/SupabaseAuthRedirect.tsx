@@ -26,12 +26,26 @@ const SupabaseAuthRedirect = () => {
   useEffect(() => {
     if (isPasswordReset) return undefined;
 
+    let disposed = false;
+    let authFlowCleanup: (() => void) | undefined;
+
     // Add a small delay to ensure all components are initialized
     const timer = setTimeout(() => {
-      void handleAuthFlow();
+      void handleAuthFlow().then((cleanup) => {
+        if (!cleanup) return;
+        if (disposed) {
+          cleanup();
+        } else {
+          authFlowCleanup = cleanup;
+        }
+      });
     }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      authFlowCleanup?.();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPasswordReset]);
 
