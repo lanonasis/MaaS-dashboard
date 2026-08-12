@@ -353,13 +353,14 @@ describe('ApiClient', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            data: { id: 'key-1', name: 'New Key', secret: 'secret-value' },
+            data: { id: 'key-1', name: 'New Key', key: 'secret-value' },
           }),
       });
 
       const result = await apiClient.createApiKey({
         name: 'New Key',
-        permissions: ['read', 'write'],
+        key_context: 'personal',
+        scopes: ['memories:personal:*'],
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
@@ -368,7 +369,7 @@ describe('ApiClient', () => {
           method: 'POST',
         })
       );
-      expect(result.data?.secret).toBe('secret-value');
+      expect(result.data?.key).toBe('secret-value');
     });
 
     it('deletes API key', async () => {

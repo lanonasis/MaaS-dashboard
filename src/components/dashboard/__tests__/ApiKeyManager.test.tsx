@@ -26,10 +26,18 @@ vi.mock("@/hooks/use-toast", () => ({
 
 // Mock Supabase
 const mockSupabaseSelect = vi.fn();
-const mockSupabaseInsert = vi.fn();
-const mockSupabaseDelete = vi.fn();
 const mockSupabaseServicesSelect = vi.fn();
-const mockSupabaseScopesInsert = vi.fn();
+const mockGetApiKeys = vi.fn();
+const mockCreateApiKey = vi.fn();
+const mockDeleteApiKey = vi.fn();
+
+vi.mock("@/lib/api-client", () => ({
+  apiClient: {
+    getApiKeys: (...args: unknown[]) => mockGetApiKeys(...args),
+    createApiKey: (...args: unknown[]) => mockCreateApiKey(...args),
+    deleteApiKey: (...args: unknown[]) => mockDeleteApiKey(...args),
+  },
+}));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -45,42 +53,16 @@ vi.mock("@/integrations/supabase/client", () => ({
           }),
         };
       }
-      if (table === "api_key_scopes") {
-        return {
-          insert: vi.fn().mockImplementation(() => mockSupabaseScopesInsert()),
-        };
-      }
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             order: vi.fn().mockImplementation(() => mockSupabaseSelect()),
           }),
         }),
-        insert: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            single: vi.fn().mockImplementation(() => mockSupabaseInsert()),
-          }),
-        }),
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockImplementation(() => mockSupabaseDelete()),
-          }),
-        }),
       };
     },
   },
 }));
-
-// Mock Web Crypto API
-const mockCryptoSubtle = {
-  digest: vi.fn().mockResolvedValue(new ArrayBuffer(32)),
-};
-
-Object.defineProperty(globalThis, "crypto", {
-  value: {
-    subtle: mockCryptoSubtle,
-  },
-});
 
 // Mock clipboard
 const mockClipboardWriteText = vi.fn().mockResolvedValue(undefined);
@@ -125,13 +107,12 @@ describe("ApiKeyManager", () => {
     vi.clearAllMocks();
     navigator.clipboard.writeText = mockClipboardWriteText;
     mockSupabaseSelect.mockResolvedValue({ data: [], error: null });
-    mockSupabaseInsert.mockResolvedValue({
+    mockGetApiKeys.mockResolvedValue({ data: [] });
+    mockCreateApiKey.mockResolvedValue({
       data: { id: "key-1", name: "Test Key", key: "lano_testkey123", service: "all" },
-      error: null,
     });
-    mockSupabaseDelete.mockResolvedValue({ error: null });
+    mockDeleteApiKey.mockResolvedValue({});
     mockSupabaseServicesSelect.mockResolvedValue({ data: mockConfiguredServices, error: null });
-    mockSupabaseScopesInsert.mockResolvedValue({ error: null });
   });
 
   describe("Dialog Trigger", () => {
@@ -398,7 +379,7 @@ describe("ApiKeyManager", () => {
         },
       ];
 
-      mockSupabaseSelect.mockResolvedValue({ data: mockKeys, error: null });
+      mockGetApiKeys.mockResolvedValue({ data: mockKeys });
 
       const user = userEvent.setup();
 
@@ -435,7 +416,7 @@ describe("ApiKeyManager", () => {
         },
       ];
 
-      mockSupabaseSelect.mockResolvedValue({ data: mockKeys, error: null });
+      mockGetApiKeys.mockResolvedValue({ data: mockKeys });
 
       const user = userEvent.setup();
 
@@ -470,7 +451,7 @@ describe("ApiKeyManager", () => {
         },
       ];
 
-      mockSupabaseSelect.mockResolvedValue({ data: mockKeys, error: null });
+      mockGetApiKeys.mockResolvedValue({ data: mockKeys });
 
       const user = userEvent.setup();
 
@@ -499,7 +480,7 @@ describe("ApiKeyManager", () => {
         },
       ];
 
-      mockSupabaseSelect.mockResolvedValue({ data: mockKeys, error: null });
+      mockGetApiKeys.mockResolvedValue({ data: mockKeys });
 
       const user = userEvent.setup();
 
@@ -526,7 +507,7 @@ describe("ApiKeyManager", () => {
         },
       ];
 
-      mockSupabaseSelect.mockResolvedValue({ data: mockKeys, error: null });
+      mockGetApiKeys.mockResolvedValue({ data: mockKeys });
 
       const user = userEvent.setup();
 
@@ -839,9 +820,16 @@ describe("ApiKeyManager", () => {
         screen.getByRole("button", { name: /generate api key/i })
       );
 
-      // Verify the scopes insert was called
+      // Verify the gateway owns key creation and service-scope persistence.
       await waitFor(() => {
-        expect(mockSupabaseScopesInsert).toHaveBeenCalled();
+        expect(mockCreateApiKey).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: "Scoped Key",
+            key_context: "personal",
+            service_type: "specific",
+            service_keys: ["stripe"],
+          })
+        );
       });
 
       // Should show success toast
@@ -914,10 +902,7 @@ describe("ApiKeyManager", () => {
 
   describe("Error Handling", () => {
     it("shows error toast on API key generation failure", async () => {
-      mockSupabaseInsert.mockResolvedValue({
-        data: null,
-        error: { message: "Database error", code: "500" },
-      });
+      mockCreateApiKey.mockRejectedValue(new Error("Database error"));
 
       const user = userEvent.setup();
 
@@ -942,10 +927,7 @@ describe("ApiKeyManager", () => {
     });
 
     it("shows error on key fetch failure", async () => {
-      mockSupabaseSelect.mockResolvedValue({
-        data: null,
-        error: { message: "Failed to fetch API keys" },
-      });
+      mockGetApiKeys.mockRejectedValue(new Error("Failed to fetch API keys"));
 
       const user = userEvent.setup();
 
