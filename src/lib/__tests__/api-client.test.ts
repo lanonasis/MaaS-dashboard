@@ -21,17 +21,25 @@ vi.mock('../central-auth', () => ({
   },
 }));
 
+const mockGetAuthGatewayAccessToken = vi.fn();
+const mockExchangeSupabaseToken = vi.fn();
+const mockClearAuthGatewayTokens = vi.fn();
+
 // Mock token exchange
 vi.mock('../token-exchange', () => ({
-  getAuthGatewayAccessToken: vi.fn().mockReturnValue(null),
+  getAuthGatewayAccessToken: () => mockGetAuthGatewayAccessToken(),
+  exchangeSupabaseToken: (token: string) => mockExchangeSupabaseToken(token),
+  clearAuthGatewayTokens: () => mockClearAuthGatewayTokens(),
 }));
 
 // Mock Supabase
 const mockSupabaseGetSession = vi.fn();
+const mockSupabaseRefreshSession = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     auth: {
       getSession: () => mockSupabaseGetSession(),
+      refreshSession: () => mockSupabaseRefreshSession(),
     },
   },
 }));
@@ -46,6 +54,11 @@ describe('ApiClient', () => {
     mockSupabaseGetSession.mockResolvedValue({
       data: { session: { access_token: 'supabase-token' } },
     });
+    mockSupabaseRefreshSession.mockRejectedValue(new Error('Refresh failed'));
+    mockGetAuthGatewayAccessToken.mockReturnValue(null);
+    mockExchangeSupabaseToken.mockResolvedValue({
+      access_token: 'gateway-token',
+    });
   });
 
   afterEach(() => {
@@ -53,7 +66,7 @@ describe('ApiClient', () => {
   });
 
   describe('Authentication Headers', () => {
-    it('uses Supabase session token when available', async () => {
+    it('exchanges the Supabase session and uses the gateway token', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ data: [] }),
@@ -65,10 +78,32 @@ describe('ApiClient', () => {
         expect.any(String),
         expect.objectContaining({
           headers: expect.objectContaining({
-            Authorization: 'Bearer supabase-token',
+            Authorization: 'Bearer gateway-token',
           }),
         })
       );
+      expect(mockExchangeSupabaseToken).toHaveBeenCalledWith('supabase-token');
+    });
+
+    it('reuses an existing gateway token without exchanging again', async () => {
+      mockGetAuthGatewayAccessToken.mockReturnValue('existing-gateway-token');
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ data: [] }),
+      });
+
+      await apiClient.getMemories();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer existing-gateway-token',
+          }),
+        })
+      );
+      expect(mockSupabaseGetSession).not.toHaveBeenCalled();
+      expect(mockExchangeSupabaseToken).not.toHaveBeenCalled();
     });
 
     it('includes platform and project scope headers', async () => {
@@ -625,7 +660,20 @@ describe('ApiClient', () => {
 
       await expect(apiClient.getMemories()).rejects.toThrow();
 
+      expect(mockClearAuthGatewayTokens).toHaveBeenCalled();
       expect(secureTokenStorage.clear).toHaveBeenCalled();
+    });
+
+    it('does not clear the dashboard gateway session for an API-key 401', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ error: 'Unauthorized' }),
+      });
+
+      await expect(apiClient.getMemories({ apiKey: 'lano_invalid_key' })).rejects.toThrow();
+
+      expect(mockClearAuthGatewayTokens).not.toHaveBeenCalled();
     });
   });
 });
