@@ -8,6 +8,33 @@ import { AnimatedButton } from '@/components/ui/AnimatedButton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
+const PASSWORD_UPDATE_TIMEOUT_MS = 15_000;
+
+class PasswordUpdateTimeoutError extends Error {
+  constructor() {
+    super('Password update timed out');
+    this.name = 'PasswordUpdateTimeoutError';
+  }
+}
+
+const updatePasswordWithTimeout = async (password: string) => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      supabase.auth.updateUser({ password }),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new PasswordUpdateTimeoutError()),
+          PASSWORD_UPDATE_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
 /**
  * SetNewPassword
  *
@@ -61,18 +88,20 @@ const SetNewPassword = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      const { error } = await updatePasswordWithTimeout(password);
       if (error) throw error;
 
       toast({
         title: 'Password updated',
         description: 'Your password has been reset. You are now signed in.',
       });
-      // Sign out of the recovery session so the user re-authenticates cleanly
-      // on the dashboard; alternatively just redirect to dashboard.
       navigate('/dashboard', { replace: true });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to reset password.';
+      const message = error instanceof PasswordUpdateTimeoutError
+        ? 'The update did not finish in time. Do not reuse the previous password; return to sign in and try the new password before requesting another reset.'
+        : error instanceof Error
+          ? error.message
+          : 'Failed to reset password.';
       toast({
         title: 'Password reset failed',
         description: message,
@@ -85,7 +114,7 @@ const SetNewPassword = () => {
 
   if (hasSession === false) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="flex min-h-dvh items-start justify-center overflow-y-auto px-4 py-6 sm:items-center">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Reset link expired</CardTitle>
@@ -109,7 +138,7 @@ const SetNewPassword = () => {
 
   if (hasSession === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-dvh items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
           <p className="mt-4 text-muted-foreground">Preparing password reset…</p>
@@ -119,8 +148,8 @@ const SetNewPassword = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-dvh items-start justify-center overflow-y-auto px-4 py-6 sm:items-center">
+      <Card className="w-full max-w-md shrink-0">
         <CardHeader className="space-y-2">
           <CardTitle>Set a new password</CardTitle>
           <CardDescription>

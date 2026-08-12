@@ -68,8 +68,14 @@ interface Organization {
 interface ApiKey {
   id: string;
   name: string;
-  key_preview: string;
+  key?: string;
+  key_preview?: string;
   permissions: string[];
+  service?: string;
+  key_context?: 'personal' | 'team' | 'enterprise' | null;
+  binding?: { client_id?: 'claude' | 'hermes' | 'openclaw' } | null;
+  consumer?: 'claude' | 'hermes' | 'openclaw';
+  user_id: string;
   is_active: boolean;
   expires_at: string | null;
   last_used_at: string | null;
@@ -340,10 +346,19 @@ class ApiClient {
 
   async createApiKey(keyData: {
     name: string;
-    permissions?: string[];
-    expires_at?: string;
-  }): Promise<ApiResponse<ApiKey & { secret: string }>> {
-    return this.makeRequest<ApiKey & { secret: string }>('/api-keys', {
+    scopes?: string[];
+    key_context: 'personal' | 'team' | 'enterprise';
+    consumer?: 'claude' | 'hermes' | 'openclaw' | null;
+    binding?: { client_id?: 'claude' | 'hermes' | 'openclaw' } | null;
+    expires_in_days?: number;
+    service_type?: 'all' | 'specific';
+    service_keys?: string[];
+  }): Promise<ApiResponse<ApiKey>> {
+    const endpoint = keyData.service_type === 'specific'
+      ? '/api-keys/with-services'
+      : '/api-keys';
+
+    return this.makeRequest<ApiKey>(endpoint, {
       method: 'POST',
       body: JSON.stringify(keyData)
     });
@@ -353,6 +368,10 @@ class ApiClient {
     return this.makeRequest<void>(`/api-keys/${id}`, {
       method: 'DELETE'
     });
+  }
+
+  async revokeApiKey(id: string): Promise<ApiResponse<void>> {
+    return this.deleteApiKey(id);
   }
 
   // Intelligence routing contract (#133):

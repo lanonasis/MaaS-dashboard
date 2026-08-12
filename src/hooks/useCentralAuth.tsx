@@ -8,7 +8,7 @@
 // - Refresh lifecycle is Supabase session lifecycle
 // - Token exchange to auth-gateway is best-effort bridging, not ownership
 
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { centralAuth } from "@/lib/central-auth";
@@ -152,6 +152,32 @@ export const CentralAuthProvider = ({
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const authGenerationRef = useRef(0);
+  const deferredAuthTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const ssoQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const clearDeferredAuthWork = () => {
+    deferredAuthTimersRef.current.forEach((timer) => clearTimeout(timer));
+    deferredAuthTimersRef.current.clear();
+  };
+
+  const deferAuthWork = (generation: number, work: () => void | Promise<void>) => {
+    const timer = setTimeout(() => {
+      deferredAuthTimersRef.current.delete(timer);
+      if (generation !== authGenerationRef.current) return;
+      void work();
+    }, 0);
+    deferredAuthTimersRef.current.add(timer);
+  };
+
+  const enqueueSsoWork = (work: () => Promise<unknown>) => {
+    ssoQueueRef.current = ssoQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await work();
+      });
+    return ssoQueueRef.current;
+  };
 
   useEffect(() => {
     console.log("CentralAuthProvider: Initializing auth");
@@ -166,6 +192,8 @@ export const CentralAuthProvider = ({
     init();
 
     return () => {
+      authGenerationRef.current += 1;
+      clearDeferredAuthWork();
       if (cleanup) {
         cleanup();
       }
@@ -205,8 +233,10 @@ export const CentralAuthProvider = ({
 
         // Best-effort SSO cookie sync for cross-subdomain auth.
         if (supabaseSession.access_token) {
-          centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
-            .catch((err) => console.warn("SSO cookie sync on load failed:", err));
+          void enqueueSsoWork(() =>
+            centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
+              .catch((err) => console.warn("SSO cookie sync on load failed:", err))
+          );
         }
       } else if (legacyCentralCallbackInUrl) {
         // No compatible session exists for deprecated central-auth callback tokens.
@@ -233,7 +263,10 @@ export const CentralAuthProvider = ({
       // Set up Supabase auth state listener
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, supabaseSession) => {
+      } = supabase.auth.onAuthStateChange((event, supabaseSession) => {
+        const authGeneration = ++authGenerationRef.current;
+        clearDeferredAuthWork();
+
         console.log(
           "Supabase auth state change:",
           event,
@@ -243,12 +276,24 @@ export const CentralAuthProvider = ({
         setUser(supabaseSession?.user || null);
 
         if (supabaseSession?.user) {
-          await fetchProfile(supabaseSession.user.id);
+          // Supabase invokes this callback while holding its auth lock. Run
+          // API work on the next task so updateUser() and other auth methods
+          // can finish before profile/SSO requests begin.
+          deferAuthWork(authGeneration, () =>
+            fetchProfile(supabaseSession.user.id, authGeneration).catch((error) => {
+              console.error("Error fetching profile after auth change:", error);
+            })
+          );
 
           // Best-effort SSO cookie sync for cross-subdomain auth.
           if (event === "SIGNED_IN" && supabaseSession.access_token) {
-            centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
-              .catch((err) => console.warn("SSO cookie sync failed:", err));
+            deferAuthWork(authGeneration, () =>
+              enqueueSsoWork(async () => {
+                if (authGeneration !== authGenerationRef.current) return;
+                await centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
+                  .catch((err) => console.warn("SSO cookie sync failed:", err));
+              })
+            );
           }
 
           // Handle OAuth callback
@@ -256,10 +301,20 @@ export const CentralAuthProvider = ({
             event === "SIGNED_IN" &&
             supabaseSession.user.app_metadata.provider !== "email"
           ) {
-            await handleOAuthUser(supabaseSession.user);
+            deferAuthWork(authGeneration, () =>
+              handleOAuthUser(supabaseSession.user, authGeneration)
+            );
           }
         } else {
           setProfile(null);
+
+          if (event === "SIGNED_OUT") {
+            void enqueueSsoWork(async () => {
+              if (authGeneration !== authGenerationRef.current) return;
+              await centralAuth.clearSSOCookies()
+                .catch((err) => console.warn("SSO cookie clear failed:", err));
+            });
+          }
         }
       });
 
@@ -275,7 +330,10 @@ export const CentralAuthProvider = ({
     return undefined;
   };
 
-  const handleOAuthUser = async (oauthUser: User) => {
+  const handleOAuthUser = async (oauthUser: User, authGeneration?: number) => {
+    const isCurrentAuthGeneration = () =>
+      authGeneration === undefined || authGeneration === authGenerationRef.current;
+
     try {
       const { data: existingProfile } = await supabase
         .from("profiles")
@@ -283,6 +341,8 @@ export const CentralAuthProvider = ({
          
         .eq("id", oauthUser.id as any)
         .maybeSingle();
+
+      if (!isCurrentAuthGeneration()) return;
 
       if (!existingProfile) {
         const { error } = await supabase.from("profiles").insert({
@@ -311,6 +371,8 @@ export const CentralAuthProvider = ({
       });
 
       setTimeout(() => {
+        if (!isCurrentAuthGeneration()) return;
+
         // Try sessionStorage first, fallback to localStorage
         let redirectPath = null;
         try {
@@ -332,7 +394,7 @@ export const CentralAuthProvider = ({
     }
   };
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, authGeneration?: number) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -346,7 +408,10 @@ export const CentralAuthProvider = ({
         return;
       }
 
-      if (data) {
+      if (
+        data &&
+        (authGeneration === undefined || authGeneration === authGenerationRef.current)
+      ) {
         setProfile(data as unknown as Profile);
       }
     } catch (error) {

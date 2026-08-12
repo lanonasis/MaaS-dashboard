@@ -33,11 +33,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import {
-  applyConsumerTag,
   resolveConsumer,
   type KeyConsumer,
 } from "./api-key-consumer";
-// Define ApiKey type locally since we're using Supabase directly
+import { apiClient } from "@/lib/api-client";
+// Gateway API-key shape used by this component.
 type KeyContext = 'personal' | 'team' | 'enterprise';
 
 type ApiKeyBinding = {
@@ -51,7 +51,7 @@ interface ApiKey {
   // Service scoping: 'all' or 'specific'
   service?: string;
   // Memory context: personal (user_id-isolated), team, enterprise
-  key_context?: KeyContext;
+  key_context?: KeyContext | null;
   binding?: ApiKeyBinding | null;
   consumer?: KeyConsumer;
   user_id: string;
@@ -86,31 +86,6 @@ interface ActivityRecord {
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-
-// SHA-256 helper (browser Web Crypto)
-async function sha256Hex(input: string): Promise<string> {
-  // Check if crypto.subtle is available (requires secure context/HTTPS)
-  if (!crypto || !crypto.subtle) {
-    throw new Error(
-      'Web Crypto API is not available. This feature requires HTTPS. ' +
-      'Please ensure you are accessing the site over a secure connection.'
-    );
-  }
-
-  try {
-    const data = new TextEncoder().encode(input);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-  } catch (error) {
-    console.error('SHA-256 hashing error:', error);
-    throw new Error(
-      `Failed to hash API key: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
-      'Please ensure you are using a modern browser with Web Crypto API support.'
-    );
-  }
-}
 
 // Helper to format service type for display
 function getServiceTypeDisplayName(serviceType: string): string {
@@ -207,14 +182,8 @@ export const ApiKeyManager = () => {
 
     setIsLoadingKeys(true);
     try {
-      // Use Supabase directly for API key management
-      const { data, error } = await supabase
-        .from("api_keys")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const response = await apiClient.getApiKeys();
+      const data = response.data ?? [];
 
       // Defensive: ensure data is array before mapping
       const keys = (Array.isArray(data) ? data : []).map((key) => ({
@@ -321,126 +290,33 @@ export const ApiKeyManager = () => {
     setIsLoading(true);
 
     try {
-      // Generate key locally with lano_ prefix (matches oauth-client and auth-gateway)
-      const randomKey = Array.from({ length: 32 }, () =>
-        Math.floor(Math.random() * 36).toString(36)
-      ).join("");
-
-      const formattedKey = `lano_${randomKey}`;
-      setGeneratedKey(formattedKey);
-
-      let expirationDate: string | null = null;
+      let expiresInDays: number | undefined;
       if (keyExpiration === "custom") {
         const customDate = new Date(customExpiration);
         if (customDate < new Date()) {
           throw new Error("Expiration date must be in the future");
         }
-        expirationDate = customDate.toISOString();
+        expiresInDays = Math.ceil((customDate.getTime() - Date.now()) / 86400000);
       } else if (keyExpiration !== "never") {
-        expirationDate = new Date(
-          Date.now() + parseInt(keyExpiration) * 86400000
-        ).toISOString();
+        expiresInDays = parseInt(keyExpiration, 10);
       }
 
-      // Hash before storing; only the hashed form goes to the database
-      const keyHash = await sha256Hex(formattedKey);
-      const binding = consumer === 'unbound' ? {} : { client_id: consumer };
-      const taggedName = applyConsumerTag(keyName.trim(), consumer);
+      const boundConsumer = consumer === 'unbound' ? null : consumer;
+      const response = await apiClient.createApiKey({
+        name: keyName.trim(),
+        key_context: keyContext,
+        consumer: boundConsumer,
+        binding: boundConsumer ? { client_id: boundConsumer } : null,
+        expires_in_days: expiresInDays,
+        service_type: serviceType,
+        service_keys: serviceType === 'specific' ? selectedServices : undefined,
+      });
+      const data = response.data;
 
-      // Try inserting with key_hash first (preferred method)
-      let data: any = null;
-      let error: any = null;
-      
-      try {
-        const result = await supabase
-          .from("api_keys")
-          .insert({
-            name: taggedName,
-            key: formattedKey,  // Store plain key (required by schema)
-            key_hash: keyHash,   // SHA-256 hash for validation
-            service: serviceType,  // 'all' or 'specific'
-            key_context: keyContext,
-            binding,
-            user_id: user.id,
-            expires_at: expirationDate,
-            is_active: true,
-          })
-          .select()
-          .single();
-        
-        data = result.data;
-        error = result.error;
-        
-        if (error) throw error;
-      } catch (firstError: any) {
-        // If key_hash column doesn't exist (migration not complete), try without it
-        if (firstError?.code === '42703' || 
-            firstError?.message?.includes('key_hash') || 
-            firstError?.message?.includes('column') ||
-            firstError?.code === 'PGRST116') {
-          console.log('[ApiKeyManager] key_hash column not found, inserting without it');
-          const result = await supabase
-            .from("api_keys")
-            .insert({
-              name: taggedName,
-              key: formattedKey,
-              service: serviceType,  // 'all' or 'specific'
-              key_context: keyContext,
-              binding,
-              user_id: user.id,
-              expires_at: expirationDate,
-              is_active: true,
-            })
-            .select()
-            .single();
-          
-          data = result.data;
-          error = result.error;
-          
-          if (error) throw error;
-        } else {
-          throw firstError;
-        }
+      if (!data?.key) {
+        throw new Error("API key was created but the one-time key value was not returned");
       }
-
-      if (error) {
-        console.error("Supabase insert error:", error);
-        // Provide more specific error messages
-        if (error.code === "23505") {
-          throw new Error("An API key with this name already exists");
-        } else if (error.code === "42501") {
-          throw new Error("Permission denied. Please check your account permissions.");
-        } else if (error.message) {
-          throw new Error(error.message);
-        } else {
-          throw new Error(`Failed to create API key: ${error.code || "Unknown error"}`);
-        }
-      }
-
-      if (!data) {
-        throw new Error("API key was created but no data was returned");
-      }
-
-      // Insert service scopes if using specific services
-      if (serviceType === "specific" && selectedServices.length > 0 && data.id) {
-        const scopeRecords = selectedServices.map(serviceKey => ({
-          api_key_id: data.id,
-          service_key: serviceKey,
-          allowed_actions: null,
-          max_calls_per_minute: null,
-          max_calls_per_day: null,
-          is_active: true,
-        }));
-
-        const { error: scopesError } = await supabase
-          .from("api_key_scopes")
-          .insert(scopeRecords);
-
-        if (scopesError) {
-          console.warn("Failed to insert service scopes:", scopesError);
-          // Don't fail the request - key is created, just log the scope issue
-        }
-      }
+      setGeneratedKey(data.key);
 
       toast({
         title: "API Key Generated",
@@ -485,14 +361,7 @@ export const ApiKeyManager = () => {
     }
 
     try {
-      // Use Supabase directly for API key revocation
-      const { error } = await supabase
-        .from("api_keys")
-        .delete()
-        .eq("id", keyId)
-        .eq("user_id", user.id);
-
-      if (error) throw error;
+      await apiClient.deleteApiKey(keyId);
 
       toast({
         title: "API Key Revoked",
