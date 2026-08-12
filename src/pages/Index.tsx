@@ -17,6 +17,10 @@ const Index = () => {
     const showAuthParam = searchParams.get('showAuth');
     return showAuthParam === 'true';
   });
+  const requestedAuthMode = searchParams.get('mode');
+  const initialAuthMode = requestedAuthMode === 'register' || requestedAuthMode === 'forgot-password'
+    ? requestedAuthMode
+    : 'login';
   
   // Handle OAuth callbacks - should not land on Index page  
   useEffect(() => {
@@ -46,7 +50,7 @@ const Index = () => {
   return (
     <Layout>
       {showAuthForm ? (
-        <AuthForm />
+        <AuthForm initialMode={initialAuthMode} />
       ) : (
         <>
           {/* Hero Section */}
