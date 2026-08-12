@@ -21,22 +21,19 @@ import SetNewPassword from "./SetNewPassword";
 const SupabaseAuthRedirect = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
-  // The recovery flow is rendered inline (no redirect) so the user can
-  // set a new password without losing the recovery session.
-  if (location.pathname === "/auth/reset-password") {
-    return <SetNewPassword />;
-  }
+  const isPasswordReset = location.pathname === "/auth/reset-password";
 
   useEffect(() => {
+    if (isPasswordReset) return undefined;
+
     // Add a small delay to ensure all components are initialized
     const timer = setTimeout(() => {
-      handleAuthFlow();
+      void handleAuthFlow();
     }, 100);
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isPasswordReset]);
 
   const handleAuthFlow = async () => {
     try {
@@ -199,6 +196,13 @@ const SupabaseAuthRedirect = () => {
       navigate("/?showAuth=true&error=auth_flow_error");
     }
   };
+
+  // The recovery flow is rendered inline so the user keeps the recovery
+  // session while setting a new password. Keep this after all hooks so route
+  // changes cannot alter hook order.
+  if (isPasswordReset) {
+    return <SetNewPassword />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center">

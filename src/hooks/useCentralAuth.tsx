@@ -233,7 +233,7 @@ export const CentralAuthProvider = ({
       // Set up Supabase auth state listener
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, supabaseSession) => {
+      } = supabase.auth.onAuthStateChange((event, supabaseSession) => {
         console.log(
           "Supabase auth state change:",
           event,
@@ -243,12 +243,21 @@ export const CentralAuthProvider = ({
         setUser(supabaseSession?.user || null);
 
         if (supabaseSession?.user) {
-          await fetchProfile(supabaseSession.user.id);
+          // Supabase invokes this callback while holding its auth lock. Run
+          // API work on the next task so updateUser() and other auth methods
+          // can finish before profile/SSO requests begin.
+          setTimeout(() => {
+            void fetchProfile(supabaseSession.user.id).catch((error) => {
+              console.error("Error fetching profile after auth change:", error);
+            });
+          }, 0);
 
           // Best-effort SSO cookie sync for cross-subdomain auth.
           if (event === "SIGNED_IN" && supabaseSession.access_token) {
-            centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
-              .catch((err) => console.warn("SSO cookie sync failed:", err));
+            setTimeout(() => {
+              void centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
+                .catch((err) => console.warn("SSO cookie sync failed:", err));
+            }, 0);
           }
 
           // Handle OAuth callback
@@ -256,7 +265,9 @@ export const CentralAuthProvider = ({
             event === "SIGNED_IN" &&
             supabaseSession.user.app_metadata.provider !== "email"
           ) {
-            await handleOAuthUser(supabaseSession.user);
+            setTimeout(() => {
+              void handleOAuthUser(supabaseSession.user);
+            }, 0);
           }
         } else {
           setProfile(null);

@@ -309,6 +309,40 @@ describe("useCentralAuth Hook", () => {
   });
 
   describe("Session Management", () => {
+    it("returns from USER_UPDATED synchronously so auth mutations cannot deadlock", async () => {
+      let authStateHandler:
+        | ((event: string, session: any) => unknown)
+        | undefined;
+      mockSupabaseAuth.onAuthStateChange.mockImplementationOnce((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useCentralAuth(), {
+        wrapper: createWrapper,
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      let callbackResult: unknown;
+      act(() => {
+        callbackResult = authStateHandler?.("USER_UPDATED", {
+          access_token: "updated-token",
+          user: {
+            id: "user-123",
+            email: "test@example.com",
+            app_metadata: { provider: "email" },
+          },
+        });
+      });
+
+      expect(callbackResult).toBeUndefined();
+    });
+
     it("should fetch user profile on login", async () => {
       // Profile is fetched via Supabase after session is established (direct-auth owner model)
       const mockSession = {

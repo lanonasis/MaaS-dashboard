@@ -135,6 +135,34 @@ describe('useSupabaseAuth', () => {
   });
 
   describe('Session Management', () => {
+    it('returns from USER_UPDATED synchronously so auth mutations cannot deadlock', async () => {
+      let authStateHandler: ((event: string, session: any) => unknown) | undefined;
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      let callbackResult: unknown;
+      act(() => {
+        callbackResult = authStateHandler?.('USER_UPDATED', {
+          access_token: 'updated-token',
+          user: { id: 'user-123', email: 'test@example.com' },
+        });
+      });
+
+      expect(callbackResult).toBeUndefined();
+    });
+
     it('sets user and session when session exists', async () => {
       const mockUser = {
         id: 'user-123',

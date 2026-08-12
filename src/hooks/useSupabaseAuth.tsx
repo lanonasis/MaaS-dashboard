@@ -167,7 +167,7 @@ export const SupabaseAuthProvider = ({
       console.log("SupabaseAuthProvider: Setting up auth state listener");
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, supabaseSession) => {
+      } = supabase.auth.onAuthStateChange((event, supabaseSession) => {
         console.log(
           "Supabase auth state change:",
           event,
@@ -178,10 +178,16 @@ export const SupabaseAuthProvider = ({
           setSession(supabaseSession);
           setUser(supabaseSession.user);
 
-          if (event === "SIGNED_IN") {
-            // Fetch user profile when signed in
-            await fetchProfile(supabaseSession.user.id);
+          // Supabase holds an auth lock while invoking this callback. Defer
+          // every async API side effect until after the callback returns or
+          // later auth calls such as updateUser() can deadlock.
+          setTimeout(() => {
+            void fetchProfile(supabaseSession.user.id).catch((error) => {
+              console.error("Error fetching profile after auth change:", error);
+            });
+          }, 0);
 
+          if (event === "SIGNED_IN") {
             // Sync with auth-gateway to set SSO cookies for cross-subdomain auth
             // This enables seamless authentication across dashboard, API, MCP, etc.
             const accessToken = supabaseSession.access_token;
@@ -189,18 +195,19 @@ export const SupabaseAuthProvider = ({
               lastSyncedTokenRef.current = accessToken;
               console.log("SupabaseAuthProvider: Syncing SSO cookies with auth-gateway");
 
-              // Non-blocking SSO sync - don't wait for it to complete
-              centralAuth.exchangeSupabaseToken(accessToken)
-                .then((success) => {
-                  if (success) {
-                    console.log("SupabaseAuthProvider: SSO cookies synced successfully");
-                  } else {
-                    console.warn("SupabaseAuthProvider: SSO cookie sync failed (non-critical)");
-                  }
-                })
-                .catch((error) => {
-                  console.warn("SupabaseAuthProvider: SSO sync error (non-critical):", error);
-                });
+              setTimeout(() => {
+                void centralAuth.exchangeSupabaseToken(accessToken)
+                  .then((success) => {
+                    if (success) {
+                      console.log("SupabaseAuthProvider: SSO cookies synced successfully");
+                    } else {
+                      console.warn("SupabaseAuthProvider: SSO cookie sync failed (non-critical)");
+                    }
+                  })
+                  .catch((error) => {
+                    console.warn("SupabaseAuthProvider: SSO sync error (non-critical):", error);
+                  });
+              }, 0);
             }
 
             // Show welcome toast
