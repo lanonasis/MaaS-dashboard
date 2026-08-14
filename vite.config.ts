@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { VitePWA } from "vite-plugin-pwa";
 
 const MCP_ROUTER_DOCS_PATH = "/docs/mcp-router";
 const MCP_ROUTER_DOCS_TARGET = "/docs/mcp-router/index.html";
@@ -44,6 +45,58 @@ export default defineConfig(() => ({
   plugins: [
     mcpRouterDocsAliasPlugin(),
     react(),
+    VitePWA({
+      registerType: 'prompt',
+      injectRegister: 'auto',
+      strategies: 'generateSW',
+      workbox: {
+        // Precache only the hashed build assets and the application shell.
+        // Do not add runtime caching routes for API responses, auth tokens,
+        // user memories, or any private tenant data.
+        globPatterns: [
+          '**/*.{js,css,html,ico,png,svg,woff,woff2,json}',
+        ],
+        globIgnores: [
+          // Exclude development/test helpers from the installable shell
+          '**/test-token-exchange.html',
+        ],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [
+          // Never serve the app shell for API/auth/provider callbacks or diagnostics
+          /^\/api\//,
+          /^\/auth\//,
+          /^\/oauth\//,
+          /^\/mcp\//,
+          /^\/device\//,
+          /^\/\.well-known\//,
+          /^\/test-/,
+          // Exclude Supabase and other OAuth callback paths
+          /\/callback/,
+          /\/authorize/,
+        ],
+        runtimeCaching: [
+          {
+            // Public build assets only; stale-while-revalidate with immutable hash
+            urlPattern: ({ request }) => request.destination === 'image' || request.destination === 'font',
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'static-media',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+              },
+            },
+          },
+        ],
+        // Do not cache opaque responses that might contain user data
+        ignoreURLParametersMatching: [/^utm_/, /^fbclid$/],
+      },
+      manifest: false, // Use the existing public/manifest.json
+      includeAssets: ['robots.txt'],
+      devOptions: {
+        enabled: false, // Do not register SW in dev to avoid stale shells
+      },
+    }),
   ],
   resolve: {
     alias: [
