@@ -35,6 +35,51 @@ describe('AuthForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMocks.resetPasswordForEmail.mockResolvedValue({ error: null });
+    authMocks.signInWithPassword.mockResolvedValue({ error: null });
+    authMocks.signUp.mockResolvedValue({ error: null });
+    authMocks.signInWithOAuth.mockResolvedValue({ error: null });
+  });
+
+  it('uses linkedin_oidc when the LinkedIn social button is clicked', async () => {
+    render(
+      <MemoryRouter>
+        <AuthForm initialMode="login" />
+      </MemoryRouter>
+    );
+
+    const linkedInButton = screen.getByRole('button', { name: /LinkedIn/i });
+    linkedInButton.click();
+
+    await waitFor(() => {
+      expect(authMocks.signInWithOAuth).toHaveBeenCalledWith({
+        provider: 'linkedin_oidc',
+        options: {
+          redirectTo: 'https://dashboard.lanonasis.com/auth/callback',
+          scopes: undefined,
+        },
+      });
+    });
+  });
+
+  it('passes github provider and scopes unchanged', async () => {
+    render(
+      <MemoryRouter>
+        <AuthForm initialMode="login" />
+      </MemoryRouter>
+    );
+
+    const githubButton = screen.getByRole('button', { name: /GitHub/i });
+    githubButton.click();
+
+    await waitFor(() => {
+      expect(authMocks.signInWithOAuth).toHaveBeenCalledWith({
+        provider: 'github',
+        options: {
+          redirectTo: 'https://dashboard.lanonasis.com/auth/callback',
+          scopes: 'read:user user:email',
+        },
+      });
+    });
   });
 
   it('renders forgot-password mode when requested initially', () => {

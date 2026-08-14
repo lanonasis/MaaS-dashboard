@@ -197,6 +197,11 @@ const AuthForm = ({ initialMode = 'login' }: AuthFormProps) => {
         ? 'https://dashboard.lanonasis.com/auth/callback'
         : redirectUrl;
 
+      // Map the UI's "linkedin" identifier to the Supabase provider key.
+      // The deployed Supabase project has linkedin_oidc enabled (not linkedin),
+      // so requests for "linkedin" would otherwise return 'Unsupported provider'.
+      const supabaseProvider = provider === 'linkedin' ? 'linkedin_oidc' : provider;
+
       // Determine scopes based on provider
       let scopes: string | undefined;
       if (provider === 'github') {
@@ -206,7 +211,7 @@ const AuthForm = ({ initialMode = 'login' }: AuthFormProps) => {
       }
 
       const { error } = await supabase.auth.signInWithOAuth({
-        provider,
+        provider: supabaseProvider,
         options: {
           redirectTo: finalRedirectUrl,
           scopes,

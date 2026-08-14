@@ -57,6 +57,7 @@ delete (window as any).location;
 (window as any).location = { 
   href: 'http://localhost:3000',
   origin: 'http://localhost:3000',
+  hostname: 'localhost',
   pathname: '/',
   search: '',
   hash: '',
