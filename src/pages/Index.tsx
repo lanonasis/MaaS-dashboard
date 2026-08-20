@@ -6,6 +6,7 @@ import { ArrowRight, CheckCircle, Shield, Zap, Clock, CreditCard, UserCheck, Fil
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useEffect, useState } from "react";
 import AuthForm from "@/components/auth/AuthForm";
+import { LanoLogo } from "@/components/branding/LanoLogo";
 
 const Index = () => {
   const { user, isLoading } = useSupabaseAuth();
@@ -66,7 +67,9 @@ const Index = () => {
           <div className="flex flex-col items-center text-center">
             <div className="animate-slide-down">
               <div className="inline-flex items-center rounded-full border border-gray-200/60 dark:border-primary/30 bg-background/80 dark:bg-primary/5 backdrop-blur-sm px-3 py-1 text-sm font-medium text-foreground mb-6">
-                <span className="flex h-2 w-2 rounded-full bg-accent mr-2"></span>
+                <span className="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <LanoLogo size={14} />
+                </span>
                 <span>Introducing LanOnasis</span>
               </div>
             </div>
@@ -105,6 +108,7 @@ const Index = () => {
                   <div className="h-3 w-3 rounded-full bg-primary/80"></div>
                 </div>
                 <div className="mx-auto flex items-center h-6 w-64 rounded-full bg-background/70 text-xs px-3">
+                  <LanoLogo size={12} className="mr-2 text-primary" />
                   dashboard.lanonasis.com
                 </div>
               </div>
