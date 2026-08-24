@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import ApiDocs from "./pages/ApiDocs";
 import ApiAnalytics from "./pages/ApiAnalytics";
 import OAuthAuthorize from "./pages/OAuthAuthorize";
+import ExternalIdentityLink from "./pages/ExternalIdentityLink";
 import SupabaseAuthRedirect from "./components/auth/SupabaseAuthRedirect";
 import {
   createIDBPersister,
@@ -178,6 +179,7 @@ const App = () => (
                   <Route path="/mcp/connect" element={<Index />} />
                   <Route path="/oauth/authorize" element={<OAuthAuthorize />} />
                   <Route path="/device" element={<OAuthAuthorize />} />
+                  <Route path="/link" element={<ExternalIdentityLink />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
