@@ -76,8 +76,13 @@ export default defineConfig(() => ({
         ],
         runtimeCaching: [
           {
-            // Public build assets only; stale-while-revalidate with immutable hash
-            urlPattern: ({ request }) => request.destination === 'image' || request.destination === 'font',
+            // Public build assets only; stale-while-revalidate with immutable hash.
+            // sameOrigin excludes cross-origin media entirely -- e.g. Supabase
+            // storage signed URLs -- so this route can't cache authenticated or
+            // signed third-party responses, matching the "no user data cached"
+            // constraint documented in src/lib/pwa.ts.
+            urlPattern: ({ request, sameOrigin }) =>
+              sameOrigin && (request.destination === 'image' || request.destination === 'font'),
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'static-media',

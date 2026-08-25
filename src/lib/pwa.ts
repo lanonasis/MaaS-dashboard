@@ -62,7 +62,13 @@ export async function unregisterServiceWorker(): Promise<void> {
     return;
   }
 
-  const registration = await navigator.serviceWorker.ready.catch(() => null);
+  // getRegistration() resolves immediately (to undefined if unregistered).
+  // navigator.serviceWorker.ready never resolves unless a worker actually
+  // becomes active, which would hang this cleanup path indefinitely in any
+  // state where no SW is controlling the page (failed registration, already
+  // unregistered, etc.) -- and this runs on the rollback and logout/session-
+  // expiry cleanup paths, where that hang would silently skip cache deletion.
+  const registration = await navigator.serviceWorker.getRegistration().catch(() => null);
   if (registration) {
     await registration.unregister();
   }
