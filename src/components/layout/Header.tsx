@@ -131,13 +131,11 @@ export const Header = () => {
   return (
     <header
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ease-out-expo",
-        isScrolled
-          ? "glass-effect shadow-subtle py-3"
-          : "bg-transparent py-6"
+        "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ease-out-expo glass-effect shadow-subtle",
+        isScrolled ? "py-3" : "py-4"
       )}
     >
-      <div className="container mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 max-w-7xl">
+      <div className="container mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link
           to="/"

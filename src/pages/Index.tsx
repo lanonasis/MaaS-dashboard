@@ -58,11 +58,11 @@ const Index = () => {
         <>
           {/* Hero Section */}
       <section className="relative overflow-hidden py-20 md:py-32">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/5 dark:from-primary/20 dark:to-accent/10 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/15 to-accent/10 dark:from-primary/30 dark:to-accent/20 pointer-events-none" />
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-primary/15 dark:bg-primary/35 blur-[120px]" />
-          <div className="absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-accent/10 dark:bg-accent/25 blur-[120px]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[800px] rounded-full bg-primary/5 dark:bg-primary/10 blur-[80px]" />
+          <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-primary/25 dark:bg-primary/55 blur-[120px]" />
+          <div className="absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-accent/20 dark:bg-accent/40 blur-[120px]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[800px] rounded-full bg-primary/10 dark:bg-primary/20 blur-[80px]" />
         </div>
         
         <div className="container relative mx-auto px-4 md:px-6">
@@ -78,7 +78,7 @@ const Index = () => {
               </div>
             </div>
             
-            <h1 className="animate-fade-in font-bold tracking-tight text-4xl md:text-5xl lg:text-6xl mb-6 max-w-4xl bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/80 dark:from-white dark:to-primary/80">
+            <h1 className="animate-fade-in font-bold tracking-tight text-4xl md:text-5xl lg:text-6xl mb-6 max-w-4xl text-foreground dark:text-white">
               Continuity intelligence <br /> for thinking partners
             </h1>
             
