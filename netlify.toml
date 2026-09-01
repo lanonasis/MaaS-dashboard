@@ -51,6 +51,7 @@
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     Content-Security-Policy = """
       default-src 'self';
+      manifest-src 'self';
       connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.lanonasis.com https://auth.lanonasis.com https://mcp.lanonasis.com;
       img-src 'self' data: blob: https:;
       style-src 'self' 'unsafe-inline';
@@ -76,3 +77,17 @@
     Pragma = "no-cache"
     Expires = "0"
     Clear-Site-Data = "\"cache\""
+
+# PWA: service worker must always be revalidated so updates are picked up
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+
+# PWA: manifest should revalidate so icon/theme changes are reflected
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

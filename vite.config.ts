@@ -95,6 +95,9 @@ export default defineConfig(() => ({
         ],
         // Do not cache opaque responses that might contain user data
         ignoreURLParametersMatching: [/^utm_/, /^fbclid$/],
+        // Allow the main JS bundle to be precached; the default 2 MiB limit
+        // is too small for the dashboard's feature surface.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       manifest: false, // Use the existing public/manifest.json
       includeAssets: ['robots.txt'],

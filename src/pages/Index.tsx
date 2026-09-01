@@ -7,6 +7,7 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useEffect, useRef, useState } from "react";
 import AuthForm from "@/components/auth/AuthForm";
 import { LanoLogo } from "@/components/branding/LanoLogo";
+import { GlareCard } from "@/components/ui/glare-card";
 
 const Index = () => {
   const { user, isLoading } = useSupabaseAuth();
@@ -14,6 +15,16 @@ const Index = () => {
   const [searchParams] = useSearchParams();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
+  // Hero reel: brand film first, then the MaaS intro plays on loop
+  // once the brand film ends. The single <video> element swaps src
+  // on the 'ended' event to avoid a layout shift or two stacked players.
+  const [activeReel, setActiveReel] = useState<"brand" | "continuation">("brand");
+  const reelSrc =
+    activeReel === "brand"
+      ? "/videos/lan-onasis-brand-film.mp4"
+      : "/videos/maas-intro-clip.mp4";
+  const reelLabel =
+    activeReel === "brand" ? "Lan Onasis brand film" : "Lan Onasis MaaS intro clip";
 
   // Get showAuth from URL parameters
   const [showAuthForm, setShowAuthForm] = useState(() => {
@@ -58,11 +69,11 @@ const Index = () => {
         <>
           {/* Hero Section */}
       <section className="relative overflow-hidden py-20 md:py-32">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/5 dark:from-primary/20 dark:to-accent/10 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/12 to-accent/8 dark:from-primary/28 dark:to-accent/15 pointer-events-none" />
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-primary/15 dark:bg-primary/35 blur-[120px]" />
-          <div className="absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-accent/10 dark:bg-accent/25 blur-[120px]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[800px] rounded-full bg-primary/5 dark:bg-primary/10 blur-[80px]" />
+          <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-primary/18 dark:bg-primary/38 blur-[120px]" />
+          <div className="absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-accent/12 dark:bg-accent/25 blur-[120px]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[800px] rounded-full bg-primary/6 dark:bg-primary/12 blur-[80px]" />
         </div>
         
         <div className="container relative mx-auto px-4 md:px-6">
@@ -73,12 +84,11 @@ const Index = () => {
                   <LanoLogo size={14} />
                 </span>
                 <span>Introducing LanOnasis</span>
-                <span className="flex h-2 w-2 rounded-full bg-accent mr-2"></span>
-                <span>Memory-as-a-Service Platform</span>
+                <span className="ml-2 flex h-2 w-2 rounded-full bg-accent"></span>
               </div>
             </div>
             
-            <h1 className="animate-fade-in font-bold tracking-tight text-4xl md:text-5xl lg:text-6xl mb-6 max-w-4xl bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/80 dark:from-white dark:to-primary/80">
+            <h1 className="animate-fade-in font-bold tracking-tight text-4xl md:text-5xl lg:text-6xl mb-6 max-w-4xl text-foreground dark:text-white">
               Continuity intelligence <br /> for thinking partners
             </h1>
             
@@ -119,15 +129,21 @@ const Index = () => {
               <div className="p-4 bg-gradient-to-b from-transparent to-background/5">
                 <div className="relative group">
                   <video
+                    key={reelSrc}
                     ref={videoRef}
-                    src="/videos/lan-onasis-brand-film.mp4"
+                    src={reelSrc}
                     poster="/videos/lan-onasis-brand-poster.png"
                     autoPlay
-                    loop
+                    loop={activeReel === "continuation"}
                     muted={isMuted}
                     playsInline
                     preload="metadata"
-                    aria-label="Lan Onasis brand film"
+                    aria-label={reelLabel}
+                    onEnded={() => {
+                      if (activeReel === "brand") {
+                        setActiveReel("continuation");
+                      }
+                    }}
                     className="w-full h-auto rounded-md shadow-subtle bg-black"
                   />
                   <button
@@ -176,7 +192,7 @@ const Index = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <Zap className="h-6 w-6 text-primary" />
               </div>
@@ -192,10 +208,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 2 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <Shield className="h-6 w-6 text-primary" />
               </div>
@@ -211,10 +227,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 3 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <Clock className="h-6 w-6 text-primary" />
               </div>
@@ -230,10 +246,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 4 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <CreditCard className="h-6 w-6 text-primary" />
               </div>
@@ -249,10 +265,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 5 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <UserCheck className="h-6 w-6 text-primary" />
               </div>
@@ -268,10 +284,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 6 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <FileText className="h-6 w-6 text-primary" />
               </div>
@@ -287,7 +303,7 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
+            </GlareCard>
           </div>
         </div>
       </section>
