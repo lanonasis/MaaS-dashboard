@@ -73,8 +73,7 @@ const Index = () => {
                   <LanoLogo size={14} />
                 </span>
                 <span>Introducing LanOnasis</span>
-                <span className="flex h-2 w-2 rounded-full bg-accent mr-2"></span>
-                <span>Memory-as-a-Service Platform</span>
+                <span className="ml-2 flex h-2 w-2 rounded-full bg-accent"></span>
               </div>
             </div>
             
