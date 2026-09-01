@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Menu, X, Sun, Moon, Laptop } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { LanoLogo } from "@/components/branding/LanoLogo";
 import { LanguageSwitcher } from "../LanguageSwitcher";
 
 const navItems = [
@@ -142,8 +143,13 @@ export const Header = () => {
           to="/"
           className="flex items-center gap-2 text-xl sm:text-2xl font-semibold tracking-tight flex-shrink-0"
         >
-          <span className="text-primary">LanOnasis</span>
-          <span className="text-foreground hidden sm:inline">Platform</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/20">
+            <LanoLogo size={20} />
+          </span>
+          <span className="flex items-baseline gap-1">
+            <span className="text-primary">LanOnasis</span>
+            <span className="text-foreground hidden sm:inline">Platform</span>
+          </span>
         </Link>
 
         {/* Desktop Navigation */}
