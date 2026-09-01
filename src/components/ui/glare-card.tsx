@@ -57,7 +57,7 @@ export const GlareCard = ({ children, className }: GlareCardProps) => {
         className="pointer-events-none absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
           background:
-            "radial-gradient(250px circle at var(--mouse-x) var(--mouse-y), rgba(59,130,246,0.18), transparent 50%)",
+            "radial-gradient(250px circle at var(--mouse-x) var(--mouse-y), hsl(var(--primary) / 0.18), transparent 50%)",
         }}
       />
       {children}
