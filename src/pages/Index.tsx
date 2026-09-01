@@ -2,9 +2,9 @@ import { Layout } from "@/components/layout/Layout";
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, CheckCircle, Shield, Zap, Clock, CreditCard, UserCheck, FileText, Code } from "lucide-react";
+import { ArrowRight, CheckCircle, Shield, Zap, Clock, CreditCard, UserCheck, FileText, Code, Volume2, VolumeX } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AuthForm from "@/components/auth/AuthForm";
 import { LanoLogo } from "@/components/branding/LanoLogo";
 
@@ -12,6 +12,8 @@ const Index = () => {
   const { user, isLoading } = useSupabaseAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
 
   // Get showAuth from URL parameters
   const [showAuthForm, setShowAuthForm] = useState(() => {
@@ -63,7 +65,7 @@ const Index = () => {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[800px] rounded-full bg-primary/5 dark:bg-primary/10 blur-[80px]" />
         </div>
         
-        <div className="container relative px-4 md:px-6">
+        <div className="container relative mx-auto px-4 md:px-6">
           <div className="flex flex-col items-center text-center">
             <div className="animate-slide-down">
               <div className="inline-flex items-center rounded-full border border-gray-200/60 dark:border-primary/30 bg-background/80 dark:bg-primary/5 backdrop-blur-sm px-3 py-1 text-sm font-medium text-foreground mb-6">
@@ -115,11 +117,45 @@ const Index = () => {
                 </div>
               </div>
               <div className="p-4 bg-gradient-to-b from-transparent to-background/5">
-                <img
-                  src="https://placehold.co/1200x800/f5f5f5/cccccc?text=LanOnasis+Dashboard"
-                  alt="Dashboard Preview"
-                  className="w-full h-auto rounded-md shadow-subtle"
-                />
+                <div className="relative group">
+                  <video
+                    ref={videoRef}
+                    src="/videos/lan-onasis-brand-film.mp4"
+                    poster="/videos/lan-onasis-brand-poster.png"
+                    autoPlay
+                    loop
+                    muted={isMuted}
+                    playsInline
+                    preload="metadata"
+                    aria-label="Lan Onasis brand film"
+                    className="w-full h-auto rounded-md shadow-subtle bg-black"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isMuted;
+                      setIsMuted(next);
+                      if (videoRef.current) {
+                        videoRef.current.muted = next;
+                      }
+                    }}
+                    aria-label={isMuted ? "Play with sound" : "Mute video"}
+                    title={isMuted ? "Play with sound" : "Mute video"}
+                    className="absolute bottom-6 right-6 inline-flex items-center gap-1.5 rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-sm text-white px-3 py-1.5 text-xs font-medium opacity-70 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-200"
+                  >
+                    {isMuted ? (
+                      <>
+                        <VolumeX className="h-3.5 w-3.5" />
+                        <span>Sound off</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="h-3.5 w-3.5" />
+                        <span>Sound on</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -128,7 +164,7 @@ const Index = () => {
 
       {/* Features Section */}
       <section id="features" className="py-20 bg-secondary/30">
-        <div className="container px-4 md:px-6">
+        <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
               Platform Services
@@ -258,7 +294,7 @@ const Index = () => {
 
       {/* API Integration Section */}
       <section className="py-20">
-        <div className="container px-4 md:px-6">
+        <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
               Developer Experience
@@ -358,7 +394,7 @@ async function useMemoryService() {
 
       {/* CTA Section */}
       <section className="py-20">
-        <div className="container px-4 md:px-6">
+        <div className="container mx-auto px-4 md:px-6">
           <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-primary to-accent p-8 md:p-12">
             <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(to_bottom,transparent,white)]"></div>
             <div className="absolute inset-0 bg-gradient-to-r from-primary/90 to-accent/90"></div>
