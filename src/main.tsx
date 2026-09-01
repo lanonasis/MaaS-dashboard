@@ -1,8 +1,12 @@
+import { registerServiceWorker } from '@/lib/pwa';
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import "./i18n";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+
+// Register the PWA service worker (production only; dev disabled in vite.config.ts).
+registerServiceWorker();
 
 // Enhanced extension error detection - ONLY suppress errors that are DEFINITELY from extensions
 // Be very specific to avoid blocking legitimate app errors (like Supabase errors)

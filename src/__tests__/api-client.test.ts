@@ -232,15 +232,17 @@ describe('API Client', () => {
     it('should create a new API key', async () => {
       const keyData = {
         name: 'Test Key',
-        permissions: ['memory:read', 'memory:write'],
-        expires_at: '2024-01-01T00:00:00Z'
+        scopes: ['memories:personal:*'],
+        key_context: 'personal' as const,
+        expires_in_days: 30,
+        service_type: 'all' as const,
       };
 
       const mockResponse = {
         data: {
           id: '1',
           ...keyData,
-          secret: 'sk_test_secret123',
+          key: 'lano_test_secret123',
           key_preview: 'pk_test_***'
         }
       };
@@ -266,6 +268,27 @@ describe('API Client', () => {
       );
 
       expect(result).toEqual(mockResponse);
+    });
+
+    it('uses the gateway service-scope route for specific-service keys', async () => {
+      const keyData = {
+        name: 'Scoped Key',
+        key_context: 'team' as const,
+        service_type: 'specific' as const,
+        service_keys: ['github'],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: { id: '2', key: 'lano_scoped' } })
+      });
+
+      await apiClient.createApiKey(keyData);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.lanonasis.com/api/v1/api-keys/with-services',
+        expect.objectContaining({ body: JSON.stringify(keyData) })
+      );
     });
   });
 

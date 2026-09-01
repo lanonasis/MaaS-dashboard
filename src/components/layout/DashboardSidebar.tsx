@@ -43,6 +43,7 @@ import {
   PanelLeft,
   Sparkles,
 } from 'lucide-react';
+import { LanguageSwitcher } from '../LanguageSwitcher';
 
 interface NavItem {
   id: string;
@@ -571,23 +572,28 @@ export function DashboardSidebar({
         {/* Sidebar Footer */}
         <div className="p-3 border-t border-border space-y-2">
           {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-full"
-                  asChild
-                >
-                  <a href="https://www.lanonasis.com">
-                    <Home className="h-4 w-4" />
-                  </a>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Return to Homepage</p>
-              </TooltipContent>
-            </Tooltip>
+            <div className="flex flex-col items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-full"
+                    asChild
+                  >
+                    <a href="https://www.lanonasis.com">
+                      <Home className="h-4 w-4" />
+                    </a>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Return to Homepage</p>
+                </TooltipContent>
+              </Tooltip>
+              {/* Compact language switcher in the collapsed footer so the
+                  selector remains reachable when the sidebar is minimized. */}
+              <LanguageSwitcher />
+            </div>
           ) : (
             <>
               <Button
@@ -601,6 +607,13 @@ export function DashboardSidebar({
                   Return to Homepage
                 </a>
               </Button>
+              {/* Settings-panel placement for the locale selector. */}
+              <div className="pt-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 px-1">
+                  Language
+                </p>
+                <LanguageSwitcher />
+              </div>
               <p className="text-[10px] text-muted-foreground text-center">
                 Press <kbd className="px-1 py-0.5 rounded bg-muted font-mono">?</kbd> for shortcuts
               </p>

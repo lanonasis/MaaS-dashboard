@@ -6,13 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AnimatedButton } from '@/components/ui/AnimatedButton';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { supabase, getRedirectUrl } from '@/integrations/supabase/client';
+import { supabase, getRedirectUrl, getPasswordResetUrl } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleIcon, GitHubIcon, LinkedInIcon, DiscordIcon, AppleIcon, MicrosoftIcon, TwitterIcon, NotionIcon } from '@/components/icons/social-providers';
 
 type AuthMode = 'login' | 'register' | 'forgot-password';
+
+interface AuthFormProps {
+  initialMode?: AuthMode;
+}
 
 const formConfig: Record<AuthMode, { title: string; description: string; cta: string; footerText: string; footerAction: string }> = {
   login: {
@@ -38,14 +43,15 @@ const formConfig: Record<AuthMode, { title: string; description: string; cta: st
   },
 };
 
-const AuthForm = () => {
+const AuthForm = ({ initialMode = 'login' }: AuthFormProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [resetConfirmation, setResetConfirmation] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -53,9 +59,12 @@ const AuthForm = () => {
     name: '',
   });
 
-  const switchMode = (nextMode: AuthMode) => {
+  const switchMode = (nextMode: AuthMode, options?: { preserveResetConfirmation?: boolean }) => {
     setMode(nextMode);
     setErrors({});
+    if (!options?.preserveResetConfirmation) {
+      setResetConfirmation(null);
+    }
     setIsLoading(false);
     setShowPassword(false);
   };
@@ -107,6 +116,7 @@ const AuthForm = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    setResetConfirmation(null);
     if (!validate()) return;
 
     setIsLoading(true);
@@ -143,7 +153,7 @@ const AuthForm = () => {
         switchMode('login');
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-          redirectTo: getRedirectUrl(),
+          redirectTo: getPasswordResetUrl(),
         });
 
         if (error) throw error;
@@ -152,7 +162,9 @@ const AuthForm = () => {
           title: 'Reset link sent',
           description: 'Check your email for password reset instructions.',
         });
-        switchMode('login');
+        setResetConfirmation('Check your email for password reset instructions.');
+        setFormData((prev) => ({ ...prev, email: '' }));
+        switchMode('login', { preserveResetConfirmation: true });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.';
@@ -185,6 +197,11 @@ const AuthForm = () => {
         ? 'https://dashboard.lanonasis.com/auth/callback'
         : redirectUrl;
 
+      // Map the UI's "linkedin" identifier to the Supabase provider key.
+      // The deployed Supabase project has linkedin_oidc enabled (not linkedin),
+      // so requests for "linkedin" would otherwise return 'Unsupported provider'.
+      const supabaseProvider = provider === 'linkedin' ? 'linkedin_oidc' : provider;
+
       // Determine scopes based on provider
       let scopes: string | undefined;
       if (provider === 'github') {
@@ -194,7 +211,7 @@ const AuthForm = () => {
       }
 
       const { error } = await supabase.auth.signInWithOAuth({
-        provider,
+        provider: supabaseProvider,
         options: {
           redirectTo: finalRedirectUrl,
           scopes,
@@ -235,6 +252,12 @@ const AuthForm = () => {
             <CardDescription>{description}</CardDescription>
           </CardHeader>
           <CardContent>
+            {resetConfirmation && (
+              <Alert className="mb-4">
+                <AlertTitle>Reset link sent</AlertTitle>
+                <AlertDescription>{resetConfirmation}</AlertDescription>
+              </Alert>
+            )}
             <form onSubmit={handleAuth} className="space-y-4">
               {mode === 'register' && (
                 <div className="space-y-1.5">

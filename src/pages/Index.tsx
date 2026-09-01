@@ -6,6 +6,7 @@ import { ArrowRight, CheckCircle, Shield, Zap, Clock, CreditCard, UserCheck, Fil
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useEffect, useRef, useState } from "react";
 import AuthForm from "@/components/auth/AuthForm";
+import { LanoLogo } from "@/components/branding/LanoLogo";
 
 const Index = () => {
   const { user, isLoading } = useSupabaseAuth();
@@ -19,6 +20,10 @@ const Index = () => {
     const showAuthParam = searchParams.get('showAuth');
     return showAuthParam === 'true';
   });
+  const requestedAuthMode = searchParams.get('mode');
+  const initialAuthMode = requestedAuthMode === 'register' || requestedAuthMode === 'forgot-password'
+    ? requestedAuthMode
+    : 'login';
   
   // Handle OAuth callbacks - should not land on Index page  
   useEffect(() => {
@@ -48,7 +53,7 @@ const Index = () => {
   return (
     <Layout>
       {showAuthForm ? (
-        <AuthForm />
+        <AuthForm initialMode={initialAuthMode} />
       ) : (
         <>
           {/* Hero Section */}
@@ -64,8 +69,12 @@ const Index = () => {
           <div className="flex flex-col items-center text-center">
             <div className="animate-slide-down">
               <div className="inline-flex items-center rounded-full border border-gray-200/60 dark:border-primary/30 bg-background/80 dark:bg-primary/5 backdrop-blur-sm px-3 py-1 text-sm font-medium text-foreground mb-6">
-                <span className="flex h-2 w-2 rounded-full bg-accent mr-2"></span>
+                <span className="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <LanoLogo size={14} />
+                </span>
                 <span>Introducing LanOnasis</span>
+                <span className="flex h-2 w-2 rounded-full bg-accent mr-2"></span>
+                <span>Memory-as-a-Service Platform</span>
               </div>
             </div>
             
@@ -103,6 +112,7 @@ const Index = () => {
                   <div className="h-3 w-3 rounded-full bg-primary/80"></div>
                 </div>
                 <div className="mx-auto flex items-center h-6 w-64 rounded-full bg-background/70 text-xs px-3">
+                  <LanoLogo size={12} className="mr-2 text-primary" />
                   dashboard.lanonasis.com
                 </div>
               </div>
@@ -342,34 +352,33 @@ const Index = () => {
               <div className="text-sm font-mono overflow-x-auto">
                 <pre className="text-muted-foreground">
                   <code>
-{`// Example: Continuity Concierge with API key management
-const Lanonasis = require('@lanonasis/sdk');
+{`// Example: Memory-as-a-Service with API key management
+import { LanonasisAI } from '@lanonasis/ai-sdk';
 
 // Initialize with your API key
-const client = new Lanonasis({
-  apiKey: 'your_api_key_here'
+const ai = new LanonasisAI({
+  apiKey: 'your_...key'
 });
 
 // Store and retrieve memories
 async function useMemoryService() {
   try {
     // Store a memory with vector embedding
-    const memory = await client.memory.store({
+    const memory = await ai.memory.createMemory({
+      title: 'User Preferences',
       content: 'User prefers dark theme and condensed layout',
-      type: 'preference',
-      topic: 'ui_settings',
-      metadata: { userId: 'user_123' }
+      status: 'active'
     });
-    
+
     console.log('Memory stored:', memory.id);
-    
+
     // Search similar memories
-    const similar = await client.memory.search({
+    const similar = await ai.memory.searchMemories({
       query: 'user interface preferences',
-      type: 'preference',
-      limit: 5
+      status: 'active',
+      threshold: 0.7
     });
-    
+
     console.log('Similar memories:', similar.results);
   } catch (error) {
     console.error('Error:', error.message);

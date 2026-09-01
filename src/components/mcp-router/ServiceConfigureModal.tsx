@@ -15,6 +15,7 @@ import {
   ExternalLink,
   AlertCircle,
   Info,
+  Key,
 } from 'lucide-react';
 import type {
   MCPServiceCatalog,
@@ -291,6 +292,34 @@ export function ServiceConfigureModal({
                   <p className="text-xs text-yellow-600 mt-1">
                     Last updated: {new Date(existingConfig.updated_at).toLocaleString()}
                   </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* OAuth Authorization (shown when service supports OAuth) */}
+          {service.oauth_url && (
+            <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-start space-x-3">
+                <Key className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800 mb-1">
+                    OAuth Authorization Available
+                  </p>
+                  <p className="text-xs text-green-700 mb-3">
+                    This service supports OAuth. You can authorize with your account
+                    credentials instead of manually entering an API token.
+                  </p>
+                  <a
+                    href={service.oauth_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="oauth-authorize-button"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Authorize with {service.display_name}
+                  </a>
                 </div>
               </div>
             </div>
