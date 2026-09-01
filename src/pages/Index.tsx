@@ -7,6 +7,7 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useEffect, useRef, useState } from "react";
 import AuthForm from "@/components/auth/AuthForm";
 import { LanoLogo } from "@/components/branding/LanoLogo";
+import { GlareCard } from "@/components/ui/glare-card";
 
 const Index = () => {
   const { user, isLoading } = useSupabaseAuth();
@@ -175,7 +176,7 @@ const Index = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <Zap className="h-6 w-6 text-primary" />
               </div>
@@ -191,10 +192,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 2 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <Shield className="h-6 w-6 text-primary" />
               </div>
@@ -210,10 +211,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 3 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <Clock className="h-6 w-6 text-primary" />
               </div>
@@ -229,10 +230,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 4 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <CreditCard className="h-6 w-6 text-primary" />
               </div>
@@ -248,10 +249,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 5 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <UserCheck className="h-6 w-6 text-primary" />
               </div>
@@ -267,10 +268,10 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
-            
+            </GlareCard>
+
             {/* Feature 6 */}
-            <div className="bg-card border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-6 transition-all duration-300 hover:shadow-subtle-md">
+            <GlareCard className="p-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <FileText className="h-6 w-6 text-primary" />
               </div>
@@ -286,7 +287,7 @@ const Index = () => {
                   </li>
                 ))}
               </ul>
-            </div>
+            </GlareCard>
           </div>
         </div>
       </section>
