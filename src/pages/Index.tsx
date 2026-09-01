@@ -15,6 +15,16 @@ const Index = () => {
   const [searchParams] = useSearchParams();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
+  // Hero reel: brand film first, then the MaaS intro plays on loop
+  // once the brand film ends. The single <video> element swaps src
+  // on the 'ended' event to avoid a layout shift or two stacked players.
+  const [activeReel, setActiveReel] = useState<"brand" | "continuation">("brand");
+  const reelSrc =
+    activeReel === "brand"
+      ? "/videos/lan-onasis-brand-film.mp4"
+      : "/videos/maas-intro-clip.mp4";
+  const reelLabel =
+    activeReel === "brand" ? "Lan Onasis brand film" : "Lan Onasis MaaS intro clip";
 
   // Get showAuth from URL parameters
   const [showAuthForm, setShowAuthForm] = useState(() => {
@@ -119,15 +129,21 @@ const Index = () => {
               <div className="p-4 bg-gradient-to-b from-transparent to-background/5">
                 <div className="relative group">
                   <video
+                    key={reelSrc}
                     ref={videoRef}
-                    src="/videos/lan-onasis-brand-film.mp4"
+                    src={reelSrc}
                     poster="/videos/lan-onasis-brand-poster.png"
                     autoPlay
-                    loop
+                    loop={activeReel === "continuation"}
                     muted={isMuted}
                     playsInline
                     preload="metadata"
-                    aria-label="Lan Onasis brand film"
+                    aria-label={reelLabel}
+                    onEnded={() => {
+                      if (activeReel === "brand") {
+                        setActiveReel("continuation");
+                      }
+                    }}
                     className="w-full h-auto rounded-md shadow-subtle bg-black"
                   />
                   <button

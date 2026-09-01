@@ -17,14 +17,14 @@ describe('Index landing page', () => {
     vi.clearAllMocks();
   });
 
-  it("renders the canonical tagline 'Memory-as-a-Service Platform'", () => {
+  it("renders the reframe-aligned hero badge 'Introducing LanOnasis'", () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <Index />
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Memory-as-a-Service Platform')).toBeInTheDocument();
+    expect(screen.getByText('Introducing LanOnasis')).toBeInTheDocument();
   });
 
   it('keeps the value-proposition headline', () => {
