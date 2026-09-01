@@ -1,25 +1,53 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import SetNewPassword from "./SetNewPassword";
 
 /**
  * Supabase Auth Redirect Component
  *
  * This component handles authentication redirects for Supabase auth
  * when directly connecting to Supabase instead of using central auth.
+ *
+ * Routes:
+ *   /auth/reset-password — renders the set-new-password form once a
+ *     recovery session is present (set by Supabase after the user
+ *     clicks the reset link in their email).
+ *   /auth/callback — OAuth callback; exchanges the code/token for a
+ *     session and redirects to the dashboard.
+ *   /auth/login, /auth/register, /login, /register, /signin, /signup
+ *     — fall through to the sign-in form on the landing page.
  */
 const SupabaseAuthRedirect = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isPasswordReset = location.pathname === "/auth/reset-password";
 
   useEffect(() => {
+    if (isPasswordReset) return undefined;
+
+    let disposed = false;
+    let authFlowCleanup: (() => void) | undefined;
+
     // Add a small delay to ensure all components are initialized
     const timer = setTimeout(() => {
-      handleAuthFlow();
+      void handleAuthFlow().then((cleanup) => {
+        if (!cleanup) return;
+        if (disposed) {
+          cleanup();
+        } else {
+          authFlowCleanup = cleanup;
+        }
+      });
     }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      authFlowCleanup?.();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isPasswordReset]);
 
   const handleAuthFlow = async () => {
     try {
@@ -36,6 +64,22 @@ const SupabaseAuthRedirect = () => {
         // Handle the callback path
         if (currentPath === "/auth/callback" || currentPath === "/auth/login") {
           console.log("SupabaseAuthRedirect: Processing OAuth callback");
+
+          // Check for a password-recovery link landing on /auth/callback.
+          // Older flows redirected recovery through /auth/callback; if we
+          // detect a recovery token, route to /auth/reset-password so the
+          // SetNewPassword component can mount with the active session.
+          const isRecovery =
+            hashParams.get("type") === "recovery" ||
+            urlParams.get("type") === "recovery";
+
+          if (isRecovery) {
+            console.log(
+              "SupabaseAuthRedirect: recovery token detected, redirecting to reset-password"
+            );
+            navigate("/auth/reset-password", { replace: true });
+            return;
+          }
 
           // Check if we have OAuth parameters in URL or hash (Supabase uses hash for OAuth)
           const hasOAuthParams =
@@ -78,6 +122,14 @@ const SupabaseAuthRedirect = () => {
                 event,
                 !!session
               );
+
+              if (event === "PASSWORD_RECOVERY" && session) {
+                // Recovery session established — show the set-new-password UI.
+                redirectHandled = true;
+                subscription.unsubscribe();
+                navigate("/auth/reset-password", { replace: true });
+                return;
+              }
 
               if (event === "SIGNED_IN" && session && !redirectHandled) {
                 redirectHandled = true;
@@ -158,6 +210,13 @@ const SupabaseAuthRedirect = () => {
       navigate("/?showAuth=true&error=auth_flow_error");
     }
   };
+
+  // The recovery flow is rendered inline so the user keeps the recovery
+  // session while setting a new password. Keep this after all hooks so route
+  // changes cannot alter hook order.
+  if (isPasswordReset) {
+    return <SetNewPassword />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center">

@@ -18,6 +18,10 @@ const Index = () => {
     const showAuthParam = searchParams.get('showAuth');
     return showAuthParam === 'true';
   });
+  const requestedAuthMode = searchParams.get('mode');
+  const initialAuthMode = requestedAuthMode === 'register' || requestedAuthMode === 'forgot-password'
+    ? requestedAuthMode
+    : 'login';
   
   // Handle OAuth callbacks - should not land on Index page  
   useEffect(() => {
@@ -47,7 +51,7 @@ const Index = () => {
   return (
     <Layout>
       {showAuthForm ? (
-        <AuthForm />
+        <AuthForm initialMode={initialAuthMode} />
       ) : (
         <>
           {/* Hero Section */}
@@ -67,15 +71,17 @@ const Index = () => {
                   <LanoLogo size={14} />
                 </span>
                 <span>Introducing LanOnasis</span>
+                <span className="flex h-2 w-2 rounded-full bg-accent mr-2"></span>
+                <span>Memory-as-a-Service Platform</span>
               </div>
             </div>
             
             <h1 className="animate-fade-in font-bold tracking-tight text-4xl md:text-5xl lg:text-6xl mb-6 max-w-4xl bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/80 dark:from-white dark:to-primary/80">
-              Memory-as-a-Service Platform <br /> for AI Developers
+              Continuity intelligence <br /> for thinking partners
             </h1>
             
             <p className="animate-slide-up text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto mb-8">
-              Vector-enabled memory storage, secure API key management, and MCP integration for building intelligent AI applications.
+              A continuity concierge that carries your decisions, threads, and momentum across sessions, projects, and tools — so the next defensible step is always close at hand.
             </p>
             
             <div className="animate-slide-up flex flex-col sm:flex-row gap-4 mb-12">
@@ -138,7 +144,7 @@ const Index = () => {
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-5">
                 <Zap className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold mb-3">Memory-as-a-Service</h3>
+              <h3 className="text-xl font-semibold mb-3">Continuity Concierge</h3>
               <p className="text-muted-foreground mb-4">
                 Vector-enabled memory storage for AI agents with semantic search, bulk operations, and hierarchical organization.
               </p>
@@ -311,33 +317,32 @@ const Index = () => {
                 <pre className="text-muted-foreground">
                   <code>
 {`// Example: Memory-as-a-Service with API key management
-const Lanonasis = require('@lanonasis/sdk');
+import { LanonasisAI } from '@lanonasis/ai-sdk';
 
 // Initialize with your API key
-const client = new Lanonasis({
-  apiKey: 'your_api_key_here'
+const ai = new LanonasisAI({
+  apiKey: 'your_...key'
 });
 
 // Store and retrieve memories
 async function useMemoryService() {
   try {
     // Store a memory with vector embedding
-    const memory = await client.memory.store({
+    const memory = await ai.memory.createMemory({
+      title: 'User Preferences',
       content: 'User prefers dark theme and condensed layout',
-      type: 'preference',
-      topic: 'ui_settings',
-      metadata: { userId: 'user_123' }
+      status: 'active'
     });
-    
+
     console.log('Memory stored:', memory.id);
-    
+
     // Search similar memories
-    const similar = await client.memory.search({
+    const similar = await ai.memory.searchMemories({
       query: 'user interface preferences',
-      type: 'preference',
-      limit: 5
+      status: 'active',
+      threshold: 0.7
     });
-    
+
     console.log('Similar memories:', similar.results);
   } catch (error) {
     console.error('Error:', error.message);
@@ -362,7 +367,7 @@ async function useMemoryService() {
               <div className="text-center md:text-left">
                 <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">Ready to get started?</h2>
                 <p className="text-white/80 max-w-md">
-                  Join thousands of developers using LanOnasis Memory-as-a-Service and API Key Management to build intelligent applications.
+                  Join thinking partners using LanOnasis Continuity Intelligence and API Key Management to carry work forward across sessions and tools.
                 </p>
               </div>
               

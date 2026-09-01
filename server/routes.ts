@@ -370,8 +370,21 @@ export function registerRoutes(app: Express, storage: IStorage) {
       const openaiApiKey = process.env.OPENAI_API_KEY;
       
       if (!openaiApiKey) {
-        return res.status(500).json({ 
-          message: "LLM service not configured. Please set OPENAI_API_KEY environment variable." 
+        // Create a failed workflow run entry for tracking purposes
+        const failedRun = await storage.createWorkflowRun({
+          user_id: req.user.id,
+          goal,
+          status: 'failed',
+          error_message: 'LLM service not configured. OPENAI_API_KEY is required.',
+          steps: [],
+          results: null,
+          used_memories: [],
+        });
+        return res.status(503).json({ 
+          message: "LLM service not configured. Please set OPENAI_API_KEY environment variable.",
+          errorCode: 'LLM_NOT_CONFIGURED',
+          runId: failedRun.id,
+          status: 'failed'
         });
       }
       
@@ -485,9 +498,24 @@ Return your response as JSON with this exact structure:
       
     } catch (error) {
       console.error("Error executing workflow:", error);
+      // Store failed workflow run
+      try {
+        await storage.createWorkflowRun({
+          user_id: req.user.id,
+          goal: req.body.goal || 'Unknown goal',
+          status: 'failed',
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          steps: [],
+          results: null,
+          used_memories: [],
+        });
+      } catch (storageError) {
+        console.error("Failed to store failed workflow run:", storageError);
+      }
       res.status(500).json({ 
         message: "Failed to execute workflow", 
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: 'failed'
       });
     }
   });

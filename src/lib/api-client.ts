@@ -6,13 +6,17 @@
  * - Central-auth refresh is transitional fallback only for legacy token paths
  *
  * Expected auth lifecycle:
- * - Header priority: API key > Supabase session token > auth-gateway exchanged token > legacy secure storage token
+ * - Header priority: API key > auth-gateway exchanged token > Supabase-to-gateway exchange > legacy secure storage token
  * - 401 handling: refresh Supabase first, then transitional central-auth refresh fallback, then redirect to dashboard login
  */
 
 import { secureTokenStorage } from './secure-token-storage';
 import { centralAuth } from './central-auth';
-import { getAuthGatewayAccessToken } from './token-exchange';
+import {
+  clearAuthGatewayTokens,
+  exchangeSupabaseToken,
+  getAuthGatewayAccessToken,
+} from './token-exchange';
 import { supabase } from '@/integrations/supabase/client';
 
 const API_BASE_URL = import.meta.env.VITE_CORE_API_BASE_URL || import.meta.env.VITE_API_URL?.replace('/v1', '') || 'https://api.lanonasis.com';
@@ -68,18 +72,53 @@ interface Organization {
 interface ApiKey {
   id: string;
   name: string;
-  key_preview: string;
+  key?: string;
+  key_preview?: string;
   permissions: string[];
+  service?: string;
+  key_context?: 'personal' | 'team' | 'enterprise' | null;
+  binding?: { client_id?: 'claude' | 'hermes' | 'openclaw' } | null;
+  consumer?: 'claude' | 'hermes' | 'openclaw';
+  user_id: string;
   is_active: boolean;
   expires_at: string | null;
   last_used_at: string | null;
   created_at: string;
 }
 
+interface McpRouterApiKeyScope {
+  id: string;
+  service_key: string;
+  allowed_actions: string[];
+  max_calls_per_minute?: number | null;
+  max_calls_per_day?: number | null;
+}
+
+interface McpRouterApiKey {
+  id: string;
+  key_prefix: string;
+  name: string;
+  description?: string | null;
+  scope_type: 'all' | 'specific';
+  allowed_environments: string[];
+  rate_limit_per_minute: number;
+  rate_limit_per_day: number;
+  allowed_ips: string[];
+  expires_at?: string | null;
+  last_used_at?: string | null;
+  last_used_ip?: string | null;
+  is_active: boolean;
+  revoked_at?: string | null;
+  revoked_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  scopes?: McpRouterApiKeyScope[];
+}
+
 class ApiClient {
   /**
    * Get authentication headers for API requests
-   * Priority: API key > Supabase session > Auth-gateway token > Legacy token
+   * Priority: API key > Auth-gateway token > Supabase-to-gateway exchange > Legacy token
    */
   private async getAuthHeaders(apiKey?: string): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
@@ -101,22 +140,24 @@ class ApiClient {
       return headers;
     }
 
-    // Owner path: Supabase session token.
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-        return headers;
-      }
-    } catch (error) {
-      console.warn('[API Client] Failed to get Supabase session:', error);
-    }
-
-    // Transitional fallback: auth-gateway exchanged token.
     const authGatewayToken = getAuthGatewayAccessToken();
     if (authGatewayToken) {
       headers['Authorization'] = `Bearer ${authGatewayToken}`;
       return headers;
+    }
+
+    // Supabase owns the dashboard session, but gateway routes require a
+    // gateway-issued token. Exchange in memory and never send the raw
+    // Supabase bearer to gateway-only endpoints.
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const exchanged = await exchangeSupabaseToken(session.access_token);
+        headers['Authorization'] = `Bearer ${exchanged.access_token}`;
+        return headers;
+      }
+    } catch (error) {
+      console.warn('[API Client] Failed to exchange Supabase session:', error);
     }
 
     // Fallback to legacy token storage
@@ -161,6 +202,12 @@ class ApiClient {
 
         if (!allowAuthRetry) {
           throw new Error('Authentication required');
+        }
+
+        // A gateway token can be revoked before its local expiry. Discard it
+        // before rebuilding the bridge from the canonical Supabase session.
+        if (!apiKey) {
+          clearAuthGatewayTokens();
         }
 
         // Owner refresh path: refresh Supabase session first.
@@ -340,10 +387,19 @@ class ApiClient {
 
   async createApiKey(keyData: {
     name: string;
-    permissions?: string[];
-    expires_at?: string;
-  }): Promise<ApiResponse<ApiKey & { secret: string }>> {
-    return this.makeRequest<ApiKey & { secret: string }>('/api-keys', {
+    scopes?: string[];
+    key_context: 'personal' | 'team' | 'enterprise';
+    consumer?: 'claude' | 'hermes' | 'openclaw' | null;
+    binding?: { client_id?: 'claude' | 'hermes' | 'openclaw' } | null;
+    expires_in_days?: number;
+    service_type?: 'all' | 'specific';
+    service_keys?: string[];
+  }): Promise<ApiResponse<ApiKey>> {
+    const endpoint = keyData.service_type === 'specific'
+      ? '/api-keys/with-services'
+      : '/api-keys';
+
+    return this.makeRequest<ApiKey>(endpoint, {
       method: 'POST',
       body: JSON.stringify(keyData)
     });
@@ -353,6 +409,96 @@ class ApiClient {
     return this.makeRequest<void>(`/api-keys/${id}`, {
       method: 'DELETE'
     });
+  }
+
+  async revokeApiKey(id: string): Promise<ApiResponse<void>> {
+    return this.deleteApiKey(id);
+  }
+
+  // MCP Router Keys (vx_prod_*) — /api/v1/mcp/api-keys
+  //
+  // Server-side implementation of the @vortex-secure/mcp-sdk contract
+  // (built 2026-08-23, see auth-gateway's mcp-router-keys.routes.ts).
+  // Response bodies are the bare payload (no {success, data} envelope) to
+  // match the published SDK's HTTPAdapter, which reads the parsed JSON body
+  // directly — so these methods bypass makeRequest's ApiResponse<T> typing
+  // (same pattern as makeIntelligenceRequest above) rather than unwrapping
+  // a `.data` field that doesn't exist on these responses.
+
+  async listMcpRouterKeys(): Promise<{ api_keys: McpRouterApiKey[] }> {
+    return this.makeRequest<any>('/mcp/api-keys');
+  }
+
+  async getMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}`);
+  }
+
+  async createMcpRouterKey(request: {
+    name: string;
+    description?: string;
+    scope_type: 'all' | 'specific';
+    service_keys?: string[];
+    allowed_environments?: string[];
+    rate_limit_per_minute?: number;
+    rate_limit_per_day?: number;
+    allowed_ips?: string[];
+    expires_at?: string;
+  }): Promise<{ api_key: McpRouterApiKey; full_key: string }> {
+    return this.makeRequest<any>('/mcp/api-keys', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async updateMcpRouterKey(
+    id: string,
+    updates: {
+      name?: string;
+      description?: string;
+      rate_limit_per_minute?: number;
+      rate_limit_per_day?: number;
+      allowed_ips?: string[];
+      allowed_environments?: string[];
+    }
+  ): Promise<{ api_key: McpRouterApiKey }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async revokeMcpRouterKey(id: string, reason?: string): Promise<{ success: boolean }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async reactivateMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/reactivate`, { method: 'POST' });
+  }
+
+  async deleteMcpRouterKey(id: string): Promise<{ success: boolean }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}`, { method: 'DELETE' });
+  }
+
+  async rotateMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey; full_key: string }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/rotate`, { method: 'POST' });
+  }
+
+  async setMcpRouterKeyScope(
+    id: string,
+    serviceKey: string,
+    rateLimits?: { max_calls_per_minute?: number; max_calls_per_day?: number }
+  ): Promise<{ scope: McpRouterApiKeyScope }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/scopes`, {
+      method: 'POST',
+      body: JSON.stringify({ service_key: serviceKey, ...rateLimits }),
+    });
+  }
+
+  async removeMcpRouterKeyScope(id: string, scopeId: string): Promise<{ success: boolean }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/scopes/${scopeId}`, { method: 'DELETE' });
   }
 
   // Intelligence routing contract (#133):

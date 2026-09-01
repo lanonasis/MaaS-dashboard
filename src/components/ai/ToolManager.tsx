@@ -146,7 +146,7 @@ export function ToolManager() {
 
         toast({
           title: 'Tool Enabled',
-          description: `${tool.name} is now available to your AI assistant`
+          description: `${tool.name} is now available to your concierge`
         });
       } else {
         await registry.disableTool(tool.id);
@@ -313,7 +313,7 @@ export function ToolManager() {
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                This is a built-in dashboard tool. It's always available to your AI assistant.
+                This is a built-in dashboard tool. It's always available to your concierge.
               </AlertDescription>
             </Alert>
           )}
@@ -339,9 +339,9 @@ export function ToolManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">AI Tools Configuration</h2>
+        <h2 className="text-2xl font-bold">Concierge Tools Configuration</h2>
         <p className="text-muted-foreground mt-1">
-          Configure which tools your AI assistant can access and what actions it can perform
+          Configure which tools your concierge can surface, grounded in your continuity
         </p>
       </div>
 
@@ -359,7 +359,7 @@ export function ToolManager() {
           <Alert>
             <Brain className="h-4 w-4" />
             <AlertDescription>
-              These are built-in platform tools that are always available to your AI assistant.
+              These are built-in platform tools that are always available to your concierge.
               They don't require any API keys or additional configuration.
             </AlertDescription>
           </Alert>
@@ -375,7 +375,7 @@ export function ToolManager() {
           <Alert>
             <Key className="h-4 w-4" />
             <AlertDescription>
-              Connect your personal productivity tools to give your AI assistant more context and capabilities.
+              Connect your personal productivity tools to give your concierge more continuity and grounding.
               You'll need to provide API keys for each tool you want to enable.
             </AlertDescription>
           </Alert>

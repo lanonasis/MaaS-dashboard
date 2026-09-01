@@ -49,6 +49,7 @@ interface WorkflowRun {
   usedMemories: string[];
   createdAt: string;
   status?: string;
+  error_message?: string;
 }
 
 export const WorkflowOrchestrator: React.FC = () => {
@@ -87,7 +88,8 @@ export const WorkflowOrchestrator: React.FC = () => {
           notes: run.results?.notes || '',
           usedMemories: run.used_memories || [],
           createdAt: run.created_at,
-          status: run.status
+          status: run.status,
+          error_message: run.error_message || run.results?.error_message
         })));
       }
     } catch (error) {
@@ -134,6 +136,19 @@ export const WorkflowOrchestrator: React.FC = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        // Backend may have created a failed run — add it to history immediately
+        if (errorData.runId) {
+          const failedRun: WorkflowRun = {
+            id: errorData.runId,
+            goal: request.trim(),
+            steps: [],
+            notes: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+            usedMemories: [],
+            createdAt: new Date().toISOString(),
+            status: 'failed'
+          };
+          setWorkflows(prev => [failedRun, ...prev]);
+        }
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
@@ -161,6 +176,8 @@ export const WorkflowOrchestrator: React.FC = () => {
       setRequest('');
     } catch (error) {
       console.error('Workflow execution error:', error);
+      // Fetch updated history so the failed run row appears immediately in the list
+      await fetchWorkflowHistory();
       toast({
         title: "Execution failed",
         description: error instanceof Error ? error.message : "Unknown error occurred",
@@ -459,6 +476,19 @@ export const WorkflowOrchestrator: React.FC = () => {
                         );
                       })}
                     </div>
+                  </div>
+                )}
+
+                {/* Error State */}
+                {workflow.status === 'failed' && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 space-y-2">
+                    <h4 className="font-medium text-sm flex items-center gap-2 text-red-600 dark:text-red-400">
+                      <AlertCircle className="h-4 w-4" />
+                      Workflow Failed
+                    </h4>
+                    <p className="text-sm text-foreground/90">
+                      {workflow.error_message || workflow.notes || 'An unknown error occurred during execution.'}
+                    </p>
                   </div>
                 )}
 

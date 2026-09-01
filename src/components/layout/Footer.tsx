@@ -17,7 +17,7 @@ export const Footer = () => {
               <span className="text-foreground">Platform</span>
             </a>
             <p className="text-sm text-muted-foreground mb-6 max-w-xs">
-              AI-powered fintech solutions transforming industries across Africa with intelligent compliance, risk management, and seamless payment systems.
+              A Memory-as-a-Service platform for AI agents and developers — persistent, vector-enabled memory with semantic search, secure API key management, and MCP integration.
             </p>
             <div className="flex items-center space-x-4">
               <a
@@ -62,7 +62,7 @@ export const Footer = () => {
                   href="https://lanonasis.com#ecosystem"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-300"
                 >
-                  Features
+                  Platform Features
                 </a>
               </li>
               <li>

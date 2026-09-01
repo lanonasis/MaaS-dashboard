@@ -85,6 +85,9 @@ import {
   Trash2,
   Save,
   X,
+  Sparkles,
+  Upload,
+  File,
 } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -209,6 +212,13 @@ export function MemoryVisualizer() {
   // Dialog states
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  // File upload state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadType, setUploadType] = useState<'text' | 'json' | 'document'>('text');
+  const [uploadTitle, setUploadTitle] = useState('');
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -476,6 +486,96 @@ export function MemoryVisualizer() {
   const handleConfirmDelete = () => {
     if (!selectedMemory) return;
     deleteMutation.mutate(selectedMemory.id);
+  };
+
+  // File upload handler
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      // Auto-set title from filename if not set
+      if (!uploadTitle) {
+        setUploadTitle(file.name.replace(/\.[^/.]+$/, '')); // Remove extension
+      }
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile || !authUser) return;
+
+    setIsUploading(true);
+    try {
+      let content = '';
+      
+      // Read file content
+      if (uploadType === 'text' || uploadType === 'json') {
+        content = await selectedFile.text();
+        if (uploadType === 'json') {
+          // Validate JSON
+          try {
+            JSON.parse(content);
+          } catch {
+            toast({
+              title: 'Invalid JSON',
+              description: 'The file content is not valid JSON.',
+              variant: 'destructive',
+            });
+            setIsUploading(false);
+            return;
+          }
+        }
+      } else {
+        // For documents, store as base64 or just the filename
+        content = `Document: ${selectedFile.name}\nType: ${selectedFile.type}\nSize: ${(selectedFile.size / 1024).toFixed(2)} KB\n\nNote: Full document upload requires Supabase Storage configuration.`;
+      }
+
+      // Create memory entry with file content
+      const memoryType = uploadType === 'json' ? 'knowledge' : uploadType === 'document' ? 'reference' : 'context';
+      
+      const { error } = await supabase
+        .from('memory_entries')
+        .insert({
+          user_id: authUser.id,
+          title: uploadTitle || selectedFile.name,
+          content,
+          type: memoryType,
+          tags: ['file-upload', selectedFile.type.split('/')[0]],
+          metadata: {
+            file_name: selectedFile.name,
+            file_type: selectedFile.type,
+            file_size: selectedFile.size,
+          },
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'File uploaded',
+        description: `${selectedFile.name} has been added to your memories.`,
+      });
+
+      // Reset state and refresh
+      setShowUploadModal(false);
+      setSelectedFile(null);
+      setUploadTitle('');
+      setIsUploading(false);
+      queryClient.invalidateQueries({ queryKey: memoryKeys.all });
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: 'Upload failed',
+        description: error.message || 'Could not upload file.',
+        variant: 'destructive',
+      });
+      setIsUploading(false);
+    }
+  };
+
+  const openUploadModal = () => {
+    setSelectedFile(null);
+    setUploadTitle('');
+    setUploadType('text');
+    setShowUploadModal(true);
   };
 
   const handlePreviousPage = () => {
@@ -1020,6 +1120,118 @@ export function MemoryVisualizer() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* File Upload Modal */}
+      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Upload File to Memory
+            </DialogTitle>
+            <DialogDescription>
+              Upload a file to add its contents to your memory store.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* File type selector */}
+            <div className="space-y-2">
+              <Label htmlFor="upload-type">Content Type</Label>
+              <Select value={uploadType} onValueChange={(v: 'text' | 'json' | 'document') => setUploadType(v)}>
+                <SelectTrigger id="upload-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Plain Text</SelectItem>
+                  <SelectItem value="json">JSON Data</SelectItem>
+                  <SelectItem value="document">Document / Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Title input */}
+            <div className="space-y-2">
+              <Label htmlFor="upload-title">Title</Label>
+              <Input
+                id="upload-title"
+                value={uploadTitle}
+                onChange={(e) => setUploadTitle(e.target.value)}
+                placeholder="Enter a title for this memory"
+              />
+            </div>
+
+            {/* File input */}
+            <div className="space-y-2">
+              <Label htmlFor="file-upload">File</Label>
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                <input
+                  type="file"
+                  id="file-upload"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  data-testid="file-upload-input"
+                  accept={uploadType === 'json' ? '.json,application/json' : uploadType === 'text' ? '.txt,.md,.csv,.log,.json' : '*'}
+                />
+                <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                  {selectedFile ? (
+                    <>
+                      <File className="h-8 w-8 text-primary" />
+                      <span className="text-sm font-medium">{selectedFile.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {(selectedFile.size / 1024).toFixed(2)} KB
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        Click to select a file or drag and drop
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {uploadType === 'json' ? 'JSON files only' : uploadType === 'text' ? 'TXT, MD, CSV, JSON' : 'Any file type'}
+                      </span>
+                    </>
+                  )}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUploadModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleFileUpload}
+              disabled={!selectedFile || isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Floating Action Button for File Upload */}
+      <Button
+        size="icon"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
+        onClick={openUploadModal}
+        data-testid="upload-file-button"
+        aria-label="Upload file to memory"
+      >
+        <Sparkles className="h-6 w-6" />
+      </Button>
     </div>
   );
 }

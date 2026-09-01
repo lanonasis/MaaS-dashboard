@@ -20,8 +20,13 @@ interface ApiKey {
 
 interface CreateApiKeyRequest {
   name: string;
-  permissions?: string[];
-  expires_at?: string;
+  scopes?: string[];
+  key_context?: 'personal' | 'team' | 'enterprise';
+  consumer?: 'claude' | 'hermes' | 'openclaw' | null;
+  binding?: { client_id?: 'claude' | 'hermes' | 'openclaw' } | null;
+  expires_in_days?: number;
+  service_type?: 'all' | 'specific';
+  service_keys?: string[];
 }
 
 // Query keys factory
@@ -61,7 +66,10 @@ export function useCreateApiKey() {
 
   return useMutation({
     mutationFn: async (keyData: CreateApiKeyRequest) => {
-      const response = await apiClient.createApiKey(keyData);
+      const response = await apiClient.createApiKey({
+        ...keyData,
+        key_context: keyData.key_context ?? 'personal',
+      });
       if (response.error) {
         throw new Error(response.error);
       }

@@ -140,7 +140,7 @@ const EXTENSIONS: ExtensionConfig[] = [
   {
     id: 'LanOnasis',
     name: 'LanOnasis Context',
-    description: 'Your personal context store for AI-powered memory and knowledge',
+    description: 'The continuity surface that powers the Concierge — grounded in your real activity and prior decisions',
     category: 'data',
     icon: Sparkles,
     features: ['Context storage', 'Semantic search', 'AI integration'],

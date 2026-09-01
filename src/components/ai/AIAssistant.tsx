@@ -123,7 +123,7 @@ export function AIAssistant() {
                 <Brain className="h-5 w-5 text-blue-600" />
                 <div className="absolute -top-1 -right-1 h-2 w-2 bg-green-500 rounded-full animate-pulse" />
               </div>
-              <CardTitle className="text-base font-semibold">AI Assistant</CardTitle>
+              <CardTitle className="text-base font-semibold">Continuity Concierge</CardTitle>
               {isProcessing && (
                 <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
               )}
@@ -164,7 +164,7 @@ export function AIAssistant() {
                     <div>
                       <h3 className="font-semibold text-lg mb-1">Welcome!</h3>
                       <p className="text-sm text-muted-foreground">
-                        I'm your AI assistant. I can help you create workflows, answer questions, and remember important context.
+                        I'm the Continuity Concierge, your longitudinal thinking partner. I recall continuity across sessions, surface recurring themes, and synthesize what you've been working on. I don't execute workflows or store things for you — you own your memory; I just help you see it.
                       </p>
                     </div>
                     <div className="space-y-2 w-full">
