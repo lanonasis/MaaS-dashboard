@@ -86,6 +86,35 @@ interface ApiKey {
   created_at: string;
 }
 
+interface McpRouterApiKeyScope {
+  id: string;
+  service_key: string;
+  allowed_actions: string[];
+  max_calls_per_minute?: number | null;
+  max_calls_per_day?: number | null;
+}
+
+interface McpRouterApiKey {
+  id: string;
+  key_prefix: string;
+  name: string;
+  description?: string | null;
+  scope_type: 'all' | 'specific';
+  allowed_environments: string[];
+  rate_limit_per_minute: number;
+  rate_limit_per_day: number;
+  allowed_ips: string[];
+  expires_at?: string | null;
+  last_used_at?: string | null;
+  last_used_ip?: string | null;
+  is_active: boolean;
+  revoked_at?: string | null;
+  revoked_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  scopes?: McpRouterApiKeyScope[];
+}
+
 class ApiClient {
   /**
    * Get authentication headers for API requests
@@ -384,6 +413,92 @@ class ApiClient {
 
   async revokeApiKey(id: string): Promise<ApiResponse<void>> {
     return this.deleteApiKey(id);
+  }
+
+  // MCP Router Keys (vx_prod_*) — /api/v1/mcp/api-keys
+  //
+  // Server-side implementation of the @vortex-secure/mcp-sdk contract
+  // (built 2026-08-23, see auth-gateway's mcp-router-keys.routes.ts).
+  // Response bodies are the bare payload (no {success, data} envelope) to
+  // match the published SDK's HTTPAdapter, which reads the parsed JSON body
+  // directly — so these methods bypass makeRequest's ApiResponse<T> typing
+  // (same pattern as makeIntelligenceRequest above) rather than unwrapping
+  // a `.data` field that doesn't exist on these responses.
+
+  async listMcpRouterKeys(): Promise<{ api_keys: McpRouterApiKey[] }> {
+    return this.makeRequest<any>('/mcp/api-keys');
+  }
+
+  async getMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}`);
+  }
+
+  async createMcpRouterKey(request: {
+    name: string;
+    description?: string;
+    scope_type: 'all' | 'specific';
+    service_keys?: string[];
+    allowed_environments?: string[];
+    rate_limit_per_minute?: number;
+    rate_limit_per_day?: number;
+    allowed_ips?: string[];
+    expires_at?: string;
+  }): Promise<{ api_key: McpRouterApiKey; full_key: string }> {
+    return this.makeRequest<any>('/mcp/api-keys', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async updateMcpRouterKey(
+    id: string,
+    updates: {
+      name?: string;
+      description?: string;
+      rate_limit_per_minute?: number;
+      rate_limit_per_day?: number;
+      allowed_ips?: string[];
+      allowed_environments?: string[];
+    }
+  ): Promise<{ api_key: McpRouterApiKey }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async revokeMcpRouterKey(id: string, reason?: string): Promise<{ success: boolean }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async reactivateMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/reactivate`, { method: 'POST' });
+  }
+
+  async deleteMcpRouterKey(id: string): Promise<{ success: boolean }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}`, { method: 'DELETE' });
+  }
+
+  async rotateMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey; full_key: string }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/rotate`, { method: 'POST' });
+  }
+
+  async setMcpRouterKeyScope(
+    id: string,
+    serviceKey: string,
+    rateLimits?: { max_calls_per_minute?: number; max_calls_per_day?: number }
+  ): Promise<{ scope: McpRouterApiKeyScope }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/scopes`, {
+      method: 'POST',
+      body: JSON.stringify({ service_key: serviceKey, ...rateLimits }),
+    });
+  }
+
+  async removeMcpRouterKeyScope(id: string, scopeId: string): Promise<{ success: boolean }> {
+    return this.makeRequest<any>(`/mcp/api-keys/${id}/scopes/${scopeId}`, { method: 'DELETE' });
   }
 
   // Intelligence routing contract (#133):

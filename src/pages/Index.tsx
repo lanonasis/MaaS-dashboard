@@ -67,7 +67,7 @@ const Index = () => {
             <div className="animate-slide-down">
               <div className="inline-flex items-center rounded-full border border-gray-200/60 dark:border-primary/30 bg-background/80 dark:bg-primary/5 backdrop-blur-sm px-3 py-1 text-sm font-medium text-foreground mb-6">
                 <span className="flex h-2 w-2 rounded-full bg-accent mr-2"></span>
-                <span>Introducing LanOnasis</span>
+                <span>Memory-as-a-Service Platform</span>
               </div>
             </div>
             
@@ -310,34 +310,33 @@ const Index = () => {
               <div className="text-sm font-mono overflow-x-auto">
                 <pre className="text-muted-foreground">
                   <code>
-{`// Example: Continuity Concierge with API key management
-const Lanonasis = require('@lanonasis/sdk');
+{`// Example: Memory-as-a-Service with API key management
+import { LanonasisAI } from '@lanonasis/ai-sdk';
 
 // Initialize with your API key
-const client = new Lanonasis({
-  apiKey: 'your_api_key_here'
+const ai = new LanonasisAI({
+  apiKey: 'your_...key'
 });
 
 // Store and retrieve memories
 async function useMemoryService() {
   try {
     // Store a memory with vector embedding
-    const memory = await client.memory.store({
+    const memory = await ai.memory.createMemory({
+      title: 'User Preferences',
       content: 'User prefers dark theme and condensed layout',
-      type: 'preference',
-      topic: 'ui_settings',
-      metadata: { userId: 'user_123' }
+      status: 'active'
     });
-    
+
     console.log('Memory stored:', memory.id);
-    
+
     // Search similar memories
-    const similar = await client.memory.search({
+    const similar = await ai.memory.searchMemories({
       query: 'user interface preferences',
-      type: 'preference',
-      limit: 5
+      status: 'active',
+      threshold: 0.7
     });
-    
+
     console.log('Similar memories:', similar.results);
   } catch (error) {
     console.error('Error:', error.message);
