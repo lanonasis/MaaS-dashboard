@@ -35,7 +35,12 @@ export default tseslint.config(
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-require-imports": "warn",
       "no-useless-catch": "off",
+      "no-useless-assignment": "warn",
       "prefer-const": "warn",
+      "preserve-caught-error": "warn",
+      "react-hooks/immutability": "warn",
+      "react-hooks/purity": "warn",
+      "react-hooks/set-state-in-effect": "warn",
     },
   }
 );
