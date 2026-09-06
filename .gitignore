@@ -8,3 +8,6 @@ dist/
 # Local Netlify folder
 .netlify/
 .turbo/turbo-lint.log
+
+# Pinned Bun installed by netlify-build.sh
+.bun-pinned/
