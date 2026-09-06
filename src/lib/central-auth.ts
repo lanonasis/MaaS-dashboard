@@ -337,6 +337,16 @@ class CentralAuthClient {
           'X-Platform': PLATFORM,
           'X-Project-Scope': PROJECT_SCOPE,
         },
+        // A body is REQUIRED. Sending Content-Type: application/json with no body
+        // makes the gateway's JSON parser reject the request with a 400 that is
+        // emitted before its CORS middleware runs, so the response carries no
+        // Access-Control-Allow-Origin. The browser then reports a CORS failure
+        // ("Failed to fetch") and the real 400 is never visible.
+        // Mirrors lib/token-exchange.ts, which sends the same payload.
+        body: JSON.stringify({
+          project_scope: PROJECT_SCOPE,
+          platform: PLATFORM,
+        }),
       });
 
       if (response.ok) {
