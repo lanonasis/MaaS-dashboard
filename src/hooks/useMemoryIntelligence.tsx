@@ -63,7 +63,39 @@ const normalizeApiUrl = (value: string) => value.replace(/\/$/, "");
 const isUsableKey = (value?: string | null) =>
   Boolean(value && value.startsWith("lano_"));
 
-export interface PatternAnalysis extends SdkPatternAnalysis {}
+/**
+ * UI-facing pattern analysis shape — what every component in this app renders.
+ *
+ * This is intentionally NOT `extends SdkPatternAnalysis`. The published SDK type
+ * describes the Edge Function's wire format (`top_tags`, plus `time_range_days` /
+ * `most_accessed` / `generated_at`), whereas the UI reads `most_common_tags` and
+ * `creation_velocity`. Inheriting the wire type made the compiler assert fields
+ * the server never sends, which is how `most_common_tags.length` shipped and threw.
+ *
+ * Fields below are exactly what `normalizePatternAnalysis` guarantees: required
+ * here means "always present after normalization", so components can read
+ * `.length` and `.trend` directly. Wire-only extras stay optional.
+ */
+export interface PatternAnalysis
+  extends Partial<Omit<SdkPatternAnalysis, keyof PatternAnalysisRendered>> {
+  top_tags?: Array<{ tag: string; count: number }>;
+}
+
+interface PatternAnalysisRendered {
+  total_memories: number;
+  memories_by_type: Record<string, number>;
+  memories_by_day_of_week: Record<string, number>;
+  peak_creation_hours: number[];
+  average_content_length: number;
+  most_common_tags: Array<{ tag: string; count: number }>;
+  creation_velocity: {
+    daily_average: number;
+    trend: "increasing" | "stable" | "decreasing";
+  };
+  insights: string[];
+}
+
+export interface PatternAnalysis extends PatternAnalysisRendered {}
 
 export interface HealthCheckResult {
   overall_score: number;
@@ -284,6 +316,75 @@ const fetchMemoryEntries = async (userId: string, timeRangeDays?: number) => {
   const { data, error } = await query;
   if (error) throw error;
   return (data || []) as MemoryEntryRow[];
+};
+
+/**
+ * Wire shape returned by the `intelligence-analyze-patterns` Edge Function.
+ *
+ * This deliberately does NOT reuse `PatternAnalysis`: the Edge Function emits
+ * `top_tags`, while the SDK type (and every consumer in this app) expects
+ * `most_common_tags`. Declaring the response as `PatternAnalysis` is what let a
+ * payload missing `most_common_tags` reach the render and throw
+ * "Cannot read properties of undefined (reading 'length')".
+ *
+ * Every field is optional because the function is a deployed contract we do not
+ * control from here — treat anything beyond `total_memories` as absent until proven present.
+ */
+type PatternAnalysisWire = Partial<
+  Omit<PatternAnalysis, "most_common_tags">
+> & {
+  top_tags?: Array<{ tag: string; count: number }>;
+  most_common_tags?: Array<{ tag: string; count: number }>;
+};
+
+const asArray = <T,>(value: unknown): T[] =>
+  Array.isArray(value) ? (value as T[]) : [];
+
+const asRecord = (value: unknown): Record<string, number> =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, number>)
+    : {};
+
+/**
+ * Reconcile the Edge Function payload with the `PatternAnalysis` shape the UI renders.
+ *
+ * Maps `top_tags` -> `most_common_tags` and guarantees every array/record/nested
+ * field is present, so components can read `.length` and `.trend` without
+ * optional chaining at each of the ~10 call sites.
+ */
+const normalizePatternAnalysis = (
+  raw: PatternAnalysisWire | null | undefined,
+): PatternAnalysis | null => {
+  if (!raw || typeof raw !== "object") return null;
+
+  const velocity = raw.creation_velocity;
+  const trend = velocity?.trend;
+
+  return {
+    ...raw,
+    total_memories:
+      typeof raw.total_memories === "number" ? raw.total_memories : 0,
+    average_content_length:
+      typeof raw.average_content_length === "number"
+        ? raw.average_content_length
+        : 0,
+    memories_by_type: asRecord(raw.memories_by_type),
+    memories_by_day_of_week: asRecord(raw.memories_by_day_of_week),
+    peak_creation_hours: asArray<number>(raw.peak_creation_hours),
+    // The Edge Function calls this `top_tags`; prefer whichever the payload carries.
+    most_common_tags: asArray<{ tag: string; count: number }>(
+      raw.most_common_tags ?? raw.top_tags,
+    ),
+    creation_velocity: {
+      daily_average:
+        typeof velocity?.daily_average === "number" ? velocity.daily_average : 0,
+      trend:
+        trend === "increasing" || trend === "decreasing" || trend === "stable"
+          ? trend
+          : "stable",
+    },
+    insights: asArray<string>(raw.insights),
+  } as PatternAnalysis;
 };
 
 const buildPatternAnalysis = async (
@@ -525,7 +626,11 @@ function MemoryIntelligenceProviderInner({
           responseFormat: "json",
           ...context,
         });
-        apiResult = response.data ?? null;
+        // Never hand the raw payload to the UI: the Edge Function's field names
+        // and the PatternAnalysis type have already drifted apart once.
+        apiResult = normalizePatternAnalysis(
+          response.data as PatternAnalysisWire | null | undefined,
+        );
       } catch (error) {
         console.error("Memory intelligence pattern analysis error:", error);
       }
