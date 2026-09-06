@@ -146,6 +146,102 @@ describe("useMemoryIntelligence", () => {
     });
   });
 
+  describe("usePatternAnalysis normalization", () => {
+    /**
+     * The exact payload shape emitted by the `intelligence-analyze-patterns`
+     * Edge Function: it sends `top_tags`, NOT `most_common_tags`, and omits
+     * `insights` when `include_insights` is false. Rendering this payload
+     * unnormalized is what produced the production crash
+     * "Cannot read properties of undefined (reading 'length')".
+     */
+    const edgeFunctionPayload = {
+      total_memories: 42,
+      time_range_days: 30,
+      average_content_length: 512,
+      memories_by_type: { context: 30, project: 12 },
+      memories_by_day_of_week: { Monday: 10, Tuesday: 32 },
+      peak_creation_hours: [9, 14],
+      top_tags: [
+        { tag: "infra", count: 12 },
+        { tag: "auth", count: 5 },
+      ],
+      most_accessed: [],
+      creation_velocity: { daily_average: 1.4, trend: "increasing" },
+      generated_at: "2026-09-06T00:00:00.000Z",
+    };
+
+    it("maps top_tags to most_common_tags so the analytics page can render", async () => {
+      mockSdkClient.analyzePatterns.mockResolvedValueOnce({
+        data: edgeFunctionPayload,
+      });
+
+      const { result } = renderHook(() => usePatternAnalysis(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).not.toBeNull();
+      });
+
+      // The field MemoryAnalytics.tsx actually reads.
+      expect(result.current.data?.most_common_tags).toEqual([
+        { tag: "infra", count: 12 },
+        { tag: "auth", count: 5 },
+      ]);
+      // Reading .length must not throw — this is the exact production failure.
+      expect(() => result.current.data!.most_common_tags.length).not.toThrow();
+      expect(result.current.data?.total_memories).toBe(42);
+    });
+
+    it("defaults every array the UI calls .length on when the payload omits them", async () => {
+      // Minimal payload: passes the `total_memories > 0` check but carries
+      // nothing else — the worst case the old code handed straight to render.
+      mockSdkClient.analyzePatterns.mockResolvedValueOnce({
+        data: { total_memories: 7 },
+      });
+
+      const { result } = renderHook(() => usePatternAnalysis(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).not.toBeNull();
+      });
+
+      const data = result.current.data!;
+      expect(data.most_common_tags).toEqual([]);
+      expect(data.insights).toEqual([]);
+      expect(data.peak_creation_hours).toEqual([]);
+      expect(data.memories_by_type).toEqual({});
+      expect(data.memories_by_day_of_week).toEqual({});
+      // creation_velocity.trend is read unguarded by getTrendIcon().
+      expect(data.creation_velocity.trend).toBe("stable");
+      expect(data.creation_velocity.daily_average).toBe(0);
+    });
+
+    it("keeps most_common_tags when the payload already uses that name", async () => {
+      mockSdkClient.analyzePatterns.mockResolvedValueOnce({
+        data: {
+          ...edgeFunctionPayload,
+          top_tags: undefined,
+          most_common_tags: [{ tag: "already-normalized", count: 3 }],
+        },
+      });
+
+      const { result } = renderHook(() => usePatternAnalysis(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).not.toBeNull();
+      });
+
+      expect(result.current.data?.most_common_tags).toEqual([
+        { tag: "already-normalized", count: 3 },
+      ]);
+    });
+  });
+
   describe("usePatternAnalysis hook", () => {
     it("returns empty state when not ready", async () => {
       mockAuthLoading = true;
