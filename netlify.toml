@@ -7,6 +7,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # bun.lock is lockfileVersion 2 — only Bun >= 1.4 can parse it.
+  # Keep in sync with REQUIRED_BUN_VERSION in netlify-build.sh.
+  BUN_VERSION = "1.4.2"
 
 # Disable problematic plugins that cause build failures
 # netlify-plugin-bundle-env has been removed due to configuration errors
