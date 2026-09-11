@@ -73,6 +73,8 @@ export default defineConfig(() => ({
           // Exclude Supabase and other OAuth callback paths
           /\/callback/,
           /\/authorize/,
+          // Static docs pages (public/docs/**) must load their real files, not the SPA shell
+          /^\/docs\//,
         ],
         runtimeCaching: [
           {
