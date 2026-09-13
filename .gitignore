@@ -11,3 +11,6 @@ dist/
 
 # Pinned Bun installed by netlify-build.sh
 .bun-pinned/
+
+# Test coverage
+coverage/
