@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import {
@@ -84,6 +84,13 @@ const createWrapper = () => {
       <MemoryIntelligenceProvider>{children}</MemoryIntelligenceProvider>
     </MemoryRouter>
   );
+};
+
+// Wrap async refetch calls in act() to flush React state updates.
+const actRefetch = async (fn: () => Promise<unknown>) => {
+  await act(async () => {
+    await fn();
+  });
 };
 
 describe("useMemoryIntelligence", () => {
@@ -534,6 +541,203 @@ describe("useMemoryIntelligence", () => {
       });
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  // COV-040 expansion: hit remaining branch lines in useMemoryIntelligence.tsx
+  // Scope: React lifecycle, refetch, hook variations, no-userId guards.
+  // NOT covered here: pattern/health calculation math (deferred to packages/memory-intelligence-engine).
+  describe("COV-040 expansion — lifecycle, refetch, hook variations", () => {
+    it("usePatternAnalysis refetch is a no-op when not ready (line 800)", async () => {
+      mockAuthLoading = true;
+      mockAuthUser = null;
+      mockAuthSession = null;
+
+      const { result } = renderHook(() => usePatternAnalysis(), {
+        wrapper: createWrapper(),
+      });
+
+      // isReady=false; calling refetch should not throw and should not call sdk
+      await expect(result.current.refetch()).resolves.toBeUndefined();
+      expect(mockSdkClient.analyzePatterns).not.toHaveBeenCalled();
+    });
+
+    it("usePatternAnalysis refetch succeeds when ready (line 814 refetch path)", async () => {
+      const { result } = renderHook(() => usePatternAnalysis(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      // Reset and call refetch — should call sdk
+      mockSdkClient.analyzePatterns.mockClear();
+      await actRefetch(() => result.current.refetch());
+      expect(mockSdkClient.analyzePatterns).toHaveBeenCalled();
+    });
+
+    it("useHealthCheck refetch is a no-op when not ready (line 830)", async () => {
+      mockAuthLoading = true;
+      mockAuthUser = null;
+      mockAuthSession = null;
+
+      const { result } = renderHook(() => useHealthCheck(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(result.current.refetch()).resolves.toBeUndefined();
+      expect(mockSdkClient.healthCheck).not.toHaveBeenCalled();
+    });
+
+    it("useHealthCheck refetch succeeds when ready (line 844)", async () => {
+      const { result } = renderHook(() => useHealthCheck(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      mockSdkClient.healthCheck.mockClear();
+      await actRefetch(() => result.current.refetch());
+      expect(mockSdkClient.healthCheck).toHaveBeenCalled();
+    });
+
+    it("useInsightExtraction accepts a topic param and still refetches (line 852 + 859)", async () => {
+      const { result } = renderHook(() => useInsightExtraction("productivity"), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      mockSdkClient.extractInsights.mockClear();
+      await actRefetch(() => result.current.refetch());
+      expect(mockSdkClient.extractInsights).toHaveBeenCalled();
+    });
+
+    it("useDuplicateDetection accepts a threshold param (line 882)", async () => {
+      const { result } = renderHook(() => useDuplicateDetection(0.85), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      mockSdkClient.detectDuplicates.mockClear();
+      await actRefetch(() => result.current.refetch());
+      expect(mockSdkClient.detectDuplicates).toHaveBeenCalled();
+    });
+
+    it("useInsightExtraction refetch is a no-op when not ready (line 860)", async () => {
+      mockAuthLoading = true;
+      mockAuthUser = null;
+      mockAuthSession = null;
+
+      const { result } = renderHook(() => useInsightExtraction(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(result.current.refetch()).resolves.toBeUndefined();
+      expect(mockSdkClient.extractInsights).not.toHaveBeenCalled();
+    });
+
+    it("useDuplicateDetection refetch is a no-op when not ready (line 890)", async () => {
+      mockAuthLoading = true;
+      mockAuthUser = null;
+      mockAuthSession = null;
+
+      const { result } = renderHook(() => useDuplicateDetection(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(result.current.refetch()).resolves.toBeUndefined();
+      expect(mockSdkClient.detectDuplicates).not.toHaveBeenCalled();
+    });
+
+    it("useMemoryIntelligence() returns context values when wrapped (line 789)", async () => {
+      const { result } = renderHook(() => useMemoryIntelligence(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.userId).toBe("user-123");
+      });
+
+      // All four hook handles exist
+      expect(typeof result.current.analyzePatterns).toBe("function");
+      expect(typeof result.current.getHealthCheck).toBe("function");
+      expect(typeof result.current.extractInsights).toBe("function");
+      expect(typeof result.current.detectDuplicates).toBe("function");
+    });
+
+    it("analyzePatterns falls back to local calculation when API returns null (line 643)", async () => {
+      // API returns null (mocked default) but Supabase has memories
+      mockSupabaseSelect.mockReturnValue({
+        data: [
+          {
+            id: "mem-1",
+            title: "Local Memory",
+            content: "local content here",
+            type: "context",
+            tags: ["alpha", "beta"],
+            created_at: new Date().toISOString(),
+            embedding: [0.1, 0.2, 0.3],
+          },
+        ],
+        error: null,
+      });
+      mockSdkClient.analyzePatterns.mockResolvedValue({ data: null });
+
+      const { result } = renderHook(() => usePatternAnalysis(30), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).not.toBeNull();
+      });
+
+      // Fallback should produce non-null data from local memories
+      expect(result.current.data?.total_memories).toBeGreaterThanOrEqual(0);
+    });
+
+    it("extractInsights returns empty array when API returns no data (line 690)", async () => {
+      mockSdkClient.extractInsights.mockResolvedValue({ data: null });
+
+      const { result } = renderHook(() => useInsightExtraction(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.data).toEqual([]);
+    });
+
+    it("detectDuplicates returns empty array when API returns no data (line 714)", async () => {
+      mockSdkClient.detectDuplicates.mockResolvedValue({ data: null });
+
+      const { result } = renderHook(() => useDuplicateDetection(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.data).toEqual([]);
     });
   });
 });

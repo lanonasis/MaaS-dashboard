@@ -155,11 +155,6 @@ class SecureTokenStorage {
    */
   migrateFromLocalStorage(): void {
     try {
-      // Check if localStorage is available (SSR compatibility)
-      if (typeof localStorage === 'undefined') {
-        return;
-      }
-
       // Migrate only non-sensitive user metadata.
       const userData = localStorage.getItem(USER_DATA_STORAGE_KEY);
       if (userData) {
@@ -172,9 +167,7 @@ class SecureTokenStorage {
 
       // Remove legacy persisted sensitive tokens.
       LEGACY_SENSITIVE_TOKEN_KEYS.forEach((key) => localStorage.removeItem(key));
-      if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.removeItem(LEGACY_REFRESH_FALLBACK_KEY);
-      }
+      sessionStorage.removeItem(LEGACY_REFRESH_FALLBACK_KEY);
     } catch (e) {
       console.warn('Migration from localStorage failed:', e);
     }

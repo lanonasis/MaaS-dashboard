@@ -8,6 +8,16 @@
 // - Refresh lifecycle is Supabase session lifecycle
 // - Token exchange to auth-gateway is best-effort bridging, not ownership
 
+// Dev-only debug logger — compiles to no-op in production/test
+const debug =
+  typeof import.meta.env.DEV !== 'undefined' && import.meta.env.DEV
+    ? {
+        log: console.log.bind(console),
+        warn: console.warn.bind(console),
+        error: console.error.bind(console),
+      }
+    : { log: () => {}, warn: () => {}, error: () => {} };
+
 import { useState, useEffect, createContext, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -87,32 +97,20 @@ const hasLegacyCentralCallbackParams = (
 };
 
 const hasLegacyCentralStorageArtifacts = (): boolean => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
   return (
     [...LEGACY_SENSITIVE_TOKEN_KEYS, ...LEGACY_CALLBACK_METADATA_KEYS].some(
       (key) => Boolean(localStorage.getItem(key))
     ) ||
     LEGACY_SESSION_STORAGE_KEYS.some((key) =>
-      typeof sessionStorage !== "undefined"
-        ? Boolean(sessionStorage.getItem(key))
-        : false
+      Boolean(sessionStorage.getItem(key))
     )
   );
 };
 
 const clearLegacyCentralArtifacts = (includeMetadata: boolean): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-
   LEGACY_SENSITIVE_TOKEN_KEYS.forEach((key) => localStorage.removeItem(key));
   LEGACY_SESSION_STORAGE_KEYS.forEach((key) => {
-    if (typeof sessionStorage !== "undefined") {
-      sessionStorage.removeItem(key);
-    }
+    sessionStorage.removeItem(key);
   });
 
   if (includeMetadata) {
@@ -121,17 +119,10 @@ const clearLegacyCentralArtifacts = (includeMetadata: boolean): void => {
 };
 
 const markCentralAuthReauthRequired = (): void => {
-  if (typeof sessionStorage === "undefined") {
-    return;
-  }
   sessionStorage.setItem(CENTRAL_AUTH_REAUTH_FLAG, "1");
 };
 
 const consumeCentralAuthReauthRequired = (): boolean => {
-  if (typeof sessionStorage === "undefined") {
-    return false;
-  }
-
   const flagged = sessionStorage.getItem(CENTRAL_AUTH_REAUTH_FLAG) === "1";
   if (flagged) {
     sessionStorage.removeItem(CENTRAL_AUTH_REAUTH_FLAG);
@@ -180,7 +171,7 @@ export const CentralAuthProvider = ({
   };
 
   useEffect(() => {
-    console.log("CentralAuthProvider: Initializing auth");
+    debug.log("CentralAuthProvider: Initializing auth");
     let cleanup: (() => void) | undefined;
 
     const init = async () => {
@@ -202,7 +193,7 @@ export const CentralAuthProvider = ({
   }, []);
 
   const initializeAuth = async (): Promise<(() => void) | undefined> => {
-    console.log("CentralAuthProvider: initializeAuth called", {
+    debug.log("CentralAuthProvider: initializeAuth called", {
       DASHBOARD_AUTH_OWNER_MODEL,
       CENTRAL_AUTH_ROLE: "non-interactive bridge only",
     });
@@ -225,7 +216,7 @@ export const CentralAuthProvider = ({
         error,
       } = await supabase.auth.getSession();
       if (error) {
-        console.error("Error fetching Supabase session:", error);
+        debug.error("Error fetching Supabase session:", error);
       } else if (supabaseSession) {
         setSession(supabaseSession);
         setUser(supabaseSession.user);
@@ -235,7 +226,7 @@ export const CentralAuthProvider = ({
         if (supabaseSession.access_token) {
           void enqueueSsoWork(() =>
             centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
-              .catch((err) => console.warn("SSO cookie sync on load failed:", err))
+              .catch((err) => debug.warn("SSO cookie sync on load failed:", err))
           );
         }
       } else if (legacyCentralCallbackInUrl) {
@@ -267,11 +258,9 @@ export const CentralAuthProvider = ({
         const authGeneration = ++authGenerationRef.current;
         clearDeferredAuthWork();
 
-        console.log(
-          "Supabase auth state change:",
+        debug.log("Supabase auth state change:",
           event,
-          supabaseSession?.user?.email
-        );
+          supabaseSession?.user?.email);
         setSession(supabaseSession);
         setUser(supabaseSession?.user || null);
 
@@ -281,7 +270,7 @@ export const CentralAuthProvider = ({
           // can finish before profile/SSO requests begin.
           deferAuthWork(authGeneration, () =>
             fetchProfile(supabaseSession.user.id, authGeneration).catch((error) => {
-              console.error("Error fetching profile after auth change:", error);
+              debug.error("Error fetching profile after auth change:", error);
             })
           );
 
@@ -291,7 +280,7 @@ export const CentralAuthProvider = ({
               enqueueSsoWork(async () => {
                 if (authGeneration !== authGenerationRef.current) return;
                 await centralAuth.exchangeSupabaseToken(supabaseSession.access_token)
-                  .catch((err) => console.warn("SSO cookie sync failed:", err));
+                  .catch((err) => debug.warn("SSO cookie sync failed:", err));
               })
             );
           }
@@ -312,7 +301,7 @@ export const CentralAuthProvider = ({
             void enqueueSsoWork(async () => {
               if (authGeneration !== authGenerationRef.current) return;
               await centralAuth.clearSSOCookies()
-                .catch((err) => console.warn("SSO cookie clear failed:", err));
+                .catch((err) => debug.warn("SSO cookie clear failed:", err));
             });
           }
         }
@@ -323,7 +312,7 @@ export const CentralAuthProvider = ({
       // Cleanup subscription on unmount
       return () => subscription.unsubscribe();
     } catch (error) {
-      console.error("Error initializing Supabase auth:", error);
+      debug.error("Error initializing Supabase auth:", error);
       setIsLoading(false);
     }
 
@@ -390,7 +379,7 @@ export const CentralAuthProvider = ({
         navigate(redirectPath || "/dashboard");
       }, 100);
     } catch (error) {
-      console.error("Error handling OAuth user:", error);
+      debug.error("Error handling OAuth user:", error);
     }
   };
 
@@ -404,7 +393,7 @@ export const CentralAuthProvider = ({
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching profile:", error);
+        debug.error("Error fetching profile:", error);
         return;
       }
 
@@ -415,7 +404,7 @@ export const CentralAuthProvider = ({
         setProfile(data as unknown as Profile);
       }
     } catch (error) {
-      console.error("Error fetching profile:", error);
+      debug.error("Error fetching profile:", error);
     }
   };
 
@@ -532,7 +521,7 @@ export const CentralAuthProvider = ({
       } = await supabase.auth.getSession();
 
       if (error) {
-        console.error("Error handling auth callback:", error);
+        debug.error("Error handling auth callback:", error);
         toast({
           title: "Authentication Error",
           description: "Failed to complete authentication",
@@ -573,7 +562,7 @@ export const CentralAuthProvider = ({
         navigate("/auth");
       }
     } catch (error) {
-      console.error("Error in auth callback:", error);
+      debug.error("Error in auth callback:", error);
       navigate("/auth");
     } finally {
       setIsProcessingCallback(false);

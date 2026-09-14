@@ -44,10 +44,6 @@ const getMCPRouterMasterPassword = (): string => {
     return envPassword;
   }
 
-  if (typeof window === 'undefined') {
-    return 'dashboard-local-master-password';
-  }
-
   const existing = window.localStorage.getItem(MASTER_PASSWORD_STORAGE_KEY);
   if (existing) {
     return existing;

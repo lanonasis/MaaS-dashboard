@@ -31,7 +31,7 @@ function genId() {
 
 type ActionType = typeof actionTypes
 
-type Action =
+export type Action =
   | {
       type: ActionType["ADD_TOAST"]
       toast: ToasterToast

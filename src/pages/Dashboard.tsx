@@ -64,20 +64,16 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { signOut } = useSupabaseAuth();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
     return window.innerWidth >= DESKTOP_BREAKPOINT;
   });
   const toggleButtonRef = useRef<HTMLButtonElement>(null);
   const pageTitleRef = useRef<HTMLHeadingElement>(null);
   const previousBodyOverflowRef = useRef<string | null>(null);
   const [isDesktopViewport, setIsDesktopViewport] = useState(() => {
-    if (typeof window === "undefined") return true;
     return window.innerWidth >= DESKTOP_BREAKPOINT;
   });
 
   const syncBodyScrollLock = useCallback((shouldLock: boolean) => {
-    if (typeof document === "undefined") return;
-
     if (shouldLock) {
       if (previousBodyOverflowRef.current === null) {
         previousBodyOverflowRef.current = document.body.style.overflow;

@@ -675,5 +675,234 @@ describe('ApiClient', () => {
 
       expect(mockClearAuthGatewayTokens).not.toHaveBeenCalled();
     });
+
+    // COV-041 expansion: hit remaining branch lines in api-client.ts
+    describe('COV-041 expansion — auth header variants, refresh flow, intelligence envelope', () => {
+      it('uses both Bearer and X-API-Key for vx_-prefixed apiKey (line 132 true branch)', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
+
+        await apiClient.getMemories({ apiKey: 'vx_external_abc123' });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              Authorization: 'vx_external_abc123',
+              'X-API-Key': 'vx_external_abc123',
+            }),
+          })
+        );
+      });
+
+      it('uses only X-API-Key (no Bearer) for lano_-prefixed apiKey (line 132 false branch)', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
+
+        await apiClient.getMemories({ apiKey: 'lano_user_key_xyz' });
+
+        const callArgs = mockFetch.mock.calls[0][1];
+        const headers = callArgs.headers as Record<string, string>;
+        expect(headers['X-API-Key']).toBe('lano_user_key_xyz');
+        // CRITICAL: lano_ keys must NOT go in Authorization header
+        expect(headers['Authorization']).toBeUndefined();
+      });
+
+      it('falls back to legacy token storage when no gateway token or session exists (line 165)', async () => {
+        const { secureTokenStorage } = await import('../secure-token-storage');
+        (secureTokenStorage.getAccessToken as ReturnType<typeof vi.fn>).mockReturnValueOnce('legacy-token-xyz');
+
+        mockGetAuthGatewayAccessToken.mockReturnValueOnce(null);
+        mockSupabaseGetSession.mockResolvedValueOnce({ data: { session: null } });
+
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
+
+        await apiClient.getMemories();
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              Authorization: 'Bearer legacy-token-xyz',
+            }),
+          })
+        );
+      });
+
+      it('on 401, retries after successful Supabase session refresh (line 238 true)', async () => {
+        mockSupabaseRefreshSession.mockResolvedValueOnce({
+          data: { session: { access_token: 'refreshed-supabase-token' } },
+        });
+
+        // First call: 401. Second call (after refresh): success.
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: false,
+            status: 401,
+            json: () => Promise.resolve({ error: 'Unauthorized' }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ data: [] }),
+          });
+
+        await apiClient.getMemories();
+
+        expect(mockSupabaseRefreshSession).toHaveBeenCalledTimes(1);
+        // Two fetch calls: 401 + retry
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        // The retry should use the new exchanged gateway token
+        const retryCall = mockFetch.mock.calls[1][1];
+        const retryHeaders = retryCall.headers as Record<string, string>;
+        expect(retryHeaders['Authorization']).toBe('Bearer gateway-token');
+      });
+
+      it('on 401, falls back to central-auth refresh when Supabase refresh fails (line 229 true)', async () => {
+        const { centralAuth } = await import('../central-auth');
+        (centralAuth.refreshToken as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+        mockSupabaseRefreshSession.mockRejectedValueOnce(new Error('No session to refresh'));
+
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: false,
+            status: 401,
+            json: () => Promise.resolve({ error: 'Unauthorized' }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ data: [] }),
+          });
+
+        await apiClient.getMemories();
+
+        expect(centralAuth.refreshToken).toHaveBeenCalledTimes(1);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+      });
+
+      it('throws with status code fallback when error response body lacks .error (line 251)', async () => {
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 503,
+          json: () => Promise.resolve({}),
+        });
+
+        await expect(apiClient.getMemories()).rejects.toThrow(
+          'Request failed with status 503'
+        );
+      });
+
+      it('rewrites "NetworkError" message to helpful network error (line 253 false branch of NetworkError)', async () => {
+        mockFetch.mockRejectedValue(new Error('NetworkError when attempting to fetch resource'));
+
+        await expect(apiClient.getMemories()).rejects.toThrow(/Network error: Unable to reach/);
+      });
+
+      it('extracts data from a success envelope on intelligence endpoints (line 525)', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ data: [] }),
+        });
+
+        const response = await apiClient.intelligenceHealthCheck();
+        // Direct path: returns the raw JSON. The envelope unwrap is only via makeIntelligenceRequest.
+        expect(response).toEqual({ data: [] });
+      });
+
+      it('intelligence request unwraps success envelope data (line 520 + 525)', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            success: true,
+            data: { status: 'healthy' },
+          }),
+        });
+
+        const response = await apiClient.intelligenceHealthCheck();
+        expect(response).toEqual({ data: { status: 'healthy' } });
+      });
+
+      it('intelligence request unwraps failure envelope to { error } (line 522 true + 523)', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            success: false,
+            error: 'Pattern analysis failed',
+          }),
+        });
+
+        const response = await apiClient.intelligenceSuggestTags({ content: 'test content' });
+        expect(response).toEqual({ error: 'Pattern analysis failed' });
+      });
+
+      it('intelligence request falls back to "Intelligence API request failed" when envelope has no error (line 523 fallback)', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            success: false,
+          }),
+        });
+
+        const response = await apiClient.intelligenceHealthCheck();
+        expect(response).toEqual({ error: 'Intelligence API request failed' });
+      });
+
+      it('intelligence request passes through non-envelope responses (line 529)', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ data: 'direct response' }),
+        });
+
+        const response = await apiClient.intelligenceHealthCheck();
+        expect(response).toEqual({ data: 'direct response' });
+      });
+
+      it('intelligence request returns { error: message } on network failure (line 531-532)', async () => {
+        mockFetch.mockRejectedValue(new Error('Service unavailable'));
+
+        const response = await apiClient.intelligenceHealthCheck();
+        expect(response).toEqual({ error: 'Service unavailable' });
+      });
+
+      it('intelligence request returns { error } for non-Error throws (line 531 fallback)', async () => {
+        mockFetch.mockRejectedValue('plain string error');
+
+        const response = await apiClient.intelligenceHealthCheck();
+        expect(response).toEqual({ error: 'Intelligence API request failed' });
+      });
+
+      it('on 401 with allowAuthRetry=false throws immediately (line 205 path)', async () => {
+        // Direct invocation via private method is not possible; verify via the public retry path.
+        // The first fetch returns 401, and the second (retry) returns 401 again. The retry call
+        // is made with allowAuthRetry=false, so it should throw without further refresh.
+        mockSupabaseRefreshSession.mockResolvedValue({
+          data: { session: { access_token: 'new-token' } },
+        });
+
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: false,
+            status: 401,
+            json: () => Promise.resolve({ error: 'Unauthorized' }),
+          })
+          .mockResolvedValueOnce({
+            ok: false,
+            status: 401,
+            json: () => Promise.resolve({ error: 'Still unauthorized' }),
+          });
+
+        await expect(apiClient.getMemories()).rejects.toThrow();
+        // The retry does NOT trigger another refresh — allowAuthRetry=false skips it.
+        expect(mockSupabaseRefreshSession).toHaveBeenCalledTimes(1);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 });

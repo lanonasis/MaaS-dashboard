@@ -237,3 +237,124 @@ it('renders analytics and refreshes all data sources', async () => {
   expect(refetchInsights).toHaveBeenCalledTimes(1);
   expect(refetchDuplicates).toHaveBeenCalledTimes(1);
 });
+
+// COV-021 expansion: hit remaining branch lines in MemoryAnalytics.tsx
+describe('COV-021 expansion — conditional render branches', () => {
+  function mockAll(opts: {
+    patternOverrides?: Partial<ReturnType<typeof createPatternData>>;
+    patternLoading?: boolean;
+    patternData?: ReturnType<typeof createPatternData> | null;
+    healthOverrides?: Partial<ReturnType<typeof createHealthData>>;
+    healthData?: ReturnType<typeof createHealthData> | null;
+    insights?: ReturnType<typeof createInsights>;
+    insightsLoading?: boolean;
+  }) {
+    const pattern = opts.patternData !== undefined
+      ? opts.patternData
+      : opts.patternOverrides
+      ? { ...createPatternData(), ...opts.patternOverrides }
+      : createPatternData();
+    mockUsePatternAnalysis.mockReturnValue({
+      data: pattern,
+      isLoading: opts.patternLoading ?? false,
+      error: null,
+      refetch: vi.fn(),
+      isReady: true,
+      isKeyLoading: false,
+    });
+    mockUseHealthCheck.mockReturnValue({
+      data: opts.healthData !== undefined ? opts.healthData : (opts.healthOverrides ? { ...createHealthData(), ...opts.healthOverrides } : createHealthData()),
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      isReady: true,
+      isKeyLoading: false,
+    });
+    mockUseInsightExtraction.mockReturnValue({
+      data: opts.insights ?? [],
+      isLoading: opts.insightsLoading ?? false,
+      error: null,
+      refetch: vi.fn(),
+      isReady: true,
+      isKeyLoading: false,
+    });
+    mockUseDuplicateDetection.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      isReady: true,
+      isKeyLoading: false,
+    });
+  }
+
+  it('renders loading skeleton when patternLoading is true (branch ~99)', () => {
+    mockAll({ patternData: null, patternLoading: true });
+    render(<MemoryAnalytics />);
+    expect(screen.queryByTestId('button-refresh-analytics')).not.toBeInTheDocument();
+  });
+
+  it('renders trend = "decreasing" with TrendingDown icon (branch line 61)', () => {
+    mockAll({ patternOverrides: { creation_velocity: { daily_average: 0.2, trend: 'decreasing' } } });
+    render(<MemoryAnalytics />);
+    expect(document.querySelector('.text-red-500.lucide-trending-down')).toBeInTheDocument();
+  });
+
+  it('renders trend = "stable" with Minus icon (branch line 61 default)', () => {
+    mockAll({ patternOverrides: { creation_velocity: { daily_average: 0, trend: 'stable' } } });
+    render(<MemoryAnalytics />);
+    expect(document.querySelector('.text-gray-500.lucide-minus')).toBeInTheDocument();
+  });
+
+  it('renders health status = "critical" with red color (branch line 100 critical)', () => {
+    mockAll({ healthOverrides: { status: 'critical' as unknown as 'healthy' } });
+    render(<MemoryAnalytics />);
+    // The score card displays status as text inside a Badge
+    expect(screen.getByText('critical')).toBeInTheDocument();
+  });
+
+  it('renders unknown health status with gray fallback (branch line 100 default)', () => {
+    mockAll({ healthOverrides: { status: 'mystery' as unknown as 'healthy' } });
+    render(<MemoryAnalytics />);
+    expect(screen.getByText('mystery')).toBeInTheDocument();
+  });
+
+  it('falls back to "Unknown" + 0/100 when healthData is null (branch line 222)', () => {
+    mockAll({ healthData: null });
+    render(<MemoryAnalytics />);
+    // When healthData is null, overall_score falls back to 0 and status text falls back to 'Unknown'
+    expect(screen.getByText('0/100')).toBeInTheDocument();
+    expect(screen.getByText('Unknown')).toBeInTheDocument();
+  });
+
+  it('shows empty insights placeholder when patternData.insights is empty (branch ~155)', () => {
+    mockAll({ patternOverrides: { insights: [] } });
+    render(<MemoryAnalytics />);
+    expect(
+      screen.getByText('Keep adding memories to unlock AI insights')
+    ).toBeInTheDocument();
+  });
+
+  it('hides Recommendations card when healthData.recommendations is empty (branch ~390)', () => {
+    mockAll({ healthOverrides: { recommendations: [] } });
+    render(<MemoryAnalytics />);
+    expect(screen.queryByTestId('card-recommendations')).not.toBeInTheDocument();
+  });
+
+  it('shows "No data available" when peak_creation_hours is empty (branch ~398)', () => {
+    mockAll({ patternOverrides: { peak_creation_hours: [] } });
+    render(<MemoryAnalytics />);
+    expect(screen.getByText('No data available')).toBeInTheDocument();
+    expect(screen.queryByTestId('card-activity-summary')).not.toBeInTheDocument();
+  });
+
+  it('renders "needs_attention" status with AlertTriangle icon (branch ~237)', () => {
+    mockAll({ healthOverrides: { status: 'needs_attention' } });
+    const { container } = render(<MemoryAnalytics />);
+    expect(screen.getByText('needs attention')).toBeInTheDocument();
+    // The badge renders an AlertTriangle icon next to the status text.
+    // The icon is the only SVG inside the status badge.
+    const badge = screen.getByText('needs attention').closest('[class*="Badge"]') || screen.getByText('needs attention').parentElement;
+    expect(badge?.querySelector('svg')).toBeInTheDocument();
+  });
+});
