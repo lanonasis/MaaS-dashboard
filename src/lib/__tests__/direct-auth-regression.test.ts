@@ -704,4 +704,134 @@ describe('direct-auth persistSession:false regression suite (t_6741976e)', () =>
       }
     });
   });
+
+  // =========================================================================
+  // New tests for uncovered branch lines (t_60b845ba / COV-033)
+  // =========================================================================
+
+  describe('COV-033: additional branch coverage for untested paths', () => {
+
+    it('login() returns error when Supabase returns error in response', async () => {
+      getMockSupabase().auth.signInWithPassword.mockResolvedValueOnce({
+        data: { session: null, user: null },
+        error: { message: 'Invalid credentials' },
+      });
+
+      const result = await directAuth.login('test@example.com', 'wrong-password');
+
+      expect(result.error).toBe('Invalid credentials');
+      expect(result.session).toBeNull();
+      expect(result.user).toBeNull();
+    });
+
+    it('login() handles case where Supabase returns success data but null session/user', async () => {
+      getMockSupabase().auth.signInWithPassword.mockResolvedValueOnce({
+        data: { session: null, user: null },
+        error: null,
+      });
+
+      const result = await directAuth.login('test@example.com', 'password');
+
+      expect(result.error).toBe('Authentication succeeded but session creation failed');
+      expect(result.session).toBeNull();
+      expect(result.user).toBeNull();
+    });
+
+    it('login() catches exceptions and returns error message', async () => {
+      getMockSupabase().auth.signInWithPassword.mockRejectedValueOnce(new Error('Network error'));
+
+      const result = await directAuth.login('test@example.com', 'password');
+
+      expect(result.error).toBe('Network error');
+      expect(result.session).toBeNull();
+      expect(result.user).toBeNull();
+    });
+
+    it('signup() returns error when Supabase returns error in response', async () => {
+      getMockSupabase().auth.signUp.mockResolvedValueOnce({
+        data: { session: null, user: null },
+        error: { message: 'Email already exists' },
+      });
+
+      const result = await directAuth.signup('existing@example.com', 'password');
+
+      expect(result.error).toBe('Email already exists');
+      expect(result.session).toBeNull();
+      expect(result.user).toBeNull();
+    });
+
+    it('signup() catches exceptions and returns error message with fallback', async () => {
+      getMockSupabase().auth.signUp.mockRejectedValueOnce(new Error());
+
+      const result = await directAuth.signup('new@example.com', 'password');
+
+      expect(result.error).toBe('Signup failed');
+      expect(result.session).toBeNull();
+      expect(result.user).toBeNull();
+    });
+
+    it('signup() passes metadata to Supabase when provided', async () => {
+      getMockSupabase().auth.signUp.mockResolvedValueOnce({
+        data: { session: null, user: null },
+        error: null,
+      });
+
+      await directAuth.signup('new@example.com', 'password', { name: 'Test User' });
+
+      expect(getMockSupabase().auth.signUp).toHaveBeenCalledWith({
+        email: 'new@example.com',
+        password: 'password',
+        options: expect.objectContaining({
+          data: { name: 'Test User' },
+        }),
+      });
+    });
+
+    it('signup() passes empty object as metadata when none provided', async () => {
+      getMockSupabase().auth.signUp.mockResolvedValueOnce({
+        data: { session: null, user: null },
+        error: null,
+      });
+
+      await directAuth.signup('new@example.com', 'password');
+
+      expect(getMockSupabase().auth.signUp).toHaveBeenCalledWith({
+        email: 'new@example.com',
+        password: 'password',
+        options: expect.objectContaining({
+          data: {},
+        }),
+      });
+    });
+
+    it('loginWithProvider() throws error when Supabase returns OAuth error', async () => {
+      getMockSupabase().auth.signInWithOAuth.mockResolvedValueOnce({
+        error: { message: 'OAuth provider not configured' },
+      });
+
+      await expect(
+        directAuth.loginWithProvider('google'),
+      ).rejects.toThrow('OAuth provider not configured');
+    });
+
+    it('logout() handles error from Supabase signOut without throwing', async () => {
+      getMockSupabase().auth.signOut.mockResolvedValueOnce({
+        error: { message: 'Sign out failed' },
+      });
+
+      // Should not throw — logout handles errors gracefully
+      await expect(directAuth.logout()).resolves.not.toThrow();
+    });
+
+    it('getCurrentSession() returns null when Supabase returns error', async () => {
+      getMockSupabase().auth.getSession.mockResolvedValueOnce({
+        data: { session: null },
+        error: { message: 'Session fetch failed' },
+      });
+
+      const session = await directAuth.getCurrentSession();
+
+      expect(session).toBeNull();
+    });
+  });
 });

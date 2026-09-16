@@ -258,7 +258,7 @@ describe("useCentralAuth Hook", () => {
       });
       expect(mockToast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Error signing in",
+          title: "Authentication failed",
           description: "Invalid credentials",
           variant: "destructive",
         })

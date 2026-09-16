@@ -47,7 +47,28 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-// Mock navigate
+// Mock centralAuth
+const mockExchangeSupabaseToken = vi.fn((accessToken: string) => Promise.resolve(true));
+const mockClearSSOCookies = vi.fn(() => Promise.resolve(true));
+vi.mock('@/lib/central-auth', () => ({
+  centralAuth: {
+    exchangeSupabaseToken: (accessToken: string) => mockExchangeSupabaseToken(accessToken),
+    clearSSOCookies: () => mockClearSSOCookies(),
+  },
+}));
+
+// Mock query-persister
+vi.mock('@/lib/query-persister', () => ({
+  clearPersistedCache: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock apiClient for profile creation seeding
+vi.mock('@/lib/api-client', () => ({
+  apiClient: {
+    createMemory: vi.fn().mockResolvedValue({}),
+  },
+}));
+
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -425,6 +446,403 @@ describe('useSupabaseAuth', () => {
       expect(result.current).toHaveProperty('signOut');
       expect(result.current).toHaveProperty('isProcessingCallback');
       expect(result.current).toHaveProperty('handleAuthCallback');
+    });
+  });
+
+  describe('Auth Callback & Redirect', () => {
+    it('handles auth callback error via handleAuthCallback', async () => {
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Clear existing calls then trigger handleAuthCallback
+      mockGetSession.mockResolvedValue({
+        data: { session: null },
+        error: { message: 'Callback failed' },
+      });
+
+      await act(async () => {
+        await result.current.handleAuthCallback();
+      });
+
+      expect(mockNavigate).toHaveBeenCalledWith('/?error=auth_callback_failed');
+    });
+
+    it('handles auth callback success and redirects via handleAuthCallback', async () => {
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      mockGetSession.mockResolvedValue({
+        data: { session: { user: { id: '1' } } },
+        error: null,
+      });
+
+      await act(async () => {
+        await result.current.handleAuthCallback();
+      });
+
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+    });
+  });
+
+  describe('SSO cookie sync', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      mockGetSession.mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
+
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        return {
+          data: {
+            subscription: {
+              unsubscribe: vi.fn(),
+            },
+          },
+        };
+      });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('syncs SSO cookies on SIGNED_IN with new token (lines 227, 233, 236)', async () => {
+      let authStateHandler: ((event: string, session: any) => unknown) | undefined;
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(authStateHandler).toBeDefined();
+
+      // Mock fetchProfile to resolve
+      mockFromSelect.mockResolvedValue({ data: { id: 'user-1', email: 't@e.com' }, error: null });
+
+      await act(async () => {
+        authStateHandler!('SIGNED_IN', {
+          access_token: 'new-token',
+          user: { id: 'user-1', email: 'test@example.com' },
+        });
+        vi.runOnlyPendingTimers();
+        // advance past the 0ms deferral timers
+      });
+
+      expect(mockExchangeSupabaseToken).toHaveBeenCalledWith('new-token');
+    });
+
+    it('shows welcome toast on SIGNED_IN with email (line 257)', async () => {
+      let authStateHandler: ((event: string, session: any) => unknown) | undefined;
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(authStateHandler).toBeDefined();
+
+      // Mock fetchProfile to resolve quickly
+      mockFromSelect.mockResolvedValue({ data: { id: 'user-1', email: 't@e.com' }, error: null });
+
+      await act(async () => {
+        authStateHandler!('SIGNED_IN', {
+          access_token: 'tok',
+          user: { id: 'user-1', email: 'alice@example.com' },
+        });
+        vi.runOnlyPendingTimers();
+      });
+
+      expect(mockToast).toHaveBeenCalledWith({
+        title: 'Welcome!',
+        description: 'You are now signed in as alice@example.com',
+      });
+    });
+
+    it('clears state and SSO cookies on SIGNED_OUT (lines 272, 276)', async () => {
+      // First sign in to establish state
+      let authStateHandler: ((event: string, session: any) => unknown) | undefined;
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(authStateHandler).toBeDefined();
+
+      // Sign in
+      await act(async () => {
+        authStateHandler!('SIGNED_IN', {
+          access_token: 'tok1',
+          user: { id: 'user-1', email: 'alice@example.com' },
+        });
+        vi.runOnlyPendingTimers();
+      });
+
+      expect(result.current.user).not.toBeNull();
+
+      // Mock fetchProfile
+      mockFromSelect.mockResolvedValue({ data: { id: 'user-1', email: 't@e.com' }, error: null });
+
+      // Sign out
+      await act(async () => {
+        authStateHandler!('SIGNED_OUT', null);
+        vi.runOnlyPendingTimers();
+      });
+
+      expect(result.current.user).toBeNull();
+      expect(result.current.session).toBeNull();
+      expect(result.current.profile).toBeNull();
+      expect(mockClearSSOCookies).toHaveBeenCalled();
+    });
+
+    it('skips SSO sync when token is unchanged', async () => {
+      let authStateHandler: ((event: string, session: any) => unknown) | undefined;
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(authStateHandler).toBeDefined();
+
+      // Sign in with token
+      mockFromSelect.mockResolvedValue({ data: { id: 'user-1', email: 't@e.com' }, error: null });
+      await act(async () => {
+        authStateHandler!('SIGNED_IN', {
+          access_token: 'same-token',
+          user: { id: 'user-1', email: 'test@example.com' },
+        });
+        vi.runOnlyPendingTimers();
+      });
+
+      expect(mockExchangeSupabaseToken).toHaveBeenCalledWith('same-token');
+      const firstCallCount = mockExchangeSupabaseToken.mock.calls.length;
+
+      await act(async () => {
+        authStateHandler!('SIGNED_IN', {
+          access_token: 'same-token',
+          user: { id: 'user-1', email: 'test@example.com' },
+        });
+        vi.runOnlyPendingTimers();
+      });
+
+      // exchangeSupabaseToken should have been called only once (no second call)
+      expect(mockExchangeSupabaseToken.mock.calls.length).toBe(firstCallCount);
+    });
+  });
+
+  describe('Auth listener errors', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+
+      mockGetSession.mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('handles onAuthStateChange setup failure with initError (line 308)', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      mockOnAuthStateChange.mockImplementation(() => {
+        throw new Error('Supabase connection failed');
+      });
+
+      // When onAuthStateChange throws, setInitError is called and the provider
+      // returns early (line 550) with error UI. Since the provider no longer
+      // renders SupabaseAuthContext.Provider, useSupabaseAuth() would throw.
+      // Instead, render the provider directly and check for error UI.
+      const { render, screen } = await import('@testing-library/react');
+
+      render(
+        <MemoryRouter>
+          <SupabaseAuthProvider>
+            <div data-testid="placeholder" />
+          </SupabaseAuthProvider>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        // The error UI should be rendered after initError is set
+        expect(screen.getByText('Authentication Error')).toBeDefined();
+      }, { timeout: 5000 });
+
+      consoleSpy.mockRestore();
+    });
+
+    it('redirects to stored path on SIGNED_IN (line 260-263)', async () => {
+      localStorage.setItem('redirectAfterLogin', '/settings');
+
+      let authStateHandler: ((event: string, session: any) => unknown) | undefined;
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(authStateHandler).toBeDefined();
+      mockFromSelect.mockResolvedValue({ data: { id: 'user-1', email: 't@e.com' }, error: null });
+
+      await act(async () => {
+        authStateHandler!('SIGNED_IN', {
+          access_token: 'tok',
+          user: { id: 'user-1', email: 'test@example.com' },
+        });
+        vi.runOnlyPendingTimers();
+      });
+
+      expect(mockNavigate).toHaveBeenCalledWith('/settings');
+      expect(localStorage.getItem('redirectAfterLogin')).toBeNull();
+
+      localStorage.removeItem('redirectAfterLogin');
+    });
+
+    it('redirects to /dashboard when no stored path (line 266)', async () => {
+      localStorage.removeItem('redirectAfterLogin');
+
+      let authStateHandler: ((event: string, session: any) => unknown) | undefined;
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(authStateHandler).toBeDefined();
+      mockFromSelect.mockResolvedValue({ data: { id: 'user-1', email: 't@e.com' }, error: null });
+
+      await act(async () => {
+        authStateHandler!('SIGNED_IN', {
+          access_token: 'tok',
+          user: { id: 'user-1', email: 'test@example.com' },
+        });
+        vi.runOnlyPendingTimers();
+      });
+
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('no session: profile fetch and SSO sync not triggered (line 185)', async () => {
+      // getSession already returns null session by default in beforeEach
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Profile fetch should not have been called since there's no session
+      expect(mockFromSelect).not.toHaveBeenCalled();
+
+      // No SSO sync either
+      expect(mockExchangeSupabaseToken).not.toHaveBeenCalled();
+    });
+
+    it('fetchProfile handles database error (lines 319, 335, 340)', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        user_metadata: { full_name: 'Test' },
+      };
+
+      mockGetSession.mockResolvedValue({
+        data: { session: { access_token: 'tok', user: mockUser } },
+        error: null,
+      });
+
+      // Return a database error from maybeSingle (not PGRST116)
+      mockFromSelect.mockResolvedValue({
+        data: null,
+        error: { code: 'DATABASE_ERROR', message: 'DB failed' },
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Profile should not be set on DB error
+      expect(result.current.profile).toBeNull();
+
+      consoleSpy.mockRestore();
     });
   });
 });

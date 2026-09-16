@@ -9,20 +9,21 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // Track configuration state so we can render gracefully even if missing
 export const isSupabaseConfigured = !!SUPABASE_PUBLISHABLE_KEY;
 
-// Debug logging for production
-console.log('Supabase client initialization:', {
-  url: SUPABASE_URL,
-  hasKey: !!SUPABASE_PUBLISHABLE_KEY,
-  keyLength: SUPABASE_PUBLISHABLE_KEY?.length || 0
-});
+// Dev-only debug logger — compiles to no-op in production/test
+const debug =
+  typeof import.meta.env.DEV !== 'undefined' && import.meta.env.DEV
+    ? {
+        log: console.log.bind(console),
+        warn: console.warn.bind(console),
+        error: console.error.bind(console),
+      }
+    : { log: () => {}, warn: () => {}, error: () => {} };
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 // Determine correct redirect URL based on environment
 export const getRedirectUrl = () => {
-  if (typeof window === 'undefined') return 'https://dashboard.lanonasis.com/auth/callback';
-
   const isLocalDevelopment = window.location.hostname === '127.0.0.1' ||
     window.location.hostname === 'localhost' ||
     window.location.hostname.match(/^192\.168\./);
@@ -41,8 +42,6 @@ export const getRedirectUrl = () => {
 // users into an infinite redirect-to-dashboard loop with no UI to set a
 // new password.)
 export const getPasswordResetUrl = () => {
-  if (typeof window === 'undefined') return 'https://dashboard.lanonasis.com/auth/reset-password';
-
   const isLocalDevelopment = window.location.hostname === '127.0.0.1' ||
     window.location.hostname === 'localhost' ||
     window.location.hostname.match(/^192\.168\./);
@@ -56,8 +55,6 @@ export const getPasswordResetUrl = () => {
 
 // OAuth callback URL for provider configurations
 export const getOAuthCallbackUrl = () => {
-  if (typeof window === 'undefined') return 'https://dashboard.lanonasis.com/auth/callback';
-
   const isLocalDevelopment = window.location.hostname === '127.0.0.1' ||
     window.location.hostname === 'localhost' ||
     window.location.hostname.match(/^192\.168\./);
@@ -73,25 +70,31 @@ export const getOAuthCallbackUrl = () => {
 // Create Supabase client with error handling
 let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
 
-const createSupabaseClient = () => {
+/**
+ * Factory for creating a Supabase client instance.
+ * Exported for testability — callers can pass explicit URL/key
+ * to avoid relying on module-level env vars or the singleton cache.
+ */
+export const createSupabaseClient = (
+  url: string = SUPABASE_URL,
+  key: string = SUPABASE_PUBLISHABLE_KEY || 'public-anon-key-placeholder',
+  opts?: Parameters<typeof createClient<Database>>[2]
+): ReturnType<typeof createClient<Database>> => {
   if (supabaseInstance) {
     return supabaseInstance;
   }
 
   try {
-    console.log('Creating Supabase client with:', { url: SUPABASE_URL });
-    
-    const resolvedUrl = SUPABASE_URL;
-    const resolvedKey = SUPABASE_PUBLISHABLE_KEY || 'public-anon-key-placeholder';
+    debug.log('Creating Supabase client with:', { url });
 
-    if (!SUPABASE_PUBLISHABLE_KEY) {
-      console.warn('Missing VITE_SUPABASE_ANON_KEY environment variable');
+    if (!key || key === 'public-anon-key-placeholder') {
+      debug.warn('Missing VITE_SUPABASE_ANON_KEY environment variable');
     }
 
     supabaseInstance = createClient<Database>(
-      resolvedUrl,
-      resolvedKey,
-      {
+      url,
+      key,
+      opts ?? {
         auth: {
           flowType: 'pkce',
           detectSessionInUrl: true,
@@ -101,10 +104,10 @@ const createSupabaseClient = () => {
       }
     );
     
-    console.log('Supabase client created successfully');
+    debug.log('Supabase client created successfully');
     return supabaseInstance;
   } catch (error) {
-    console.error('Failed to initialize Supabase client:', error);
+    debug.error('Failed to initialize Supabase client:', error);
     // Create a dummy client that won't crash the app
     supabaseInstance = createClient<Database>(
       'https://placeholder.supabase.co',

@@ -1,16 +1,8 @@
 // Direct Supabase Auth Hook
 // This hook provides a simplified interface for working directly with Supabase auth
 // Updated to sync with auth-gateway SSO cookies for cross-subdomain authentication
-
-// Dev-only debug logger — compiles to no-op in production/test
-const debug =
-  typeof import.meta.env.DEV !== 'undefined' && import.meta.env.DEV
-    ? {
-        log: console.log.bind(console),
-        warn: console.warn.bind(console),
-        error: console.error.bind(console),
-      }
-    : { log: () => {}, warn: () => {}, error: () => {} };
+//
+// Consumes createAuthController from @/lib/auth/auth-controller for shared auth logic.
 
 import { useState, useEffect, createContext, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { apiClient } from "@/lib/api-client";
 import { Session, User } from "@supabase/supabase-js";
 import { centralAuth } from "@/lib/central-auth";
+import { createAuthController } from "@/lib/auth/auth-controller";
+import type { AuthApi, AuthState } from "@/lib/auth/auth-controller";
 
 type Profile = {
   id: string;
@@ -50,496 +44,69 @@ export const SupabaseAuthProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const controllerRef = useRef<AuthApi | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
-  const navigate = useNavigate();
-  const { toast } = useToast();
-
-  // Add error state to track initialization issues
   const [initError, setInitError] = useState<string | null>(null);
 
-  // Track last synced token to avoid duplicate SSO syncs
-  const lastSyncedTokenRef = useRef<string | null>(null);
-  const authGenerationRef = useRef(0);
-  const deferredAuthTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
-  const ssoQueueRef = useRef<Promise<void>>(Promise.resolve());
-
-  const clearDeferredAuthWork = () => {
-    deferredAuthTimersRef.current.forEach((timer) => clearTimeout(timer));
-    deferredAuthTimersRef.current.clear();
-  };
-
-  const deferAuthWork = (generation: number, work: () => void | Promise<void>) => {
-    const timer = setTimeout(() => {
-      deferredAuthTimersRef.current.delete(timer);
-      if (generation !== authGenerationRef.current) return;
-      void work();
-    }, 0);
-    deferredAuthTimersRef.current.add(timer);
-  };
-
-  const enqueueSsoWork = (work: () => Promise<unknown>) => {
-    ssoQueueRef.current = ssoQueueRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        await work();
-      });
-    return ssoQueueRef.current;
-  };
-
+  // Initialize controller on mount — SupabaseAuth re-throws errors
   useEffect(() => {
-    debug.log("SupabaseAuthProvider: Initializing auth");
-    let cleanup: (() => void) | undefined;
-
-    // Safety timeout to ensure loading state always clears
-    // Increased to 20s to match session fetch timeout and prevent premature redirects in production
-    const timeoutId = setTimeout(() => {
-      debug.warn("Auth initialization timeout - forcing loading state to false");
+    if (!supabase) {
+      setInitError("Supabase client not initialized");
       setIsLoading(false);
-    }, 20000); // 20 second timeout
+      return;
+    }
 
-    const init = async () => {
-      try {
-        cleanup = await initializeAuth();
-        clearTimeout(timeoutId);
-      } catch (error) {
-        debug.error("Error in init:", error);
-        clearTimeout(timeoutId);
-        setIsLoading(false);
-      }
-    };
+    const controller = createAuthController({
+      supabase,
+      centralAuth,
+      navigate,
+      toast,
+      isDev: import.meta.env.DEV,
+      // Reactive state sync — no polling needed
+      onStateChange: (state: AuthState) => {
+        setUser(state.user);
+        setSession(state.session);
+        setProfile(state.profile as Profile | null);
+        setIsLoading(state.isLoading);
+        if (state.initError) setInitError(state.initError);
+      },
+      // SupabaseAuth tests expect signIn/signUp/signOut to re-throw
+      throwOnAuthError: true,
+    }, "SupabaseAuthProvider");
 
-    init();
+    controllerRef.current = controller;
+
+    // Initial state read-back
+    const s = controller.state;
+    setUser(s.user);
+    setSession(s.session);
+    setProfile(s.profile as Profile | null);
+    setIsLoading(s.isLoading);
+    if (s.initError) setInitError(s.initError);
 
     return () => {
-      clearTimeout(timeoutId);
-      authGenerationRef.current += 1;
-      clearDeferredAuthWork();
-      if (cleanup) {
-        cleanup();
-      }
+      controller.cleanup?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const initializeAuth = async (): Promise<(() => void) | undefined> => {
-    debug.log("SupabaseAuthProvider: initializeAuth called");
-    setIsLoading(true);
-
-    // Check if supabase client is available
-    if (!supabase) {
-      debug.error("Supabase client not initialized");
-      setIsLoading(false);
-      return undefined;
-    }
-
-    // Try to get initial session, but don't let failure prevent listener setup
-    try {
-      debug.log("SupabaseAuthProvider: Getting session...");
-
-      // Fetch session with a more generous timeout (15 seconds)
-      // This prevents stuck loading states on slow connections
-      const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Session fetch timeout")), 15000);
-      });
-
-      const {
-        data: { session: supabaseSession },
-        error,
-      } = (await Promise.race([sessionPromise, timeoutPromise])) as any;
-
-      debug.log("SupabaseAuthProvider: Session fetched", {
-        hasSession: !!supabaseSession,
-        hasError: !!error,
-      });
-
-      if (error) {
-        debug.error("Error fetching Supabase session:", error);
-        // Continue without session
-      } else if (supabaseSession) {
-        debug.log("SupabaseAuthProvider: Setting session and user");
-        setSession(supabaseSession);
-        setUser(supabaseSession.user);
-
-        // Fetch profile but don't block on it
-        debug.log("SupabaseAuthProvider: Fetching profile...");
-        fetchProfile(supabaseSession.user.id).catch((err) => {
-          debug.error("Error fetching profile (non-blocking):", err);
-        });
-
-        // Sync SSO cookies if we have a session but haven't synced yet
-        // This handles page reload scenarios where Supabase session exists but SSO cookies may not
-        const accessToken = supabaseSession.access_token;
-        if (accessToken && accessToken !== lastSyncedTokenRef.current) {
-          lastSyncedTokenRef.current = accessToken;
-          debug.log("SupabaseAuthProvider: Initial SSO sync on session restore");
-          void enqueueSsoWork(() =>
-            centralAuth.exchangeSupabaseToken(accessToken).catch((error) => {
-              debug.warn("SupabaseAuthProvider: Initial SSO sync failed (non-critical):", error);
-            })
-          );
-        }
-      } else {
-        debug.log("SupabaseAuthProvider: No session found");
-      }
-    } catch (error) {
-      debug.error("Error fetching initial session:", error);
-
-      // If it's a timeout, log it but continue silently
-      if (error instanceof Error && error.message === "Session fetch timeout") {
-        debug.warn("Session fetch timed out - will still set up auth listener");
-        // Don't show toast - just continue with auth setup
-      }
-      // Don't return - continue to set up listener
-    }
-
-    // ALWAYS set up the auth state listener, even if initial session fetch failed
-    // This is critical - without this, login won't work!
-    try {
-      debug.log("SupabaseAuthProvider: Setting up auth state listener");
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, supabaseSession) => {
-        const authGeneration = ++authGenerationRef.current;
-        clearDeferredAuthWork();
-
-        debug.log("Supabase auth state change:",
-          event,
-          supabaseSession?.user?.email);
-
-        if (supabaseSession) {
-          setSession(supabaseSession);
-          setUser(supabaseSession.user);
-
-          // Supabase holds an auth lock while invoking this callback. Defer
-          // every async API side effect until after the callback returns or
-          // later auth calls such as updateUser() can deadlock.
-          deferAuthWork(authGeneration, () =>
-            fetchProfile(supabaseSession.user.id, authGeneration).catch((error) => {
-              debug.error("Error fetching profile after auth change:", error);
-            })
-          );
-
-          if (event === "SIGNED_IN") {
-            // Sync with auth-gateway to set SSO cookies for cross-subdomain auth
-            // This enables seamless authentication across dashboard, API, MCP, etc.
-            const accessToken = supabaseSession.access_token;
-            if (accessToken && accessToken !== lastSyncedTokenRef.current) {
-              lastSyncedTokenRef.current = accessToken;
-              debug.log("SupabaseAuthProvider: Syncing SSO cookies with auth-gateway");
-
-              deferAuthWork(authGeneration, () =>
-                enqueueSsoWork(async () => {
-                  if (authGeneration !== authGenerationRef.current) return;
-                  await centralAuth.exchangeSupabaseToken(accessToken)
-                  .then((success) => {
-                    if (success) {
-                      debug.log("SupabaseAuthProvider: SSO cookies synced successfully");
-                    } else {
-                      debug.warn("SupabaseAuthProvider: SSO cookie sync failed (non-critical)");
-                    }
-                  })
-                  .catch((error) => {
-                    debug.warn("SupabaseAuthProvider: SSO sync error (non-critical):", error);
-                  });
-                })
-              );
-            }
-
-            // Show welcome toast
-            toast({
-              title: "Welcome!",
-              description: `You are now signed in as ${supabaseSession.user.email}`,
-            });
-
-            // Check for stored redirect path
-            const redirectPath = localStorage.getItem("redirectAfterLogin");
-            if (redirectPath) {
-              localStorage.removeItem("redirectAfterLogin");
-              navigate(redirectPath);
-            } else {
-              // Redirect to dashboard on sign in
-              navigate("/dashboard");
-            }
-          }
-        } else {
-          // Clear state when signed out
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          lastSyncedTokenRef.current = null;
-
-          if (event === "SIGNED_OUT") {
-            // Clear SSO cookies from auth-gateway (non-blocking)
-            debug.log("SupabaseAuthProvider: Clearing SSO cookies");
-            void enqueueSsoWork(async () => {
-              if (authGeneration !== authGenerationRef.current) return;
-              await centralAuth.clearSSOCookies().catch((error) => {
-                debug.warn("SupabaseAuthProvider: Failed to clear SSO cookies:", error);
-              });
-            });
-
-            // Redirect to home page on sign out
-            navigate("/");
-
-            // Show sign out toast
-            toast({
-              title: "Signed out",
-              description: "You have been successfully signed out.",
-            });
-          }
-        }
-      });
-
-      // Set loading to false after initialization
-      debug.log("SupabaseAuthProvider: Auth initialized successfully, clearing loading state");
-      setIsLoading(false);
-
-      // Return cleanup function to remove the subscription when component unmounts
-      return () => {
-        debug.log("SupabaseAuthProvider: Cleaning up auth subscription");
-        subscription.unsubscribe();
-      };
-    } catch (error) {
-      debug.error("Error setting up auth listener:", error);
-      setInitError(
-        error instanceof Error
-          ? error.message
-          : "Failed to initialize authentication"
-      );
-      setIsLoading(false);
-      return undefined;
-    }
-  };
-
-  const fetchProfile = async (userId: string, authGeneration?: number) => {
-    const isCurrentAuthGeneration = () =>
-      authGeneration === undefined || authGeneration === authGenerationRef.current;
-
-    try {
-      debug.log("SupabaseAuthProvider: fetchProfile called", {
-        userId,
-        hasUser: !!user,
-      });
-
-      // Use maybeSingle() instead of single() to handle missing profiles gracefully
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-
-      // Only log real errors, not "no rows" scenarios
-      if (error && error.code !== "PGRST116") {
-        debug.error("Error fetching user profile:", error);
-        return;
-      }
-
-      if (!isCurrentAuthGeneration()) return;
-
-      if (data) {
-        debug.log("SupabaseAuthProvider: Profile found", {
-          profileId: data.id,
-        });
-        setProfile(data as Profile);
-      } else {
-        debug.log("SupabaseAuthProvider: No profile found, creating one", {
-          userId,
-        });
-
-        // Get user data from Supabase if not available in state
-        let userData = user;
-        if (!userData) {
-          const {
-            data: { user: fetchedUser },
-          } = await supabase.auth.getUser();
-          userData = fetchedUser;
-        }
-
-        if (!isCurrentAuthGeneration()) return;
-
-        // If no profile exists yet, create a basic one with only existing columns
-        if (userData) {
-          const basicProfile = {
-            id: userId,
-            email: userData.email || "",
-            full_name:
-              userData.user_metadata?.full_name || userData.email || "User",
-          };
-
-          // Insert the basic profile
-          const { data: insertData, error: insertError } = await supabase
-            .from("profiles")
-            .insert([basicProfile])
-            .select();
-
-          if (insertError) {
-            debug.error("Error creating user profile:", insertError);
-            // Fall back to a profile object for the UI
-            if (isCurrentAuthGeneration()) {
-              setProfile({
-                ...basicProfile,
-                company_name: null,
-                avatar_url: null,
-                role: "user",
-              });
-            }
-            return;
-          }
-
-          if (insertData && insertData[0] && isCurrentAuthGeneration()) {
-            debug.log("SupabaseAuthProvider: Profile created", {
-              profileId: insertData[0].id,
-            });
-            setProfile(insertData[0] as Profile);
-
-            // Seed default continuity entries for new users
-            const defaultContextEntries = [
-              {
-                title: 'Continuity begins here',
-                content: '# Continuity begins here\n\nThis is your continuity surface — a longitudinal thinking partner that helps you see what has been emerging over time. The Continuity Concierge searches your continuity for recurring themes, identity evolution, and unresolved questions; explains which memories informed the answer; and offers a brief when you want pattern over retrieval.\n\nYou are not here to store notes. You are here to think with someone who has been paying attention.',
-                type: 'context',
-                tags: ['welcome', 'getting-started'],
-                metadata: { source: 'system', is_default: true, title: 'Continuity begins here' }
-              },
-              {
-                title: 'How to use the continuity surface',
-                content: '# How to use the continuity surface\n\nThe continuity surface is not a notes app. Three things to know:\n\n1. Ask the Concierge for a brief — "what have I been thinking about lately?" — and it will surface the recurring themes and unresolved threads visible across your history.\n2. Ask for synthesis — "connect these two decisions" — and it will name the patterns, drift, and convergence between them.\n3. Capture a reference — "remember this" — and the Concierge will save it for future continuity, not as a note to retrieve, but as a thread to weave into what is emerging.\n\nWhat the Concierge surfaces: recurring themes, identity evolution, unresolved questions, drift, convergence. What you can do: think with it, ask for a brief, ask for synthesis, capture a reference.',
-                type: 'knowledge',
-                tags: ['tips', 'getting-started', 'tutorial'],
-                metadata: { source: 'system', is_default: true, title: 'How to use the continuity surface' }
-              }
-            ];
-
-            // Insert default context entries (don't block on this)
-            Promise.allSettled(
-              defaultContextEntries.map((entry) =>
-                apiClient.createMemory(entry)
-              )
-            ).then((results) => {
-              const rejectedResult = results.find(
-                (result) => result.status === 'rejected'
-              );
-              const apiErrorResult = results.find(
-                (result) => result.status === 'fulfilled' && result.value.error
-              );
-              if (rejectedResult || apiErrorResult) {
-                debug.warn('Failed to seed default context entries:',
-                  rejectedResult ?? apiErrorResult?.value.error);
-              } else {
-                debug.log('SupabaseAuthProvider: Default context entries seeded');
-              }
-            });
-          }
-        } else {
-          debug.warn("SupabaseAuthProvider: Cannot create profile - no user data available");
-        }
-      }
-    } catch (error) {
-      debug.error("Error in fetchProfile:", error);
-    }
-  };
-
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast({
-          title: "Authentication failed",
-          description: error.message,
-          variant: "destructive",
-        });
-        throw error;
-      }
-
-      // Auth state change listener will handle the session update
-    } catch (error) {
-      debug.error("Sign in error:", error);
-      throw error;
-    }
-  };
-
-  const signUp = async (email: string, password: string, name: string) => {
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: name,
-          },
-        },
-      });
-
-      if (error) {
-        toast({
-          title: "Registration failed",
-          description: error.message,
-          variant: "destructive",
-        });
-        throw error;
-      }
-
-      toast({
-        title: "Registration successful!",
-        description: "Please check your email to confirm your account.",
-      });
-
-      // Auth state change listener will handle the session update
-    } catch (error) {
-      debug.error("Sign up error:", error);
-      throw error;
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        debug.error("Error signing out:", error);
-        throw error;
-      }
-
-      // Clear persisted query cache on logout for security
-      try {
-        const { clearPersistedCache } = await import("@/lib/query-persister");
-        await clearPersistedCache();
-      } catch (cacheError) {
-        debug.warn("Failed to clear cache on logout:", cacheError);
-      }
-
-      // Auth state change listener will handle the session update
-    } catch (error) {
-      debug.error("Sign out error:", error);
-      throw error;
-    }
-  };
 
   const handleAuthCallback = async () => {
     setIsProcessingCallback(true);
     try {
-      // Supabase client automatically exchanges the code for a session
-      const { error } = await supabase.auth.getSession();
+      const { error } = await supabase!.auth.getSession();
 
       if (error) {
-        debug.error("Error processing auth callback:", error);
         navigate("/?error=auth_callback_failed");
         return;
       }
 
-      // If successful, redirect to dashboard
       navigate("/dashboard");
     } catch (error) {
-      debug.error("Error in handleAuthCallback:", error);
       navigate("/?error=auth_callback_error");
     } finally {
       setIsProcessingCallback(false);
@@ -575,9 +142,10 @@ export const SupabaseAuthProvider = ({
         profile,
         session,
         isLoading,
-        signIn,
-        signUp,
-        signOut,
+        // Controller throws errors directly (throwOnAuthError: true)
+        signIn: controllerRef.current?.signIn,
+        signUp: controllerRef.current?.signUp,
+        signOut: controllerRef.current?.signOut,
         isProcessingCallback,
         handleAuthCallback,
       }}
