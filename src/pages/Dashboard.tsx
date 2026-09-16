@@ -119,7 +119,7 @@ const Dashboard = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDesktopViewport, sidebarOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isDesktopViewport, sidebarOpen]);
 
   // Move focus into sidebar when drawer opens on mobile
   useEffect(() => {

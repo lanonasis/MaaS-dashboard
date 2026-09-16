@@ -100,6 +100,9 @@ const CentralAuthRedirect = () => {
     if (hasLegacyStoredArtifacts && !hasSupabaseCallbackParams) {
       clearLegacyCentralArtifacts(true);
     }
+    // redirectToDirectAuthLogin is defined inside the component; adding it to deps would
+    // cause the effect to re-run on every render since it's re-created each render cycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, searchParams]);
 
   if (error) {

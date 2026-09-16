@@ -104,7 +104,7 @@ class CentralAuthClient {
           token = refreshed.access_token;
         } catch (error) {
           this.removeStoredToken();
-          throw new Error('No authentication token available');
+          throw new Error('No authentication token available', { cause: error });
         }
       }
     }
@@ -146,7 +146,7 @@ class CentralAuthClient {
         });
       } catch (refreshError) {
         this.removeStoredToken();
-        throw new Error('Authentication failed - please log in again');
+        throw new Error('Authentication failed - please log in again', { cause: refreshError });
       }
     }
 

@@ -325,7 +325,8 @@ export class UserServicesManager {
       return JSON.parse(decryptedJson);
     } catch (error: any) {
       throw new Error(
-        `Failed to decrypt credentials: ${error.message}`
+        `Failed to decrypt credentials: ${error.message}`,
+        { cause: error }
       );
     }
   }

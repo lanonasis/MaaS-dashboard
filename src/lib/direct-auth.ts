@@ -473,7 +473,7 @@ function _resetDirectAuth(): void {
 }
 
 // __testing__ state carriers — set by the Proxy get trap
-let _capturedOptions: any = null;
+const _capturedOptions: any = null;
 let _initFailed = false;
 let _initError: Error | null = null;
 
@@ -538,7 +538,6 @@ export type { AuthResponse, UserProfile };
 // private state or duplicating implementation logic.
 // ---------------------------------------------------------------------------
 if (typeof import.meta.env.VITEST !== 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (directAuth as any).__testing__ = {
     /** Force re-initialize the singleton (used by tests to reset state). */
     _resetDirectAuth,

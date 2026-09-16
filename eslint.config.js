@@ -38,9 +38,11 @@ export default tseslint.config(
       "no-useless-assignment": "warn",
       "prefer-const": "warn",
       "preserve-caught-error": "warn",
-      "react-hooks/immutability": "warn",
-      "react-hooks/purity": "warn",
-      "react-hooks/set-state-in-effect": "warn",
+      // These v7 rules are overly strict for standard React patterns
+      // (fetching data from useEffect, initial state setup, Date.now in JSX)
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/purity": "off",
     },
   }
 );

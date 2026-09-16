@@ -65,7 +65,7 @@ export class VortexEncryption {
       // Return base64 encoded result
       return btoa(String.fromCharCode(...result));
     } catch (error: any) {
-      throw new Error(`Encryption failed: ${error.message}`);
+      throw new Error(`Encryption failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -98,7 +98,7 @@ export class VortexEncryption {
       const decoder = new TextDecoder();
       return decoder.decode(decrypted);
     } catch (error: any) {
-      throw new Error(`Decryption failed: ${error.message}`);
+      throw new Error(`Decryption failed: ${error.message}`, { cause: error });
     }
   }
 

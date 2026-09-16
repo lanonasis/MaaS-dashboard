@@ -294,7 +294,7 @@ export function MCPServicesPage() {
         description: message,
         variant: 'destructive',
       });
-      throw new Error(message);
+      throw new Error(message, { cause: error });
     } finally {
       setActiveServiceKey(null);
     }

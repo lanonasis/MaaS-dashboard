@@ -262,7 +262,7 @@ class ApiClient {
 
       // Provide more helpful error messages
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        throw new Error(`Network error: Unable to reach ${API_BASE_URL}. Check your internet connection and API endpoint configuration.`);
+        throw new Error(`Network error: Unable to reach ${API_BASE_URL}. Check your internet connection and API endpoint configuration.`, { cause: error });
       }
 
       throw error;

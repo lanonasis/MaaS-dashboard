@@ -164,7 +164,6 @@ describe('direct-auth.ts persistSession:false regression suite (t_6741976e)', ()
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset the singleton so each test starts fresh
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (directAuth as any).__testing__?._resetDirectAuth?.();
     // Clear all storage keys
     localStorage.clear();
@@ -302,8 +301,7 @@ describe('direct-auth.ts persistSession:false regression suite (t_6741976e)', ()
       // lanonasis_user is NOT in LEGACY_SENSITIVE_KEYS — it's a metadata key, must survive
       localStorage.setItem('lanonasis_user', 'user-data');
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (directAuth as any).__testing__.clearLegacySensitiveStorage();
+    (directAuth as any).__testing__.clearLegacySensitiveStorage();
 
       expect(localStorage.getItem('lanonasis_session')).toBeNull();
       expect(localStorage.getItem('access_token')).toBeNull();
@@ -457,8 +455,7 @@ describe('direct-auth.ts persistSession:false regression suite (t_6741976e)', ()
     });
 
     it('isSensitiveKey correctly identifies sensitive vs metadata keys', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const testing = (directAuth as any).__testing__;
+    const testing = (directAuth as any).__testing__;
       for (const key of LEGACY_SENSITIVE_KEYS) {
         expect(testing.isSensitiveKey(key)).toBe(true);
       }
