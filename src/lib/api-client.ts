@@ -86,6 +86,15 @@ interface ApiKey {
   created_at: string;
 }
 
+/** One operation performed with a key, as the gateway's activity endpoint returns it. */
+export interface ApiKeyActivityRecord {
+  id: string;
+  operation: string;
+  success: boolean;
+  error_message?: string | null;
+  timestamp: string;
+}
+
 interface McpRouterApiKeyScope {
   id: string;
   service_key: string;
@@ -413,6 +422,17 @@ class ApiClient {
 
   async revokeApiKey(id: string): Promise<ApiResponse<void>> {
     return this.deleteApiKey(id);
+  }
+
+  /**
+   * Recent operations performed with a key, newest first.
+   *
+   * Served by the auth-gateway, which scopes the result to the key's owner.
+   * Reading the analytics table directly through browser Supabase instead would
+   * depend on that client being configured and would carry no ownership check.
+   */
+  async getApiKeyActivity(id: string, limit = 50): Promise<ApiResponse<ApiKeyActivityRecord[]>> {
+    return this.makeRequest<ApiKeyActivityRecord[]>(`/api-keys/${id}/activity?limit=${limit}`);
   }
 
   // MCP Router Keys (vx_prod_*) — /api/v1/mcp/api-keys
