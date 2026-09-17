@@ -86,7 +86,7 @@ export const CentralAuthProvider = ({
   // DASHBOARD_AUTH_OWNER_MODEL is a constant representing the dashboard's
   // supported auth model — direct Supabase sessions (non-interactive bridge only).
   const DASHBOARD_AUTH_OWNER_MODEL = "direct-supabase";
-  const authGenerationRef = useRef({ current: 0 });
+  const authGenerationRef = useRef(0);
   const deferredTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
 
   const clearDeferredAuthWork = () => {
@@ -106,15 +106,15 @@ export const CentralAuthProvider = ({
     deferredTimers.current.add(timer);
   };
 
-  let ssoQueue: Promise<void> = Promise.resolve();
+  const ssoQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const enqueueSsoWork = async (work: () => Promise<unknown>) => {
-    ssoQueue = ssoQueue
+    ssoQueueRef.current = ssoQueueRef.current
       .catch(() => undefined)
       .then(async () => {
         await work();
       });
-    return ssoQueue;
+    return ssoQueueRef.current;
   };
 
   const [isLoading, setIsLoading] = useState(true);
