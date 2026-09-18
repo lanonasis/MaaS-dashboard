@@ -490,17 +490,17 @@ export function createAuthController(
 
             if (event === "SIGNED_OUT") {
               debug(prefix, isDev, "Clearing SSO cookies");
+              // SSO cookies are cleared before supabase.auth.signOut() is invoked
+              // by the explicit signOut() handler, so this listener only ensures
+              // the cookie domain is wiped even if sign-out was triggered
+              // elsewhere (token refresh failure, server-side revocation, etc.).
+              // Navigation is intentionally NOT performed here — see Dashboard's
+              // handleLogout, which owns the post-signout route.
               void deferredWork.enqueueSso(async () => {
                 if (authGen !== generation) return;
                 await centralAuth.clearSSOCookies().catch((err) => {
                   warn(prefix, isDev, "Failed to clear SSO cookies:", err);
                 });
-              });
-
-              navigate("/");
-              toast({
-                title: "Signed out",
-                description: "You have been successfully signed out.",
               });
             }
           }

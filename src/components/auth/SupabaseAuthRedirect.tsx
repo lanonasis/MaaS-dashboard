@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import SetNewPassword from "./SetNewPassword";
+import AuthForm from "./AuthForm";
 
 /**
  * Supabase Auth Redirect Component
@@ -16,15 +17,44 @@ import SetNewPassword from "./SetNewPassword";
  *   /auth/callback — OAuth callback; exchanges the code/token for a
  *     session and redirects to the dashboard.
  *   /auth/login, /auth/register, /login, /register, /signin, /signup
- *     — fall through to the sign-in form on the landing page.
+ *     — render the AuthForm directly (no two-hop redirect through
+ *     /?showAuth=true). The path encodes the initial mode.
  */
+
+type AuthFormMode = "login" | "register";
+
+const PATH_TO_MODE: Record<string, AuthFormMode> = {
+  "/auth/register": "register",
+  "/register": "register",
+  "/signup": "register",
+};
+
 const SupabaseAuthRedirect = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isPasswordReset = location.pathname === "/auth/reset-password";
 
+  const directAuthPaths = useMemo(
+    () => new Set([
+      "/auth",
+      "/auth/login",
+      "/auth/register",
+      "/login",
+      "/register",
+      "/signin",
+      "/signup",
+    ]),
+    []
+  );
+
+  const isDirectAuthPath = directAuthPaths.has(location.pathname);
+
   useEffect(() => {
     if (isPasswordReset) return undefined;
+    if (isDirectAuthPath) {
+      // Render AuthForm directly — no redirect needed.
+      return undefined;
+    }
 
     let disposed = false;
     let authFlowCleanup: (() => void) | undefined;
@@ -47,7 +77,7 @@ const SupabaseAuthRedirect = () => {
       authFlowCleanup?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPasswordReset]);
+  }, [isPasswordReset, isDirectAuthPath]);
 
   const handleAuthFlow = async () => {
     try {
@@ -216,6 +246,14 @@ const SupabaseAuthRedirect = () => {
   // changes cannot alter hook order.
   if (isPasswordReset) {
     return <SetNewPassword />;
+  }
+
+  // Bare /auth (and login/register aliases) render the AuthForm directly —
+  // no two-hop redirect through /?showAuth=true.
+  if (isDirectAuthPath) {
+    return (
+      <AuthForm initialMode={PATH_TO_MODE[location.pathname] ?? "login"} />
+    );
   }
 
   return (
