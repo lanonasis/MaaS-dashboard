@@ -1,0 +1,15 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`MCPServicesPage — Documentation button snapshot > falls back to the default docs URL when VITE_DOCS_URL is unset 1`] = `
+{
+  "target": "_blank",
+  "url": "https://docs.lanonasis.com",
+}
+`;
+
+exports[`MCPServicesPage — Documentation button snapshot > resolves the Documentation button target to VITE_DOCS_URL when set 1`] = `
+{
+  "target": "_blank",
+  "url": "https://docs.example.com/v2/mcp",
+}
+`;
