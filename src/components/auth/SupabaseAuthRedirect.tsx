@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import SetNewPassword from "./SetNewPassword";
+import AuthForm from "./AuthForm";
 
 /**
  * Supabase Auth Redirect Component
@@ -15,16 +16,73 @@ import SetNewPassword from "./SetNewPassword";
  *     clicks the reset link in their email).
  *   /auth/callback — OAuth callback; exchanges the code/token for a
  *     session and redirects to the dashboard.
- *   /auth/login, /auth/register, /login, /register, /signin, /signup
- *     — fall through to the sign-in form on the landing page.
+ *   /auth, /auth/register, /login, /register, /signin, /signup
+ *     — render the AuthForm directly (no two-hop redirect through
+ *     /?showAuth=true). The path encodes the initial mode.
+ *   /auth/login — renders AuthForm directly UNLESS the URL carries
+ *     callback/recovery params (type, code, access_token, or error in
+ *     either the query string or the hash). When those params are
+ *     present the route is treated as an OAuth/magic-link callback and
+ *     runs handleAuthFlow like /auth/callback does.
  */
+
+type AuthFormMode = "login" | "register";
+
+const PATH_TO_MODE: Record<string, AuthFormMode> = {
+  "/auth/register": "register",
+  "/register": "register",
+  "/signup": "register",
+};
+
 const SupabaseAuthRedirect = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isPasswordReset = location.pathname === "/auth/reset-password";
 
+  const directAuthPaths = useMemo(
+    () =>
+      new Set([
+        "/auth",
+        "/auth/register",
+        "/login",
+        "/register",
+        "/signin",
+        "/signup",
+      ]),
+    []
+  );
+
+  // /auth/login with recovery/OAuth params (query or hash) is a callback,
+  // not a plain login form render. handleAuthFlow() already treats
+  // /auth/login and /auth/callback identically when these params are
+  // present; this guard keeps the AuthForm shortcut from short-
+  // circuiting that flow. Memo depends on location.search/hash so a
+  // replaceState to /auth/login?code=... is observed on the next render.
+  const hasCallbackParams = useMemo(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const hashParams = new URLSearchParams(
+      (location.hash ?? "").replace(/^#/, "")
+    );
+    const keys = ["type", "code", "access_token", "error"];
+    for (const key of keys) {
+      if (urlParams.get(key)) return true;
+      if (hashParams.get(key)) return true;
+    }
+    return false;
+  }, [location.search, location.hash]);
+
+  // /auth/login is a direct AuthForm path ONLY when no callback-shaped
+  // params are attached; otherwise it must run handleAuthFlow().
+  const isDirectAuthPath =
+    directAuthPaths.has(location.pathname) ||
+    (location.pathname === "/auth/login" && !hasCallbackParams);
+
   useEffect(() => {
     if (isPasswordReset) return undefined;
+    if (isDirectAuthPath) {
+      // Render AuthForm directly — no redirect needed.
+      return undefined;
+    }
 
     let disposed = false;
     let authFlowCleanup: (() => void) | undefined;
@@ -47,7 +105,7 @@ const SupabaseAuthRedirect = () => {
       authFlowCleanup?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPasswordReset]);
+  }, [isPasswordReset, isDirectAuthPath]);
 
   const handleAuthFlow = async () => {
     try {
@@ -216,6 +274,14 @@ const SupabaseAuthRedirect = () => {
   // changes cannot alter hook order.
   if (isPasswordReset) {
     return <SetNewPassword />;
+  }
+
+  // Bare /auth (and login/register aliases) render the AuthForm directly —
+  // no two-hop redirect through /?showAuth=true.
+  if (isDirectAuthPath) {
+    return (
+      <AuthForm initialMode={PATH_TO_MODE[location.pathname] ?? "login"} />
+    );
   }
 
   return (
