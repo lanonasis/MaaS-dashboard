@@ -16,9 +16,14 @@ import AuthForm from "./AuthForm";
  *     clicks the reset link in their email).
  *   /auth/callback — OAuth callback; exchanges the code/token for a
  *     session and redirects to the dashboard.
- *   /auth/login, /auth/register, /login, /register, /signin, /signup
+ *   /auth, /auth/register, /login, /register, /signin, /signup
  *     — render the AuthForm directly (no two-hop redirect through
  *     /?showAuth=true). The path encodes the initial mode.
+ *   /auth/login — renders AuthForm directly UNLESS the URL carries
+ *     callback/recovery params (type, code, access_token, or error in
+ *     either the query string or the hash). When those params are
+ *     present the route is treated as an OAuth/magic-link callback and
+ *     runs handleAuthFlow like /auth/callback does.
  */
 
 type AuthFormMode = "login" | "register";
@@ -35,19 +40,42 @@ const SupabaseAuthRedirect = () => {
   const isPasswordReset = location.pathname === "/auth/reset-password";
 
   const directAuthPaths = useMemo(
-    () => new Set([
-      "/auth",
-      "/auth/login",
-      "/auth/register",
-      "/login",
-      "/register",
-      "/signin",
-      "/signup",
-    ]),
+    () =>
+      new Set([
+        "/auth",
+        "/auth/register",
+        "/login",
+        "/register",
+        "/signin",
+        "/signup",
+      ]),
     []
   );
 
-  const isDirectAuthPath = directAuthPaths.has(location.pathname);
+  // /auth/login with recovery/OAuth params (query or hash) is a callback,
+  // not a plain login form render. handleAuthFlow() already treats
+  // /auth/login and /auth/callback identically when these params are
+  // present; this guard keeps the AuthForm shortcut from short-
+  // circuiting that flow. Memo depends on location.search/hash so a
+  // replaceState to /auth/login?code=... is observed on the next render.
+  const hasCallbackParams = useMemo(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const hashParams = new URLSearchParams(
+      (location.hash ?? "").replace(/^#/, "")
+    );
+    const keys = ["type", "code", "access_token", "error"];
+    for (const key of keys) {
+      if (urlParams.get(key)) return true;
+      if (hashParams.get(key)) return true;
+    }
+    return false;
+  }, [location.search, location.hash]);
+
+  // /auth/login is a direct AuthForm path ONLY when no callback-shaped
+  // params are attached; otherwise it must run handleAuthFlow().
+  const isDirectAuthPath =
+    directAuthPaths.has(location.pathname) ||
+    (location.pathname === "/auth/login" && !hasCallbackParams);
 
   useEffect(() => {
     if (isPasswordReset) return undefined;

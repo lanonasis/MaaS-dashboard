@@ -32,7 +32,13 @@ export interface AuthControllerOptions {
   isDev: boolean;
   /** Called every time controller state changes so the React hook can sync */
   onStateChange?: (state: AuthState) => void;
-  /** When true, signIn/signUp/signOut re-throw errors after showing toast */
+  /**
+   * When true, signIn/signUp/signOut re-throw errors after a TOAST IS SHOWN
+   * BY THE CALLER. In this mode the controller suppresses its own
+   * destructive toast on signOut failure because the caller (typically
+   * Dashboard.handleLogout) is responsible for surfacing the failure UI.
+   * The throw is preserved so the caller's try/catch still fires.
+   */
   throwOnAuthError?: boolean;
 }
 
@@ -652,17 +658,24 @@ export function createAuthController(
       setState({ session: null, user: null, profile: null });
       navigate("/");
     } catch (err) {
-      const errMsg =
-        err instanceof Error
-          ? err.message
-          : typeof err === "object" && err !== null && "message" in err
-          ? String((err as any).message)
-          : "An unexpected error occurred";
-      toast({
-        title: "Error signing out",
-        description: errMsg,
-        variant: "destructive",
-      });
+      // When throwOnAuthError is true the caller owns the failure UI
+      // (typically Dashboard.handleLogout's destructive "Sign-out failed"
+      // toast). Showing it here as well would surface two toasts in
+      // sequence. We preserve the throw so the caller's try/catch still
+      // fires; we just skip the controller's own toast.
+      if (!throwOnAuthError) {
+        const errMsg =
+          err instanceof Error
+            ? err.message
+            : typeof err === "object" && err !== null && "message" in err
+            ? String((err as any).message)
+            : "An unexpected error occurred";
+        toast({
+          title: "Error signing out",
+          description: errMsg,
+          variant: "destructive",
+        });
+      }
       if (throwOnAuthError) throw err;
     }
   };

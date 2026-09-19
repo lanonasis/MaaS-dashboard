@@ -114,4 +114,60 @@ describe('SupabaseAuthRedirect direct render', () => {
     // component, so assert it is NOT the spinner.
     expect(screen.queryByText(/processing authentication/i)).not.toBeInTheDocument();
   });
+
+  // Regression: /auth/login is a direct AuthForm path, but when the URL
+  // carries callback/recovery params (query or hash) it must run
+  // handleAuthFlow() exactly like /auth/callback does. Otherwise we
+  // regress to the two-hop /?showAuth=true redirect and break OAuth
+  // and magic-link flows that happen to land on /auth/login.
+  describe('/auth/login callback variants', () => {
+    const expectsCallbackFlow = (path: string) => {
+      // The spinner is the "handleAuthFlow is running" state — its
+      // presence proves the AuthForm shortcut did not fire.
+      expect(
+        screen.queryByText(/processing authentication/i)
+      ).toBeInTheDocument();
+      // The AuthForm heading must NOT be present while the flow runs.
+      expect(
+        screen.queryByRole('heading', { name: /sign in/i })
+      ).not.toBeInTheDocument();
+    };
+
+    it('routes /auth/login?type=recovery through handleAuthFlow', () => {
+      renderAt('/auth/login?type=recovery');
+      expectsCallbackFlow('/auth/login?type=recovery');
+    });
+
+    it('routes /auth/login?code=... through handleAuthFlow', () => {
+      renderAt('/auth/login?code=abc123');
+      expectsCallbackFlow('/auth/login?code=abc123');
+    });
+
+    it('routes /auth/login?access_token=... through handleAuthFlow', () => {
+      renderAt('/auth/login?access_token=eyJabc.def.ghi');
+      expectsCallbackFlow('/auth/login?access_token=eyJabc.def.ghi');
+    });
+
+    it('routes /auth/login?error=access_denied through handleAuthFlow', () => {
+      renderAt('/auth/login?error=access_denied&error_description=denied');
+      expectsCallbackFlow('/auth/login?error=access_denied&error_description=denied');
+    });
+
+    it('routes /auth/login#access_token=... through handleAuthFlow', () => {
+      // MemoryRouter initialEntries preserves the literal hash; jsdom
+      // exposes it via window.location.hash.
+      renderAt('/auth/login#access_token=eyJabc.def.ghi&type=recovery');
+      expectsCallbackFlow('/auth/login#access_token=eyJabc.def.ghi&type=recovery');
+    });
+
+    it('routes /auth/login#error=... through handleAuthFlow', () => {
+      renderAt('/auth/login#error=access_denied');
+      expectsCallbackFlow('/auth/login#error=access_denied');
+    });
+
+    it('routes /auth/login#type=recovery through handleAuthFlow', () => {
+      renderAt('/auth/login#type=recovery');
+      expectsCallbackFlow('/auth/login#type=recovery');
+    });
+  });
 });
