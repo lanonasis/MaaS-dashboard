@@ -23,6 +23,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COLLAPSED_KEY = 'maas-sidebar-collapsed';
@@ -54,6 +56,8 @@ const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useSupabaseAuth();
+  const { toast } = useToast();
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     return window.innerWidth >= DESKTOP_BREAKPOINT;
   });
@@ -151,8 +155,28 @@ const Dashboard = () => {
   };
 
   const handleLogout = async () => {
-    await signOut();
-    navigate('/auth');
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      // signOut() clears SSO cookies, calls supabase.auth.signOut(), and
+      // navigates to the landing page ("/"). Navigation is owned here so the
+      // SIGNED_OUT auth listener does NOT race-navigate.
+      await signOut();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Failed to sign out";
+      toast({
+        title: "Sign-out failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   const activePage = getActivePage();
@@ -330,10 +354,18 @@ const Dashboard = () => {
                   variant="outline"
                   size="sm"
                   onClick={handleLogout}
+                  disabled={isSigningOut}
+                  aria-busy={isSigningOut}
                   className="gap-2"
                 >
-                  <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline">Logout</span>
+                  {isSigningOut ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <LogOut className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isSigningOut ? "Signing out…" : "Logout"}
+                  </span>
                 </Button>
 
                 <DropdownMenu>

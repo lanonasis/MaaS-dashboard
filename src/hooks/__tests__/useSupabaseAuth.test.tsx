@@ -635,6 +635,46 @@ describe('useSupabaseAuth', () => {
       expect(mockClearSSOCookies).toHaveBeenCalled();
     });
 
+    it('SIGNED_OUT listener does NOT navigate — navigation is owned by signOut() handler (logout race fix)', async () => {
+      let authStateHandler: ((event: string, session: any) => unknown) | undefined;
+      mockOnAuthStateChange.mockImplementation((callback) => {
+        authStateHandler = callback;
+        return {
+          data: { subscription: { unsubscribe: vi.fn() } },
+        };
+      });
+
+      const { result } = renderHook(() => useSupabaseAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Reset navigate tracking AFTER provider setup so we only observe
+      // listener-driven navigation, not provider-construction chatter.
+      mockNavigate.mockClear();
+
+      expect(authStateHandler).toBeDefined();
+
+      // Drive a SIGNED_OUT event as if the session ended (token-refresh
+      // failure, server revocation, etc.). The listener should still clear
+      // SSO cookies but must NOT navigate.
+      mockFromSelect.mockResolvedValue({ data: null, error: null });
+      await act(async () => {
+        authStateHandler!('SIGNED_OUT', null);
+        vi.runOnlyPendingTimers();
+      });
+
+      expect(mockClearSSOCookies).toHaveBeenCalled();
+      expect(mockNavigate).not.toHaveBeenCalled();
+      // Importantly: the listener must not bounce the user to /auth either.
+      expect(mockNavigate).not.toHaveBeenCalledWith('/');
+      expect(mockNavigate).not.toHaveBeenCalledWith('/auth');
+      expect(mockNavigate).not.toHaveBeenCalledWith('/?showAuth=true');
+    });
+
     it('skips SSO sync when token is unchanged', async () => {
       let authStateHandler: ((event: string, session: any) => unknown) | undefined;
       mockOnAuthStateChange.mockImplementation((callback) => {
