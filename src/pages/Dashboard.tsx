@@ -53,7 +53,7 @@ const Dashboard = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useSupabaseAuth();
+  const { signOut, user } = useSupabaseAuth();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     return window.innerWidth >= DESKTOP_BREAKPOINT;
   });
@@ -184,7 +184,7 @@ const Dashboard = () => {
       case 'overview':
         return (
           <div className="space-y-8">
-            <UserProfile />
+            {user?.id ? <UserProfile /> : null}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <ApiDashboard />
