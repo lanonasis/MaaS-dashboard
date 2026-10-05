@@ -24,10 +24,15 @@ export const fetchMemoryEntries = async (
   userId: string,
   timeRangeDays?: number,
 ): Promise<MemoryEntryRow[]> => {
+  // memory_entries is a view that exposes soft-deleted rows; about half the
+  // corpus is soft-deleted, so without this filter every fallback statistic
+  // counted deleted memories. (deleted_at is missing from the generated types
+  // in src/integrations/supabase/types.ts, which predate the column.)
   let query = supabase
     .from("memory_entries")
     .select("*")
     .eq("user_id", userId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (timeRangeDays) {
@@ -264,8 +269,14 @@ export const buildHealthCheck = async (
       };
     }
 
+    // Voyage vectors live in `voyage_embedding`; `embedding` is the legacy
+    // OpenAI column, so reading only it showed ~0% on a Voyage corpus.
+    // voyage_embedding is absent from the stale generated types, hence the cast.
     const memoriesWithEmbeddings = memories.filter((memory) =>
-      Boolean(memory.embedding),
+      Boolean(
+        (memory as MemoryEntryRow & { voyage_embedding?: unknown }).voyage_embedding ??
+          memory.embedding,
+      ),
     ).length;
     const embeddingCoverage =
       (memoriesWithEmbeddings / memories.length) * 100;
