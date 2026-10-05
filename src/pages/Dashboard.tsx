@@ -18,16 +18,7 @@ import { MCPUsagePage } from "@/pages/MCPUsagePage";
 import { IntelligencePanel } from "@/components/dashboard/IntelligencePanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Sun,
-  Moon,
-  Laptop,
-  Key,
-  Zap,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
+import { Sun, Moon, Laptop, Key, Zap, LogOut, Menu, X, Loader2 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation, useNavigate } from "react-router-dom";
