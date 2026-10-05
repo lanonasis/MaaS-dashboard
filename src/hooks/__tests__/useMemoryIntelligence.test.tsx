@@ -60,8 +60,11 @@ vi.mock("@/integrations/supabase/client", () => ({
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              gte: vi.fn().mockResolvedValue(mockSupabaseSelect()),
+            // fetchMemoryEntries filters out soft-deleted rows with .is("deleted_at", null)
+            is: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                gte: vi.fn().mockResolvedValue(mockSupabaseSelect()),
+              }),
             }),
           }),
         }),
