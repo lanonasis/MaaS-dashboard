@@ -422,6 +422,23 @@ describe('ApiClient', () => {
         })
       );
     });
+
+    it('revokes API key with a soft revoke, not a hard delete', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ data: null }),
+      });
+
+      await apiClient.revokeApiKey('key-1');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/api-keys/key-1/revoke'),
+        expect.objectContaining({
+          method: 'POST',
+          body: '{}',
+        })
+      );
+    });
   });
 
   describe('Intelligence API', () => {

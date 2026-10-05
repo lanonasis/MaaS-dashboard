@@ -361,7 +361,7 @@ export const ApiKeyManager = () => {
     }
 
     try {
-      await apiClient.deleteApiKey(keyId);
+      await apiClient.revokeApiKey(keyId);
 
       toast({
         title: "API Key Revoked",

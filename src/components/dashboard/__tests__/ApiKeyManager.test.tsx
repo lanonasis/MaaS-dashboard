@@ -35,13 +35,13 @@ const mockSupabaseSelect = vi.fn();
 const mockSupabaseServicesSelect = vi.fn();
 const mockGetApiKeys = vi.fn();
 const mockCreateApiKey = vi.fn();
-const mockDeleteApiKey = vi.fn();
+const mockRevokeApiKey = vi.fn();
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
     getApiKeys: (...args: unknown[]) => mockGetApiKeys(...args),
     createApiKey: (...args: unknown[]) => mockCreateApiKey(...args),
-    deleteApiKey: (...args: unknown[]) => mockDeleteApiKey(...args),
+    revokeApiKey: (...args: unknown[]) => mockRevokeApiKey(...args),
   },
 }));
 
@@ -117,7 +117,7 @@ describe("ApiKeyManager", () => {
     mockCreateApiKey.mockResolvedValue({
       data: { id: "key-1", name: "Test Key", key: "lano_testkey123", service: "all" },
     });
-    mockDeleteApiKey.mockResolvedValue({});
+    mockRevokeApiKey.mockResolvedValue({});
     mockSupabaseServicesSelect.mockResolvedValue({ data: mockConfiguredServices, error: null });
   });
 
