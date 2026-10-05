@@ -387,15 +387,15 @@ export const ApiKeyManager = () => {
     setIsLoadingActivity(true);
     setActivityRecords([]);
     try {
-      const { data, error } = await supabase
-        .from('key_usage_analytics')
-        .select('id, operation, success, timestamp')
-        .eq('key_id', keyId)
-        .order('timestamp', { ascending: false })
-        .limit(50);
-      if (error) throw error;
+      // Served by the auth-gateway, like every other call in this component.
+      // Querying the analytics table through browser Supabase meant this one
+      // panel depended on VITE_SUPABASE_URL being present in the build — absent
+      // it, the client falls back to a placeholder host and the request fails,
+      // which surfaced as "Failed to load activity" rather than an empty list.
+      const response = await apiClient.getApiKeyActivity(keyId);
+      if (response.error) throw new Error(response.error);
       if (activityRequestRef.current === keyId) {
-        setActivityRecords((data as ActivityRecord[]) ?? []);
+        setActivityRecords((response.data as ActivityRecord[]) ?? []);
       }
     } catch (error: unknown) {
       if (activityRequestRef.current === keyId) {
