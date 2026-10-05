@@ -33,11 +33,12 @@ export interface AuthControllerOptions {
   /** Called every time controller state changes so the React hook can sync */
   onStateChange?: (state: AuthState) => void;
   /**
-   * When true, signIn/signUp/signOut re-throw errors after a TOAST IS SHOWN
+   * When true, signOut re-throws errors after a TOAST IS SHOWN
    * BY THE CALLER. In this mode the controller suppresses its own
    * destructive toast on signOut failure because the caller (typically
    * Dashboard.handleLogout) is responsible for surfacing the failure UI.
-   * The throw is preserved so the caller's try/catch still fires.
+   * signIn shows its own failure toast and re-throws only when this flag is true.
+   * signUp shows its own failure toast and always re-throws errors.
    */
   throwOnAuthError?: boolean;
 }
