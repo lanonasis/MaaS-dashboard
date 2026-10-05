@@ -362,7 +362,7 @@ export function MCPServicesPage() {
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" onClick={() => window.open('/docs/mcp-router', '_blank')}>
+          <Button variant="outline" onClick={() => window.open(import.meta.env.VITE_DOCS_URL || 'https://docs.lanonasis.com', '_blank')}>
             <ExternalLink className="h-4 w-4 mr-2" />
             Documentation
           </Button>
