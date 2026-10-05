@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Mail, Lock, Shield, Building, Image } from "lucide-react";
 
+const PROFILE_LOAD_TIMEOUT_MS = 10_000;
+
 export const UserProfile = () => {
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
@@ -25,9 +27,28 @@ export const UserProfile = () => {
 
   // Fetch profile data from the profiles table
   useEffect(() => {
+    let cancelled = false;
+    const safetyTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        // Safety net: ensure we never get stuck in the loading skeleton
+        // if the fetch or upstream auth never completes.
+        setLoadingProfile(false);
+      }
+    }, PROFILE_LOAD_TIMEOUT_MS);
+
+    const finishLoading = () => {
+      window.clearTimeout(safetyTimer);
+      setLoadingProfile(false);
+    };
+
     const fetchProfile = async () => {
-      if (!user?.id) return;
-      
+      if (!user?.id) {
+        // No user yet (auth still resolving) — clear loading so the
+        // component doesn't render its skeleton forever.
+        finishLoading();
+        return;
+      }
+
       setLoadingProfile(true);
       try {
         const { data, error } = await supabase
@@ -35,6 +56,8 @@ export const UserProfile = () => {
           .select('*')
           .eq('id', user.id)
           .maybeSingle();
+
+        if (cancelled) return;
 
         if (error && error.code !== 'PGRST116') {
           console.error('Error fetching profile:', error);
@@ -55,13 +78,18 @@ export const UserProfile = () => {
           setDisplayName(user.user_metadata?.full_name || "");
         }
       } catch (error) {
-        console.error('Error:', error);
+        if (!cancelled) console.error('Error:', error);
       } finally {
-        setLoadingProfile(false);
+        if (!cancelled) finishLoading();
       }
     };
 
     fetchProfile();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(safetyTimer);
+    };
   }, [user?.id, user?.email, user?.user_metadata]);
 
   const handlePasswordReset = async () => {

@@ -1,0 +1,432 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`UserProfile — gh#207 regression > snapshots > matches the loaded profile snapshot 1`] = `
+<div
+  class="rounded-lg border bg-card text-card-foreground shadow-sm"
+>
+  <div
+    class="flex flex-col space-y-1.5 p-6"
+  >
+    <h3
+      class="text-2xl font-semibold leading-none tracking-tight"
+    >
+      User Profile
+    </h3>
+    <p
+      class="text-sm text-muted-foreground"
+    >
+      Manage your account settings and preferences
+    </p>
+  </div>
+  <div
+    class="p-6 pt-0 space-y-4"
+  >
+    <div
+      class="grid grid-cols-1 md:grid-cols-2 gap-4"
+    >
+      <div
+        class="flex items-center space-x-3"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-mail h-4 w-4 text-muted-foreground flex-shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"
+          />
+          <rect
+            height="16"
+            rx="2"
+            width="20"
+            x="2"
+            y="4"
+          />
+        </svg>
+        <div
+          class="min-w-0"
+        >
+          <p
+            class="text-sm font-medium"
+          >
+            Email
+          </p>
+          <p
+            class="text-sm text-muted-foreground truncate"
+          >
+            jane.doe@example.com
+          </p>
+        </div>
+      </div>
+      <div
+        class="flex items-center space-x-3"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-user h-4 w-4 text-muted-foreground flex-shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"
+          />
+          <circle
+            cx="12"
+            cy="7"
+            r="4"
+          />
+        </svg>
+        <div
+          class="min-w-0"
+        >
+          <p
+            class="text-sm font-medium"
+          >
+            Display Name
+          </p>
+          <p
+            class="text-sm text-muted-foreground truncate"
+          >
+            Jane Doe
+          </p>
+        </div>
+      </div>
+      <div
+        class="flex items-center space-x-3"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-building h-4 w-4 text-muted-foreground flex-shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M12 10h.01"
+          />
+          <path
+            d="M12 14h.01"
+          />
+          <path
+            d="M12 6h.01"
+          />
+          <path
+            d="M16 10h.01"
+          />
+          <path
+            d="M16 14h.01"
+          />
+          <path
+            d="M16 6h.01"
+          />
+          <path
+            d="M8 10h.01"
+          />
+          <path
+            d="M8 14h.01"
+          />
+          <path
+            d="M8 6h.01"
+          />
+          <path
+            d="M9 22v-3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"
+          />
+          <rect
+            height="20"
+            rx="2"
+            width="16"
+            x="4"
+            y="2"
+          />
+        </svg>
+        <div
+          class="min-w-0"
+        >
+          <p
+            class="text-sm font-medium"
+          >
+            Company
+          </p>
+          <p
+            class="text-sm text-muted-foreground truncate"
+          >
+            Acme Corp
+          </p>
+        </div>
+      </div>
+      <div
+        class="flex items-center space-x-3"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-building h-4 w-4 text-muted-foreground flex-shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M12 10h.01"
+          />
+          <path
+            d="M12 14h.01"
+          />
+          <path
+            d="M12 6h.01"
+          />
+          <path
+            d="M16 10h.01"
+          />
+          <path
+            d="M16 14h.01"
+          />
+          <path
+            d="M16 6h.01"
+          />
+          <path
+            d="M8 10h.01"
+          />
+          <path
+            d="M8 14h.01"
+          />
+          <path
+            d="M8 6h.01"
+          />
+          <path
+            d="M9 22v-3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"
+          />
+          <rect
+            height="20"
+            rx="2"
+            width="16"
+            x="4"
+            y="2"
+          />
+        </svg>
+        <div
+          class="min-w-0"
+        >
+          <p
+            class="text-sm font-medium"
+          >
+            Organization ID
+          </p>
+          <p
+            class="text-sm text-muted-foreground font-mono text-xs truncate"
+          >
+            org-xyz-999
+          </p>
+        </div>
+      </div>
+      <div
+        class="flex items-center space-x-3"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-shield h-4 w-4 text-muted-foreground flex-shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+          />
+        </svg>
+        <div
+          class="min-w-0"
+        >
+          <p
+            class="text-sm font-medium"
+          >
+            Role
+          </p>
+          <p
+            class="text-sm text-muted-foreground truncate"
+          >
+            admin
+          </p>
+        </div>
+      </div>
+      <div
+        class="flex items-center space-x-3"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-user h-4 w-4 text-muted-foreground flex-shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"
+          />
+          <circle
+            cx="12"
+            cy="7"
+            r="4"
+          />
+        </svg>
+        <div
+          class="min-w-0"
+        >
+          <p
+            class="text-sm font-medium"
+          >
+            User ID
+          </p>
+          <p
+            class="text-sm text-muted-foreground font-mono text-xs truncate"
+          >
+            user-abc-123
+          </p>
+        </div>
+      </div>
+    </div>
+    <div
+      class="flex gap-2 pt-4 border-t"
+    >
+      <button
+        aria-expanded="false"
+        aria-haspopup="dialog"
+        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+        data-state="closed"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-user h-4 w-4 mr-2"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"
+          />
+          <circle
+            cx="12"
+            cy="7"
+            r="4"
+          />
+        </svg>
+        Edit Profile
+      </button>
+      <button
+        aria-expanded="false"
+        aria-haspopup="dialog"
+        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+        data-state="closed"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-lock h-4 w-4 mr-2"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect
+            height="11"
+            rx="2"
+            ry="2"
+            width="18"
+            x="3"
+            y="11"
+          />
+          <path
+            d="M7 11V7a5 5 0 0 1 10 0v4"
+          />
+        </svg>
+        Change Password
+      </button>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`UserProfile — gh#207 regression > snapshots > matches the loading skeleton snapshot 1`] = `
+<div
+  class="rounded-lg border bg-card text-card-foreground shadow-sm"
+>
+  <div
+    class="flex flex-col space-y-1.5 p-6"
+  >
+    <h3
+      class="text-2xl font-semibold leading-none tracking-tight"
+    >
+      User Profile
+    </h3>
+    <p
+      class="text-sm text-muted-foreground"
+    >
+      Loading profile data...
+    </p>
+  </div>
+  <div
+    class="p-6 pt-0"
+  >
+    <div
+      class="animate-pulse space-y-3"
+    >
+      <div
+        class="h-4 bg-gray-200 rounded w-3/4"
+      />
+      <div
+        class="h-4 bg-gray-200 rounded w-1/2"
+      />
+      <div
+        class="h-4 bg-gray-200 rounded w-2/3"
+      />
+    </div>
+  </div>
+</div>
+`;
