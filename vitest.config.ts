@@ -21,7 +21,11 @@ export default defineConfig({
       'node_modules/**',
       'dist/**',
       'coverage/**',
-      'src/archived/**'
+      'src/archived/**',
+      // Helpers that live beside tests (e.g. central-auth-msw.setup.ts) match
+      // the __tests__ include glob but contain no suites; vitest then fails the
+      // run with "No test suite found".
+      'src/**/__tests__/**/*.setup.{ts,tsx}'
     ],
     coverage: {
       provider: 'v8',
