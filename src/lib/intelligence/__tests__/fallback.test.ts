@@ -11,6 +11,7 @@ import {
   fetchMemoryEntries,
   buildPatternAnalysis,
   buildHealthCheck,
+  mapHealthResult,
 } from "@/lib/intelligence/fallback";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -20,35 +21,36 @@ type MemoryEntryRow = Database["public"]["Tables"]["memory_entries"]["Row"];
 /*  Mock Supabase client                                                  */
 /* ==================================================================== */
 
-// Use a function that creates fresh mocks per test — avoids module-level
-// closure staleness.  vitest's vi.resetModules isn't needed because we
-// use vi.mock factory functions that capture the current values.
+// Every query-builder method returns the same thenable chain, so the mock does
+// not encode one exact call order (it previously broke whenever a filter was
+// added). Awaiting the chain resolves to `mockState.rows`; `.is()` calls are
+// recorded so tests can assert which filters were applied.
+const mockState = vi.hoisted(() => ({
+  rows: [] as unknown[],
+  isCalls: [] as unknown[][],
+}));
 
 vi.mock("@/integrations/supabase/client", () => {
-  return {
-    supabase: {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            order: () => ({
-              gte: () => {
-                // Import the module-level variables from this test file
-                // This won't work directly — we need to use vi.mock with
-                // factory that imports and re-exports.  Instead, we'll use
-                // vi.doMock/dynamic approach.
-                return {
-                  then: (resolve: (value: any) => void) => {
-                    resolve({ data: [], error: null });
-                  },
-                  catch: () => {},
-                };
-              },
-            }),
-          }),
-        }),
-      }),
+  const chain: Record<string, unknown> = {};
+  const self = () => chain;
+  Object.assign(chain, {
+    select: self,
+    eq: self,
+    order: self,
+    gte: self,
+    is: (...args: unknown[]) => {
+      mockState.isCalls.push(args);
+      return chain;
     },
-  };
+    then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+      Promise.resolve({ data: mockState.rows, error: null }).then(resolve, reject),
+  });
+  return { supabase: { from: () => chain } };
+});
+
+beforeEach(() => {
+  mockState.rows = [];
+  mockState.isCalls = [];
 });
 
 /* ==================================================================== */
@@ -77,6 +79,12 @@ describe("fetchMemoryEntries", () => {
   it("returns empty array when no memories found", async () => {
     const result = await fetchMemoryEntries("test-user-123");
     expect(result).toEqual([]);
+  });
+
+  it("excludes soft-deleted memories", async () => {
+    // memory_entries is a view that exposes soft-deleted rows.
+    await fetchMemoryEntries("test-user-123");
+    expect(mockState.isCalls).toContainEqual(["deleted_at", null]);
   });
 });
 
@@ -120,5 +128,34 @@ describe("buildHealthCheck", () => {
     expect(result!.recommendations).toContain(
       "Start creating memories to track health metrics",
     );
+  });
+});
+
+
+/* ==================================================================== */
+/*  Embedding coverage                                                    */
+/* ==================================================================== */
+
+describe("embedding coverage", () => {
+  it("counts Voyage embeddings, not only the legacy OpenAI column", async () => {
+    // A Voyage-embedded corpus: voyage_embedding set, legacy `embedding` null.
+    // Reading only `embedding` reported 0% here.
+    mockState.rows = [
+      createMemory({ embedding: null, voyage_embedding: "[0.1]" } as Partial<MemoryEntryRow>),
+      createMemory({ embedding: null, voyage_embedding: "[0.2]" } as Partial<MemoryEntryRow>),
+    ];
+    const result = await buildHealthCheck("test-user-123");
+    expect(result!.metrics.embedding_coverage).toBe(100);
+  });
+
+  it("reads embedding_coverage_percentage from the server response", () => {
+    // intelligence-health-check emits metrics.embedding_coverage_percentage;
+    // before it did, the missing field defaulted to 0.
+    const result = mapHealthResult({
+      health_score: { overall: 90 },
+      metrics: { embedding_coverage_percentage: 100 },
+      statistics: { total_memories: 10, memories_with_tags: 9 },
+    });
+    expect(result.metrics.embedding_coverage).toBe(100);
   });
 });

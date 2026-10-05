@@ -496,6 +496,13 @@ export function createAuthController(
             lastSyncedToken = null;
 
             if (event === "SIGNED_OUT") {
+              // Navigation and toast are owned by the caller (signOut handler).
+              // Doing it here causes a double-navigation race because
+              // signOut() also calls navigate("/") and Supabase emits
+              // SIGNED_OUT synchronously after auth.signOut() resolves.
+              // SSO cookie clearing is still triggered so external listeners
+              // see a consistent state, but it is intentionally deferred to
+              // avoid blocking the teardown path.
               debug(prefix, isDev, "Clearing SSO cookies");
               // SSO cookies are cleared before supabase.auth.signOut() is invoked
               // by the explicit signOut() handler, so this listener only ensures
@@ -650,13 +657,25 @@ export function createAuthController(
 
   const signOut = async (): Promise<void> => {
     try {
-      // Clear SSO cookies
+      // 1. Clear SSO cookies BEFORE supabase.auth.signOut() so cross-subdomain
+      //    auth state is consistent at the moment the session is invalidated.
+      //    Don't rely on the auth state listener for this — fire-and-forget
+      //    there means the listener may never run if signOut throws.
       await centralAuth.clearSSOCookies();
 
+      // 2. Tear down the Supabase session. This triggers SIGNED_OUT.
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
+      // 3. Drop the local cached session/profile so React stops rendering
+      //    protected content immediately. The listener will fire and confirm,
+      //    but doing it here avoids a flash of authenticated UI before the
+      //    listener-driven state update.
       setState({ session: null, user: null, profile: null });
+
+      // 4. The single post-signout navigation happens here. The SIGNED_OUT
+      //    listener and the caller (Dashboard.handleLogout) do not navigate,
+      //    so there is exactly one push to history.
       navigate("/");
     } catch (err) {
       // When throwOnAuthError is true the caller owns the failure UI

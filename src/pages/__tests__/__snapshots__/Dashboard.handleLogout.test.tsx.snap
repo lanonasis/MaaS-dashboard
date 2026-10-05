@@ -8,7 +8,7 @@ exports[`Dashboard.handleLogout > snapshot: the logout button reflects the loadi
 >
   <svg
     aria-hidden="true"
-    class="lucide lucide-loader-circle lucide-loader-2 h-4 w-4 animate-spin"
+    class="lucide lucide-loader-circle h-4 w-4 animate-spin"
     fill="none"
     height="24"
     stroke="currentColor"

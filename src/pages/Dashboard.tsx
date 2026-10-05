@@ -18,16 +18,7 @@ import { MCPUsagePage } from "@/pages/MCPUsagePage";
 import { IntelligencePanel } from "@/components/dashboard/IntelligencePanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Sun,
-  Moon,
-  Laptop,
-  Key,
-  Zap,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
+import { Sun, Moon, Laptop, Key, Zap, LogOut, Menu, X, Loader2 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTheme } from "@/hooks/useTheme";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -40,7 +31,6 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COLLAPSED_KEY = 'maas-sidebar-collapsed';
@@ -64,7 +54,7 @@ const Dashboard = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useSupabaseAuth();
+  const { signOut, user } = useSupabaseAuth();
   const { toast } = useToast();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -217,7 +207,7 @@ const Dashboard = () => {
       case 'overview':
         return (
           <div className="space-y-8">
-            <UserProfile />
+            {user?.id ? <UserProfile /> : null}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <ApiDashboard />
