@@ -32,7 +32,14 @@ export interface AuthControllerOptions {
   isDev: boolean;
   /** Called every time controller state changes so the React hook can sync */
   onStateChange?: (state: AuthState) => void;
-  /** When true, signIn/signUp/signOut re-throw errors after showing toast */
+  /**
+   * When true, signOut re-throws errors after a TOAST IS SHOWN
+   * BY THE CALLER. In this mode the controller suppresses its own
+   * destructive toast on signOut failure because the caller (typically
+   * Dashboard.handleLogout) is responsible for surfacing the failure UI.
+   * signIn shows its own failure toast and re-throws only when this flag is true.
+   * signUp shows its own failure toast and always re-throws errors.
+   */
   throwOnAuthError?: boolean;
 }
 
@@ -497,6 +504,12 @@ export function createAuthController(
               // see a consistent state, but it is intentionally deferred to
               // avoid blocking the teardown path.
               debug(prefix, isDev, "Clearing SSO cookies");
+              // SSO cookies are cleared before supabase.auth.signOut() is invoked
+              // by the explicit signOut() handler, so this listener only ensures
+              // the cookie domain is wiped even if sign-out was triggered
+              // elsewhere (token refresh failure, server-side revocation, etc.).
+              // Navigation is intentionally NOT performed here — see Dashboard's
+              // handleLogout, which owns the post-signout route.
               void deferredWork.enqueueSso(async () => {
                 if (authGen !== generation) return;
                 await centralAuth.clearSSOCookies().catch((err) => {
@@ -660,20 +673,29 @@ export function createAuthController(
       //    listener-driven state update.
       setState({ session: null, user: null, profile: null });
 
-      // 4. Navigation is owned by the caller (e.g. Dashboard.handleLogout)
-      //    so we can do exactly one push to history. No navigate("/") here.
+      // 4. The single post-signout navigation happens here. The SIGNED_OUT
+      //    listener and the caller (Dashboard.handleLogout) do not navigate,
+      //    so there is exactly one push to history.
+      navigate("/");
     } catch (err) {
-      const errMsg =
-        err instanceof Error
-          ? err.message
-          : typeof err === "object" && err !== null && "message" in err
-          ? String((err as any).message)
-          : "An unexpected error occurred";
-      toast({
-        title: "Error signing out",
-        description: errMsg,
-        variant: "destructive",
-      });
+      // When throwOnAuthError is true the caller owns the failure UI
+      // (typically Dashboard.handleLogout's destructive "Sign-out failed"
+      // toast). Showing it here as well would surface two toasts in
+      // sequence. We preserve the throw so the caller's try/catch still
+      // fires; we just skip the controller's own toast.
+      if (!throwOnAuthError) {
+        const errMsg =
+          err instanceof Error
+            ? err.message
+            : typeof err === "object" && err !== null && "message" in err
+            ? String((err as any).message)
+            : "An unexpected error occurred";
+        toast({
+          title: "Error signing out",
+          description: errMsg,
+          variant: "destructive",
+        });
+      }
       if (throwOnAuthError) throw err;
     }
   };
