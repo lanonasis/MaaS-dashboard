@@ -420,8 +420,14 @@ class ApiClient {
     });
   }
 
+  // Soft revoke (is_active=false). Prefer this over deleteApiKey: a hard delete
+  // is rejected by the database once the key has usage or audit rows.
   async revokeApiKey(id: string): Promise<ApiResponse<void>> {
-    return this.deleteApiKey(id);
+    // The API rejects a bodiless POST with INVALID_BODY, so send an empty object.
+    return this.makeRequest<void>(`/api-keys/${id}/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({})
+    });
   }
 
   /**
