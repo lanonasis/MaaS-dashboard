@@ -62,16 +62,22 @@ export const ApiDashboard = () => {
       </div>
 
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-8 mb-8">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="payment-gateways">Payments</TabsTrigger>
-          <TabsTrigger value="wallet">Wallet</TabsTrigger>
-          <TabsTrigger value="verification">Verification</TabsTrigger>
-          <TabsTrigger value="utility-payments">Utilities</TabsTrigger>
-          <TabsTrigger value="trade-financing">Trade Finance</TabsTrigger>
-          <TabsTrigger value="bank-statements">Bank Statements</TabsTrigger>
-          <TabsTrigger value="fraud-monitoring">Fraud Monitoring</TabsTrigger>
-        </TabsList>
+        {/* Single scrollable row: the eight service tabs must never wrap into a
+            grid (which overlapped labels at md and pushed tabs onto their own
+            rows on narrow screens). w-max keeps them on one line; the wrapper
+            scrolls horizontally instead of stacking. */}
+        <div className="w-full overflow-x-auto mb-8 pb-1">
+          <TabsList className="w-max min-w-full justify-start gap-1">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="payment-gateways">Payments</TabsTrigger>
+            <TabsTrigger value="wallet">Wallet</TabsTrigger>
+            <TabsTrigger value="verification">Verification</TabsTrigger>
+            <TabsTrigger value="utility-payments">Utilities</TabsTrigger>
+            <TabsTrigger value="trade-financing">Trade Finance</TabsTrigger>
+            <TabsTrigger value="bank-statements">Bank Statements</TabsTrigger>
+            <TabsTrigger value="fraud-monitoring">Fraud Monitoring</TabsTrigger>
+          </TabsList>
+        </div>
         
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -1,0 +1,7 @@
+# Keep shell scripts LF-normalized.
+#
+# A CRLF line ending turns the shebang into "#!/bin/bash\r", which the kernel
+# cannot resolve, so Linux builds (Netlify, VPS) fail the moment the script is
+# executed: "./netlify-build.sh: cannot execute: required file not found".
+# Force LF on checkout so a Windows editor can never re-introduce it.
+*.sh text eol=lf
