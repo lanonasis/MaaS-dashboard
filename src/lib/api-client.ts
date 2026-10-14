@@ -105,23 +105,33 @@ interface McpRouterApiKeyScope {
 
 interface McpRouterApiKey {
   id: string;
-  key_prefix: string;
+  key_prefix?: string | null;
+  /** Plaintext key, returned ONCE on create/rotate by the auth-gateway. */
+  key?: string;
   name: string;
   description?: string | null;
-  scope_type: 'all' | 'specific';
-  allowed_environments: string[];
-  rate_limit_per_minute: number;
-  rate_limit_per_day: number;
-  allowed_ips: string[];
+  scope_type?: 'all' | 'specific';
+  allowed_environments?: string[];
+  rate_limit_per_minute?: number;
+  rate_limit_per_day?: number;
+  allowed_ips?: string[];
   expires_at?: string | null;
   last_used_at?: string | null;
   last_used_ip?: string | null;
-  is_active: boolean;
+  is_active?: boolean;
   revoked_at?: string | null;
   revoked_reason?: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
   scopes?: McpRouterApiKeyScope[];
+  // Live auth-gateway additions (some optional, some only on certain endpoints)
+  user_id?: string;
+  access_level?: string;
+  consumer?: string;
+  key_context?: string;
+  permissions?: string[];
+  service?: string;
+  binding?: { client_id?: string } | null;
 }
 
 class ApiClient {
@@ -441,91 +451,131 @@ class ApiClient {
     return this.makeRequest<ApiKeyActivityRecord[]>(`/api-keys/${id}/activity?limit=${limit}`);
   }
 
-  // MCP Router Keys (vx_prod_*) — /api/v1/mcp/api-keys
-  //
-  // Server-side implementation of the @vortex-secure/mcp-sdk contract
-  // (built 2026-08-23, see auth-gateway's mcp-router-keys.routes.ts).
-  // Response bodies are the bare payload (no {success, data} envelope) to
-  // match the published SDK's HTTPAdapter, which reads the parsed JSON body
-  // directly — so these methods bypass makeRequest's ApiResponse<T> typing
-  // (same pattern as makeIntelligenceRequest above) rather than unwrapping
-  // a `.data` field that doesn't exist on these responses.
+  // MCP Router Keys (vx_prod_*) — /api/v1/api-keys/mcp (alias of /api/v1/auth/api-keys/mcp)
+    //
+    // Auth-gateway mounts `api-keys.routes` at /api/v1/auth/api-keys AND /api/v1/api-keys
+    // (the latter is the legacy dashboard compat alias — see auth-gateway/src/index.ts).
+    // There is no /api/v1/mcp/api-keys route. The keys/CRUD endpoints used here line up
+    // with the alias mount:
+    //   GET    /api-keys                  → list
+    //   POST   /api-keys/mcp              → create MCP-flavored key
+    //   GET    /api-keys/:id              → fetch one
+    //   PUT    /api-keys/:id              → update
+    //   DELETE /api-keys/:id              → delete
+    //   POST   /api-keys/:id/revoke       → soft revoke
+    //   POST   /api-keys/:id/rotate       → rotate
+    //   PUT    /api-keys/:id/service-scopes       → upsert a service scope
+    //   DELETE /api-keys/:id/service-scopes/:sid  → remove a service scope
+    //
+    // All responses use the {success, data, message} envelope. Create/rotate also return
+    // the plaintext key in `data.key` (server-generated; returned once).
 
-  async listMcpRouterKeys(): Promise<{ api_keys: McpRouterApiKey[] }> {
-    return this.makeRequest<any>('/mcp/api-keys');
-  }
+    async listMcpRouterKeys(): Promise<{ api_keys: McpRouterApiKey[] }> {
+      const res = await this.makeRequest<any>('/api-keys');
+      return { api_keys: (res && (res.data as McpRouterApiKey[])) || [] };
+    }
 
-  async getMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey }> {
-    return this.makeRequest<any>(`/mcp/api-keys/${id}`);
-  }
+    async getMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey }> {
+      const res = await this.makeRequest<any>(`/api-keys/${encodeURIComponent(id)}`);
+      return { api_key: (res && (res.data as McpRouterApiKey)) || undefined };
+    }
 
-  async createMcpRouterKey(request: {
-    name: string;
-    description?: string;
-    scope_type: 'all' | 'specific';
-    service_keys?: string[];
-    allowed_environments?: string[];
-    rate_limit_per_minute?: number;
-    rate_limit_per_day?: number;
-    allowed_ips?: string[];
-    expires_at?: string;
-  }): Promise<{ api_key: McpRouterApiKey; full_key: string }> {
-    return this.makeRequest<any>('/mcp/api-keys', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  }
-
-  async updateMcpRouterKey(
-    id: string,
-    updates: {
-      name?: string;
+    async createMcpRouterKey(request: {
+      name: string;
       description?: string;
+      scope_type: 'all' | 'specific';
+      service_keys?: string[];
+      allowed_environments?: string[];
       rate_limit_per_minute?: number;
       rate_limit_per_day?: number;
       allowed_ips?: string[];
-      allowed_environments?: string[];
+      expires_at?: string;
+    }): Promise<{ api_key: McpRouterApiKey; full_key: string }> {
+      // Auth-gateway's POST /api-keys/mcp ignores extra shape fields (scope_type,
+      // service_keys, allowed_environments, rate_limit_*); it synthesizes the MCP
+      // shape server-side from the consumer=openclaw default. Only name+description
+      // are material.
+      const res = await this.makeRequest<any>('/api-keys/mcp', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: request.name,
+          description: request.description,
+        }),
+      });
+      const api_key = (res && (res.data as McpRouterApiKey)) || undefined;
+      return { api_key, full_key: api_key?.key || '' };
     }
-  ): Promise<{ api_key: McpRouterApiKey }> {
-    return this.makeRequest<any>(`/mcp/api-keys/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    });
-  }
 
-  async revokeMcpRouterKey(id: string, reason?: string): Promise<{ success: boolean }> {
-    return this.makeRequest<any>(`/mcp/api-keys/${id}/revoke`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    });
-  }
+    async updateMcpRouterKey(
+      id: string,
+      updates: {
+        name?: string;
+        description?: string;
+        rate_limit_per_minute?: number;
+        rate_limit_per_day?: number;
+        allowed_ips?: string[];
+        allowed_environments?: string[];
+      }
+    ): Promise<{ api_key: McpRouterApiKey }> {
+      const res = await this.makeRequest<any>(`/api-keys/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+      return { api_key: (res && (res.data as McpRouterApiKey)) || undefined };
+    }
 
-  async reactivateMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey }> {
-    return this.makeRequest<any>(`/mcp/api-keys/${id}/reactivate`, { method: 'POST' });
-  }
+    async revokeMcpRouterKey(id: string, reason?: string): Promise<{ success: boolean }> {
+      const res = await this.makeRequest<any>(`/api-keys/${encodeURIComponent(id)}/revoke`, {
+        method: 'POST',
+        body: JSON.stringify(reason ? { reason } : {}),
+      });
+      return { success: !!(res && res.success) };
+    }
 
-  async deleteMcpRouterKey(id: string): Promise<{ success: boolean }> {
-    return this.makeRequest<any>(`/mcp/api-keys/${id}`, { method: 'DELETE' });
-  }
+    async reactivateMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey }> {
+      // Auth-gateway has no dedicated reactivate endpoint; toggling is_active is
+      // done via PUT /api-keys/:id. Clients that need a clean reactivate should
+      // call updateMcpRouterKey(id, { is_active: true }) directly.
+      const res = await this.makeRequest<any>(`/api-keys/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: true }),
+      });
+      return { api_key: (res && (res.data as McpRouterApiKey)) || undefined };
+    }
 
-  async rotateMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey; full_key: string }> {
-    return this.makeRequest<any>(`/mcp/api-keys/${id}/rotate`, { method: 'POST' });
-  }
+    async deleteMcpRouterKey(id: string): Promise<{ success: boolean }> {
+      const res = await this.makeRequest<any>(`/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      return { success: !!(res && res.success) };
+    }
 
-  async setMcpRouterKeyScope(
-    id: string,
-    serviceKey: string,
-    rateLimits?: { max_calls_per_minute?: number; max_calls_per_day?: number }
-  ): Promise<{ scope: McpRouterApiKeyScope }> {
-    return this.makeRequest<any>(`/mcp/api-keys/${id}/scopes`, {
-      method: 'POST',
-      body: JSON.stringify({ service_key: serviceKey, ...rateLimits }),
-    });
-  }
+    async rotateMcpRouterKey(id: string): Promise<{ api_key: McpRouterApiKey; full_key: string }> {
+      const res = await this.makeRequest<any>(`/api-keys/${encodeURIComponent(id)}/rotate`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      const api_key = (res && (res.data as McpRouterApiKey)) || undefined;
+      return { api_key, full_key: api_key?.key || '' };
+    }
 
-  async removeMcpRouterKeyScope(id: string, scopeId: string): Promise<{ success: boolean }> {
-    return this.makeRequest<any>(`/mcp/api-keys/${id}/scopes/${scopeId}`, { method: 'DELETE' });
-  }
+    async setMcpRouterKeyScope(
+      id: string,
+      serviceKey: string,
+      rateLimits?: { max_calls_per_minute?: number; max_calls_per_day?: number }
+    ): Promise<{ scope: McpRouterApiKeyScope }> {
+      const res = await this.makeRequest<any>(`/api-keys/${encodeURIComponent(id)}/service-scopes`, {
+        method: 'PUT',
+        body: JSON.stringify({ service_key: serviceKey, ...rateLimits }),
+      });
+      return { scope: (res && (res.data as McpRouterApiKeyScope)) || undefined };
+    }
+
+    async removeMcpRouterKeyScope(id: string, scopeId: string): Promise<{ success: boolean }> {
+      const res = await this.makeRequest<any>(
+        `/api-keys/${encodeURIComponent(id)}/service-scopes/${encodeURIComponent(scopeId)}`,
+        { method: 'DELETE' }
+      );
+      return { success: !!(res && res.success) };
+    }
 
   // Intelligence routing contract (#133):
   // - Dashboard MUST call canonical platform routes: /api/v1/intelligence/*

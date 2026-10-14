@@ -6,8 +6,9 @@
 // password that fell back to a hardcoded string or a localStorage-stored
 // value when unconfigured — not real encryption), against a schema that
 // didn't exist on the live database. It now calls the real server-side
-// endpoint (auth-gateway's /api/v1/mcp/api-keys, matching the
-// @vortex-secure/mcp-sdk contract) via apiClient. The key is generated and
+// endpoint (auth-gateway's /api/v1/api-keys/mcp — the dashboard-compat alias
+// of /api/v1/auth/api-keys/mcp; see apps/dashboard/src/lib/api-client.ts
+// for the live route table) via apiClient. The key is generated and
 // hashed server-side and returned once; nothing decryptable is ever stored.
 
 import { apiClient } from '@/lib/api-client';
