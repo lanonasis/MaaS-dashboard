@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/check-bundle-secrets.mjs --env && vite build && node scripts/check-bundle-secrets.mjs --dist",
     "build:dev": "vite build --mode development",
     "test": "vitest run",
     "lint": "eslint .",
     "preview": "vite preview",
     "i18n:extract": "i18next-parser --config i18next-parser.config.cjs",
-    "auth:diagnostic": "node tools/authDiagnostic.mjs"
+    "auth:diagnostic": "node tools/authDiagnostic.mjs",
+    "check:secrets": "node scripts/check-bundle-secrets.mjs --env && node scripts/check-bundle-secrets.mjs --dist"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

@@ -34,37 +34,24 @@ import type { QueryScopeValue, MemoryTypeValue } from "@lanonasis/mem-intel-sdk"
 
 const DEFAULT_INTEL_API_URL = "https://api.lanonasis.com/api/v1";
 
-const API_KEY_ENV_VARS = [
-  "VITE_MEM_INTEL_API_KEY",
-  "VITE_MEMORY_INTEL_API_KEY",
-  "VITE_MEM_INTEL_SDK_KEY",
-  "VITE_MEMORY_INTELLIGENCE_API_KEY",
-] as const;
+// Each variable is read by name. Reading `import.meta.env` as a whole object
+// makes Vite inline EVERY VITE_* variable from the build environment into the
+// public bundle, which is how a service-role key reached production once.
+const ENV_API_URL_CANDIDATES = [
+  import.meta.env.VITE_MEM_INTEL_API_URL,
+  import.meta.env.VITE_MEMORY_INTEL_API_URL,
+  import.meta.env.VITE_MEM_INTEL_SDK_URL,
+  import.meta.env.VITE_MEMORY_INTELLIGENCE_API_URL,
+  import.meta.env.VITE_MEM_INTEL_URL,
+  import.meta.env.VITE_MEMORY_INTEL_URL,
+] as Array<string | undefined>;
 
-const API_URL_ENV_VARS = [
-  "VITE_MEM_INTEL_API_URL",
-  "VITE_MEMORY_INTEL_API_URL",
-  "VITE_MEM_INTEL_SDK_URL",
-  "VITE_MEMORY_INTELLIGENCE_API_URL",
-  "VITE_MEM_INTEL_URL",
-  "VITE_MEMORY_INTEL_URL",
-] as const;
-
-const getEnvValue = (keys: readonly string[]) => {
-  const env = import.meta.env as Record<string, string | undefined>;
-  for (const key of keys) {
-    const value = env[key];
-    if (value && value.trim()) return value.trim();
-  }
-  return null;
-};
+const firstNonEmpty = (values: Array<string | undefined>) =>
+  values.map((value) => value?.trim()).find((value) => Boolean(value)) || null;
 
 const normalizeApiUrl = (value: string) => value.replace(/\/$/, "");
-const isUsableKey = (value?: string | null) =>
-  Boolean(value && value.startsWith("lano_"));
 
-const ENV_API_KEY = getEnvValue(API_KEY_ENV_VARS);
-const ENV_API_URL = getEnvValue(API_URL_ENV_VARS) || DEFAULT_INTEL_API_URL;
+const ENV_API_URL = firstNonEmpty(ENV_API_URL_CANDIDATES) || DEFAULT_INTEL_API_URL;
 
 /* ---- SdkProviderContext (lightweight auth state) ---- */
 interface SdkProviderCtx {
@@ -293,19 +280,19 @@ export function MemoryIntelligenceProvider({
   const { user, session, isLoading: isAuthLoading } = useSupabaseAuth();
   const userId = user?.id || null;
   const authToken = session?.access_token || null;
-  const apiKey = isUsableKey(ENV_API_KEY) ? ENV_API_KEY : null;
+  // The browser authenticates as the signed-in user only. A lano_ key must
+  // never be shipped in the bundle, so there is no API-key fallback here.
   const apiUrl = useMemo(() => normalizeApiUrl(ENV_API_URL), []);
-  const canAuth = Boolean(authToken || apiKey);
+  const canAuth = Boolean(authToken);
   const sdkConfig = useMemo(
     () => ({
       apiUrl,
-      apiKey: apiKey ?? undefined,
       authToken: authToken ?? undefined,
-      authType: (authToken ? "bearer" : apiKey ? "apiKey" : "bearer") as "apiKey" | "bearer",
+      authType: "bearer" as const,
       allowMissingAuth: true,
       responseFormat: "json" as const,
     }),
-    [apiUrl, authToken, apiKey],
+    [apiUrl, authToken],
   );
 
   return (
