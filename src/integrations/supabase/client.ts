@@ -4,7 +4,10 @@ import type { Database } from './types';
 
 // Environment variables - MUST be set correctly
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Prefer the new publishable key (sb_publishable_…); the legacy anon JWT stays
+// as a fallback until the legacy keys are switched off.
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Track configuration state so we can render gracefully even if missing
 export const isSupabaseConfigured = !!SUPABASE_PUBLISHABLE_KEY;
@@ -88,7 +91,7 @@ export const createSupabaseClient = (
     debug.log('Creating Supabase client with:', { url });
 
     if (!key || key === 'public-anon-key-placeholder') {
-      debug.warn('Missing VITE_SUPABASE_ANON_KEY environment variable');
+      debug.warn('Missing VITE_SUPABASE_PUBLISHABLE_KEY (or legacy VITE_SUPABASE_ANON_KEY) environment variable');
     }
 
     supabaseInstance = createClient<Database>(
