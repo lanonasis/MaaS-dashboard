@@ -73,10 +73,23 @@ function walk(dir) {
   return out;
 }
 
+// Values that are public by construction may legitimately appear in the bundle,
+// even when a server-side variable holds the same value (for example the
+// Netlify↔Supabase integration's SUPABASE_ANON_KEY).
+function isPublicValue(value, publicValues) {
+  if (publicValues.has(value)) return true;
+  if (value.startsWith('sb_publishable_')) return true;
+  if (/^eyJ[^.]+\.eyJ[^.]+\.[^.]+$/.test(value)) return ALLOWED_PUBLIC_ROLES.has(jwtRole(value));
+  return false;
+}
+
 function checkDist(distDir) {
+  const publicValues = new Set(
+    Object.entries(process.env).filter(([name, value]) => name.startsWith('VITE_') && value).map(([, value]) => value),
+  );
   const serverSecrets = Object.entries(process.env)
     .filter(([name, value]) => !name.startsWith('VITE_') && SERVER_SECRET_NAME.test(name) && value && value.length >= 20)
-    .map(([name, value]) => [name, value]);
+    .filter(([, value]) => !isPublicValue(value, publicValues));
   const problems = [];
   for (const file of walk(distDir)) {
     const text = readFileSync(file, 'utf8');
