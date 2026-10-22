@@ -121,7 +121,15 @@ export interface APIKey {
   user_id?: string;
 
   // Key identification
-  key_prefix: string;
+  // Key identification
+  //
+  // THE-624: the live auth-gateway list route (mapApiKeyRecord in
+  // services/api-key.service.ts) does NOT return key_prefix — it is not a
+  // column on the api_keys table. This was typed as required, which let the
+  // `as APIKey[]` cast in lib/mcp-router/api-keys.ts hide the mismatch from
+  // the compiler and turned a render into a runtime TypeError. Optional is the
+  // truthful type; consumers must handle absence.
+  key_prefix?: string;
   name: string;
   description?: string;
 
@@ -137,8 +145,12 @@ export interface APIKey {
   allowed_environments: ServiceEnvironment[];
 
   // Rate limiting
-  rate_limit_per_minute: number;
-  rate_limit_per_day: number;
+  //
+  // Same as key_prefix: these are not columns on the live api_keys table and
+  // the gateway never returns them. An unguarded `.toLocaleString()` on the
+  // undefined value was THE-624's page-crash (see pages/APIKeysPage.tsx).
+  rate_limit_per_minute?: number;
+  rate_limit_per_day?: number;
 
   // Security
   allowed_ips?: string[];

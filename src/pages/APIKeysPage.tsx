@@ -62,6 +62,20 @@ const formatDate = (date?: string) => {
   return new Date(date).toLocaleString();
 };
 
+// The auth-gateway's GET /api-keys list route returns the record verbatim via
+// mapApiKeyRecord(), which does NOT synthesise key_prefix or the rate-limit
+// columns (they don't exist on the live api_keys table). The APIKey type
+// declares them as required and APIKeyManager casts with `as APIKey[]`, so
+// TypeScript can't catch the mismatch. Read every one of these defensively —
+// an unguarded `.toLocaleString()` on an absent number threw a TypeError
+// during render, which the ErrorBoundary surfaced as "Something went wrong"
+// on the whole MCP Router Keys page.
+const formatRateLimit = (value?: number | null): string =>
+  typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString() : 'unlimited';
+
+const formatKeyPrefix = (value?: string | null): string =>
+  value && value.length > 0 ? value : 'prefix unavailable';
+
 const formatRelativeTime = (date?: string) => {
   if (!date) return 'Never';
   const now = Date.now();
@@ -423,12 +437,12 @@ export function APIKeysPage() {
 
                       <div className="mt-3 flex items-center space-x-2">
                         <code className="px-2 py-1 bg-muted rounded text-sm font-mono">
-                          {key.key_prefix}...
+                          {formatKeyPrefix(key.key_prefix)}...
                         </code>
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => copyToClipboard(key.key_prefix, key.id)}
+                          onClick={() => void copyToClipboard(key.key_prefix || key.name, key.id)}
                         >
                           {copiedKeyId === key.id ? (
                             <CheckCircle className="h-3 w-3 text-green-600" />
@@ -465,7 +479,7 @@ export function APIKeysPage() {
                         <div>
                           <span className="text-muted-foreground">Rate Limit:</span>
                           <p className="font-medium text-foreground">
-                            {key.rate_limit_per_minute}/min, {key.rate_limit_per_day.toLocaleString()}/day
+                            {formatRateLimit(key.rate_limit_per_minute)}/min, {formatRateLimit(key.rate_limit_per_day)}/day
                           </p>
                         </div>
                         <div>
@@ -818,8 +832,11 @@ function EditAPIKeyModal({
   const { toast } = useToast();
   const [name, setName] = useState(apiKey.name);
   const [description, setDescription] = useState(apiKey.description || '');
-  const [rateLimitMinute, setRateLimitMinute] = useState(apiKey.rate_limit_per_minute);
-  const [rateLimitDay, setRateLimitDay] = useState(apiKey.rate_limit_per_day);
+  // Same defect class as the list view: the live gateway does not return the
+  // rate-limit columns, so these can be undefined. Default them or the
+  // controlled <Input type="number"> gets an undefined value.
+  const [rateLimitMinute, setRateLimitMinute] = useState(apiKey.rate_limit_per_minute ?? 60);
+  const [rateLimitDay, setRateLimitDay] = useState(apiKey.rate_limit_per_day ?? 10000);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
