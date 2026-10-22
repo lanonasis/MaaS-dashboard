@@ -156,16 +156,24 @@ export function APIKeysPage() {
     void refreshPageData();
   }, [refreshPageData]);
 
-  const stats = useMemo(() => ({
-    total: apiKeys.length,
-    active: apiKeys.filter(k => k.is_active).length,
-    revoked: apiKeys.filter(k => !k.is_active).length,
-    expiringSoon: apiKeys.filter(k => {
-      if (!k.expires_at) return false;
-      const expiresIn = new Date(k.expires_at).getTime() - Date.now();
-      return expiresIn > 0 && expiresIn < 7 * 24 * 60 * 60 * 1000;
-    }).length,
-  }), [apiKeys]);
+  const stats = useMemo(() => {
+    try {
+      return {
+        total: apiKeys.length,
+        active: apiKeys.filter(k => k.is_active).length,
+        revoked: apiKeys.filter(k => !k.is_active).length,
+        expiringSoon: apiKeys.filter(k => {
+          if (!k.expires_at) return false;
+          const d = new Date(k.expires_at);
+          if (isNaN(d.getTime())) return false;
+          const expiresIn = d.getTime() - Date.now();
+          return expiresIn > 0 && expiresIn < 7 * 24 * 60 * 60 * 1000;
+        }).length,
+      };
+    } catch {
+      return { total: 0, active: 0, revoked: 0, expiringSoon: 0 };
+    }
+  }, [apiKeys]);
 
   const copyToClipboard = async (text: string, keyId: string) => {
     await navigator.clipboard.writeText(text);
@@ -233,7 +241,11 @@ export function APIKeysPage() {
     setAPIKeys(prev => prev.map(k => (k.id === updated.id ? updated : k)));
   };
 
-  return (
+  // Wrap the entire render in try/catch to prevent ErrorBoundary from catching
+  // and showing "Something went wrong". Any render-time crash falls back to a
+  // graceful empty-state UI.
+  try {
+    return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -243,15 +255,15 @@ export function APIKeysPage() {
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" onClick={() => window.open(import.meta.env.VITE_DOCS_URL || 'https://docs.lanonasis.com', '_blank')}>
+          <Button variant="outline" onClick={() => window.open(import.meta.env.VITE_DOCS_URL || 'https://docs.lanonasis.com', '_blank')} data-testid="mcp-router-docs-button">
             <ExternalLink className="h-4 w-4 mr-2" />
             Documentation
           </Button>
-          <Button variant="outline" onClick={() => void refreshPageData()}>
+          <Button variant="outline" onClick={() => void refreshPageData()} data-testid="mcp-router-refresh-button">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={() => setShowCreateModal(true)} disabled={keysUnavailable}>
+          <Button onClick={() => setShowCreateModal(true)} disabled={keysUnavailable} data-testid="mcp-router-create-key-button">
             <Plus className="h-4 w-4 mr-2" />
             Create API Key
           </Button>
@@ -259,7 +271,7 @@ export function APIKeysPage() {
       </div>
 
       {keysUnavailable && (
-        <Alert>
+        <Alert data-testid="mcp-router-keys-unavailable-alert">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Can't load your keys right now</AlertTitle>
           <AlertDescription>
@@ -395,24 +407,25 @@ export function APIKeysPage() {
         </CardHeader>
         <CardContent>
           {loadingKeys ? (
-            <div className="py-10 text-center text-muted-foreground">Loading API keys...</div>
+            <div className="py-10 text-center text-muted-foreground" data-testid="mcp-router-loading-state">Loading API keys...</div>
           ) : keysUnavailable ? (
-            <div className="py-10 text-center text-muted-foreground">
+            <div className="py-10 text-center text-muted-foreground" data-testid="mcp-router-unavailable-state">
               API key management is not available yet for this environment.
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4" data-testid="mcp-router-keys-list">
               {apiKeys.map((key) => (
                 <div
-                  key={key.id}
+                  key={key.id || `key-${Math.random()}`}
                   className={`p-4 border rounded-lg ${
                     key.is_active ? 'bg-card' : 'bg-muted/50 opacity-75'
                   }`}
+                  data-testid="mcp-router-key-item"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3">
-                        <h3 className="font-semibold text-foreground">{key.name}</h3>
+                        <h3 className="font-semibold text-foreground">{key.name || 'Unnamed Key'}</h3>
                         {key.is_active ? (
                           <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                             Active
@@ -442,7 +455,8 @@ export function APIKeysPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => void copyToClipboard(key.key_prefix || key.name, key.id)}
+                          onClick={() => void copyToClipboard(key.key_prefix || key.name || '', key.id || '')}
+                          data-testid="mcp-router-copy-key-button"
                         >
                           {copiedKeyId === key.id ? (
                             <CheckCircle className="h-3 w-3 text-green-600" />
@@ -455,7 +469,7 @@ export function APIKeysPage() {
                       {key.scope_type === 'specific' && key.scopes && key.scopes.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
                           {key.scopes.map((scope) => (
-                            <Badge key={scope.id} variant="secondary" className="text-xs">
+                            <Badge key={scope.id || scope.service_key} variant="secondary" className="text-xs">
                               {scope.service?.display_name || scope.service_key}
                             </Badge>
                           ))}
@@ -501,7 +515,7 @@ export function APIKeysPage() {
                     </div>
 
                     <div className="flex items-center space-x-2 ml-4">
-                      <Button size="sm" variant="outline" onClick={() => setSelectedKey(key)}>
+                      <Button size="sm" variant="outline" onClick={() => setSelectedKey(key)} data-testid="mcp-router-edit-key-button">
                         <Settings className="h-4 w-4" />
                       </Button>
                       {key.is_active ? (
@@ -510,6 +524,7 @@ export function APIKeysPage() {
                           variant="outline"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
                           onClick={() => void handleRevokeKey(key.id)}
+                          data-testid="mcp-router-revoke-key-button"
                         >
                           <XCircle className="h-4 w-4" />
                         </Button>
@@ -520,6 +535,7 @@ export function APIKeysPage() {
                             variant="outline"
                             className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
                             onClick={() => void handleReactivateKey(key.id)}
+                            data-testid="mcp-router-reactivate-key-button"
                           >
                             <RefreshCw className="h-4 w-4" />
                           </Button>
@@ -528,6 +544,7 @@ export function APIKeysPage() {
                             variant="outline"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
                             onClick={() => void handleDeleteKey(key.id)}
+                            data-testid="mcp-router-delete-key-button"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -539,13 +556,13 @@ export function APIKeysPage() {
               ))}
 
               {apiKeys.length === 0 && (
-                <div className="text-center py-12">
+                <div className="text-center py-12" data-testid="mcp-router-no-keys-state">
                   <Key className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-foreground mb-1">No API keys</h3>
                   <p className="text-muted-foreground mb-4">
                     Create your first API key to start using the MCP Router
                   </p>
-                  <Button onClick={() => setShowCreateModal(true)}>
+                  <Button onClick={() => setShowCreateModal(true)} data-testid="mcp-router-create-key-cta">
                     <Plus className="h-4 w-4 mr-2" />
                     Create API Key
                   </Button>
@@ -580,7 +597,32 @@ export function APIKeysPage() {
         />
       )}
     </div>
-  );
+    );
+  } catch (renderError: any) {
+    // Fallback: show a graceful error UI if ANY render-time crash occurs
+    console.error('[APIKeysPage] Render error:', renderError);
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">MCP Router Keys</h1>
+            <p className="text-muted-foreground mt-1">Unable to load page</p>
+          </div>
+          <Button variant="outline" onClick={() => void refreshPageData()} data-testid="mcp-router-retry-button">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Unable to display keys</AlertTitle>
+          <AlertDescription>
+            An error occurred while rendering the key list. Please try refreshing or contact support.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 }
 
 function CreateAPIKeyModal({
