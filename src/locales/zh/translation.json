@@ -16,11 +16,8 @@
     "signup": "注册"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "welcome": "Welcome to LanOnasis",
-    "overview": "Overview",
-    "analytics": "Analytics",
-    "settings": "Settings"
+    "api_title": "API仪表板",
+    "overview": "概述"
   },
   "context": {
     "create": "Create Context",
@@ -77,5 +74,23 @@
     "personal_tools_grounding": "Connect your personal productivity tools to give your concierge more continuity and grounding.",
     "error_title": "Concierge Error",
     "send_message_label": "Send a message to the Continuity Concierge"
+  },
+  "nav": {
+    "home": "首页",
+    "mcp_router": "MCP路由器",
+    "mcp_services": "API服务",
+    "api_keys": "MCP路由器密钥",
+    "mcp_usage": "使用分析",
+    "mcp_tracking": "请求跟踪",
+    "mcp_extensions": "MCP扩展",
+    "ai_workflows": "AI和工作流",
+    "orchestrator": "协调器",
+    "ai_tools": "AI工具",
+    "scheduler": "调度器",
+    "continuity": "连续性",
+    "explorer": "资源管理器",
+    "analytics": "分析",
+    "remove_from_favorites": "从收藏夹中移除{{label}}",
+    "add_to_favorites": "将{{label}}添加到收藏夹"
   }
 }

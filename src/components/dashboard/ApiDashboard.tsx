@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PaymentGateways } from "./api-services/PaymentGateways";
 import { WalletServices } from "./api-services/WalletServices";
@@ -30,11 +31,12 @@ const apiUsageData = [
 export const ApiDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const { profile } = useSupabaseAuth();
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-bold tracking-tight">API Dashboard</h2>
+        <h2 className="text-3xl font-bold tracking-tight">{t('dashboard.api_title')}</h2>
         <p className="text-muted-foreground">
           Manage and integrate with our suite of API services.
         </p>
@@ -68,7 +70,7 @@ export const ApiDashboard = () => {
             scrolls horizontally instead of stacking. */}
         <div className="w-full overflow-x-auto mb-8 pb-1">
           <TabsList className="w-max min-w-full justify-start gap-1">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="overview">{t('dashboard.overview')}</TabsTrigger>
             <TabsTrigger value="payment-gateways">Payments</TabsTrigger>
             <TabsTrigger value="wallet">Wallet</TabsTrigger>
             <TabsTrigger value="verification">Verification</TabsTrigger>

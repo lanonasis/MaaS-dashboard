@@ -6,6 +6,7 @@
 
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,45 +70,45 @@ const MAX_RECENT_PAGES = 3; // Display limit for recent pages
 const NAV_SECTIONS: NavSection[] = [
   {
     id: 'home',
-    title: 'Home',
+    title: 'nav.home',
     icon: Home,
     defaultOpen: true,
     items: [
-      { id: 'overview', label: 'Overview', icon: User, path: '/dashboard', shortcut: 'G H' },
+      { id: 'overview', label: 'dashboard.overview', icon: User, path: '/dashboard', shortcut: 'G H' },
     ],
   },
   {
     id: 'mcp',
-    title: 'MCP Router',
+    title: 'nav.mcp_router',
     icon: Server,
     defaultOpen: true,
     items: [
-      { id: 'mcp-services', label: 'API Services', icon: Box, path: '/dashboard/mcp-services', badge: 'New', shortcut: 'G S' },
-      { id: 'api-keys', label: 'MCP Router Keys', icon: Key, path: '/dashboard/api-keys', shortcut: 'G K' },
-      { id: 'mcp-usage', label: 'Usage Analytics', icon: TrendingUp, path: '/dashboard/mcp-usage' },
-      { id: 'mcp-tracking', label: 'Request Tracking', icon: Activity, path: '/dashboard/mcp-tracking' },
-      { id: 'extensions', label: 'MCP Extensions', icon: Settings, path: '/dashboard/extensions' },
+      { id: 'mcp-services', label: 'nav.mcp_services', icon: Box, path: '/dashboard/mcp-services', badge: 'New', shortcut: 'G S' },
+      { id: 'api-keys', label: 'nav.api_keys', icon: Key, path: '/dashboard/api-keys', shortcut: 'G K' },
+      { id: 'mcp-usage', label: 'nav.mcp_usage', icon: TrendingUp, path: '/dashboard/mcp-usage' },
+      { id: 'mcp-tracking', label: 'nav.mcp_tracking', icon: Activity, path: '/dashboard/mcp-tracking' },
+      { id: 'extensions', label: 'nav.mcp_extensions', icon: Settings, path: '/dashboard/extensions' },
     ],
   },
   {
     id: 'ai',
-    title: 'AI & Workflows',
+    title: 'nav.ai_workflows',
     icon: Workflow,
     defaultOpen: true,
     items: [
-      { id: 'orchestrator', label: 'Orchestrator', icon: Zap, path: '/dashboard/orchestrator', badge: 'New', shortcut: 'G O' },
-      { id: 'ai-tools', label: 'AI Tools', icon: Brain, path: '/dashboard/ai-tools', badge: 'New', shortcut: 'G A' },
-      { id: 'scheduler', label: 'Scheduler', icon: Calendar, path: '/dashboard/scheduler' },
+      { id: 'orchestrator', label: 'nav.orchestrator', icon: Zap, path: '/dashboard/orchestrator', badge: 'New', shortcut: 'G O' },
+      { id: 'ai-tools', label: 'nav.ai_tools', icon: Brain, path: '/dashboard/ai-tools', badge: 'New', shortcut: 'G A' },
+      { id: 'scheduler', label: 'nav.scheduler', icon: Calendar, path: '/dashboard/scheduler' },
     ],
   },
   {
     id: 'context',
-    title: 'Continuity',
+    title: 'nav.continuity',
     icon: Database,
     defaultOpen: false,
     items: [
-      { id: 'context-visualizer', label: 'Explorer', icon: Eye, path: '/dashboard/memory-visualizer', shortcut: 'G C' },
-      { id: 'context-analytics', label: 'Analytics', icon: BarChart3, path: '/dashboard/memory-analytics' },
+      { id: 'context-visualizer', label: 'nav.explorer', icon: Eye, path: '/dashboard/memory-visualizer', shortcut: 'G C' },
+      { id: 'context-analytics', label: 'nav.analytics', icon: BarChart3, path: '/dashboard/memory-analytics' },
     ],
   },
 ];
@@ -142,6 +143,7 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const asideRef = React.useRef<HTMLElement | null>(null);
   const [openSections, setOpenSections] = React.useState<Set<string>>(() => {
     const initial = new Set<string>();
@@ -476,7 +478,7 @@ export function DashboardSidebar({
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="right">
-                        <p>{section.title}</p>
+                      <p>{t(section.title)}</p>
                       </TooltipContent>
                     </Tooltip>
                   ) : (
@@ -492,7 +494,7 @@ export function DashboardSidebar({
                     >
                       <span className="flex items-center gap-2">
                         <SectionIcon className="h-4 w-4" />
-                        {section.title}
+                        {t(section.title)}
                       </span>
                       {isOpen ? (
                         <ChevronDown className="h-4 w-4" />
@@ -527,7 +529,7 @@ export function DashboardSidebar({
                             >
                               <span className="flex items-center gap-2">
                                 <ItemIcon className="h-4 w-4" />
-                                {item.label}
+                                {t(item.label)}
                               </span>
                               <span className="flex items-center gap-1">
                                 {item.shortcut && (
@@ -548,7 +550,7 @@ export function DashboardSidebar({
                                 e.stopPropagation();
                                 toggleFavorite(item.path);
                               }}
-                              aria-label={isFavorite ? `Remove ${item.label} from favorites` : `Add ${item.label} to favorites`}
+                              aria-label={isFavorite ? t('nav.remove_from_favorites', { label: t(item.label) }) : t('nav.add_to_favorites', { label: t(item.label) })}
                               className={cn(
                                 "p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity",
                                 isFavorite

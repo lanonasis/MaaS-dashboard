@@ -16,11 +16,8 @@
     "signup": "新規登録"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "welcome": "Welcome to LanOnasis",
-    "overview": "Overview",
-    "analytics": "Analytics",
-    "settings": "Settings"
+    "api_title": "APIダッシュボード",
+    "overview": "概要"
   },
   "context": {
     "create": "Create Context",
@@ -77,5 +74,23 @@
     "personal_tools_grounding": "Connect your personal productivity tools to give your concierge more continuity and grounding.",
     "error_title": "Concierge Error",
     "send_message_label": "Send a message to the Continuity Concierge"
+  },
+  "nav": {
+    "home": "ホーム",
+    "mcp_router": "MCPルーター",
+    "mcp_services": "APIサービス",
+    "api_keys": "MCPルーターキー",
+    "mcp_usage": "使用アナリティクス",
+    "mcp_tracking": "リクエスト追跡",
+    "mcp_extensions": "MCP拡張",
+    "ai_workflows": "AIとワークフロー",
+    "orchestrator": "オーケストレーター",
+    "ai_tools": "AIツール",
+    "scheduler": "スケジューラ",
+    "continuity": "継続性",
+    "explorer": "エクスプローラ",
+    "analytics": "アナリティクス",
+    "remove_from_favorites": "お気に入りから{{label}}を削除",
+    "add_to_favorites": "お気に入りに{{label}}を追加"
   }
 }
