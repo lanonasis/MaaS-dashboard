@@ -74,7 +74,9 @@ export const CentralAuthProvider = ({
 }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const controllerRef = useRef<AuthApi | null>(null);
+  // State (not a ref) so the provider can expose the controller's methods in
+  // the context value without reading a ref during render.
+  const [controller, setController] = useState<AuthApi | null>(null);
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
 
   // Sync controller state → React state
@@ -143,7 +145,7 @@ export const CentralAuthProvider = ({
       },
       "CentralAuthProvider"
     );
-    controllerRef.current = controller;
+    setController(controller);
 
     // Initial state read-back
     const s = controller.state;
@@ -153,7 +155,7 @@ export const CentralAuthProvider = ({
     setIsLoading(s.isLoading);
 
     return () => {
-      controllerRef.current?.cleanup?.();
+      controller.cleanup?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -331,7 +333,7 @@ export const CentralAuthProvider = ({
         if (!isCurrentAuthGeneration()) return;
 
         // Try sessionStorage first, fallback to localStorage
-        let redirectPath = null;
+        let redirectPath: string | null;
         try {
           redirectPath = sessionStorage.getItem("redirectAfterLogin");
           if (redirectPath) {
@@ -575,9 +577,9 @@ export const CentralAuthProvider = ({
         session,
         isLoading,
         isUsingCentralAuth: false,
-        signIn: controllerRef.current?.signIn,
-        signUp: controllerRef.current?.signUp,
-        signOut: controllerRef.current?.signOut,
+        signIn: controller?.signIn,
+        signUp: controller?.signUp,
+        signOut: controller?.signOut,
         isProcessingCallback,
         handleAuthCallback,
       }}
