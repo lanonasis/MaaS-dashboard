@@ -17,6 +17,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +32,7 @@ import {
   Download,
   CheckSquare,
   Square,
+  Key,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -123,13 +125,18 @@ export const MemoryWorkbench: React.FC = () => {
   const [isBulkTagging, setIsBulkTagging] = useState(false);
   const [showBulkActions, setShowBulkActions] = useState(false);
 
+  // Custom API key states (issue #60: memory edits via apiClient without a Supabase session)
+  const [customApiKey, setCustomApiKey] = useState('');
+  const [useCustomApiKey, setUseCustomApiKey] = useState(false);
+  const hasCustomApiKey = useCustomApiKey && customApiKey.trim().length > 0;
+
   const handleMemorySearch = async () => {
     if (!memorySearchQuery.trim()) return;
     if (authLoading) return;
-    if (!user) {
+    if (!user && !hasCustomApiKey) {
       toast({
         title: 'Authentication required',
-        description: 'Please sign in to search your memories.',
+        description: 'Please sign in or provide a custom API key to search your memories.',
         variant: 'destructive',
       });
       return;
@@ -171,6 +178,8 @@ export const MemoryWorkbench: React.FC = () => {
           query: normalizedQuery,
           limit: 10,
           similarity_threshold: 0.6,
+          // Issue #60: pass the custom API key when active
+          ...(hasCustomApiKey ? { apiKey: customApiKey.trim() } : {}),
         });
 
         if (response.error) {
@@ -187,7 +196,7 @@ export const MemoryWorkbench: React.FC = () => {
         fallbackError = error;
       }
 
-      if (results.length === 0) {
+      if (results.length === 0 && !hasCustomApiKey) {
         try {
           results = await fallbackToSupabase();
           fallbackError = null;
@@ -307,7 +316,7 @@ export const MemoryWorkbench: React.FC = () => {
   const handleBulkTag = async () => {
     if (selectedMemoryIds.size === 0 || !bulkTagInput.trim()) return;
     if (authLoading) return;
-    if (!user) return;
+    if (!user && !hasCustomApiKey) return;
 
     setIsBulkTagging(true);
     try {
@@ -322,11 +331,24 @@ export const MemoryWorkbench: React.FC = () => {
 
         const updatedTags = [...new Set([...(memory.tags || []), ...newTags])];
 
+        // Issue #60: route memory updates through apiClient when a custom API key is active
+        if (hasCustomApiKey) {
+          const response = await apiClient.updateMemory(
+            memoryId,
+            { tags: updatedTags },
+            customApiKey.trim(),
+          );
+          if (response.error) {
+            throw new Error(response.error);
+          }
+          return null;
+        }
+
         return supabase
           .from('memory_entries')
           .update({ tags: updatedTags })
           .eq('id', memoryId)
-          .eq('user_id', user.id);
+          .eq('user_id', user!.id);
       });
 
       await Promise.all(updates);
@@ -393,6 +415,44 @@ export const MemoryWorkbench: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Custom API key access (issue #60) */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Key className="h-5 w-5 text-purple-500" />
+              <CardTitle className="text-base">API Key Access</CardTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="workbench-use-custom-api-key">
+                Use Custom API Key
+              </Label>
+              <Switch
+                id="workbench-use-custom-api-key"
+                checked={useCustomApiKey}
+                onCheckedChange={setUseCustomApiKey}
+              />
+            </div>
+          </div>
+          <CardDescription>
+            Search and edit memories with a LanOnasis API key — no signed-in
+            Supabase session required
+          </CardDescription>
+        </CardHeader>
+        {useCustomApiKey && (
+          <CardContent className="pt-0">
+            <Input
+              id="workbench-custom-api-key"
+              type="password"
+              placeholder="Enter your LanOnasis API key"
+              value={customApiKey}
+              onChange={(event) => setCustomApiKey(event.target.value)}
+              className="font-mono text-sm"
+            />
+          </CardContent>
+        )}
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Collapsible open={showQuickMemory} onOpenChange={setShowQuickMemory}>
           <Card>

@@ -81,7 +81,7 @@ describe('env-var precedence (lines 63, 64)', () => {
       json: () => Promise.resolve({ user: { id: 'u1' } }),
     });
     const client = await freshClient();
-    // @ts-expect-error
+    // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
     const resp = await client.makeAuthenticatedRequest('/v1/auth/verify');
     expect(resp.status).toBe(200);
     const firstCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
@@ -95,7 +95,7 @@ describe('env-var precedence (lines 63, 64)', () => {
       json: () => Promise.resolve({ user: { id: 'u1' } }),
     });
     const client = await freshClient();
-    // @ts-expect-error
+    // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
     await client.makeAuthenticatedRequest('/v1/auth/verify');
     const headers = (
       (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit
@@ -111,7 +111,7 @@ describe('env-var precedence (lines 63, 64)', () => {
       json: () => Promise.resolve({ user: { id: 'u1' } }),
     });
     const client = await freshClient();
-    // @ts-expect-error
+    // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
     await client.makeAuthenticatedRequest('/v1/auth/verify');
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
@@ -138,7 +138,7 @@ describe('header injection (lines 94, 119-124)', () => {
       json: () => Promise.resolve({ user: { id: 'u1' } }),
     });
     const client = await freshClient();
-    // @ts-expect-error
+    // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
     await client.makeAuthenticatedRequest('/v1/auth/verify');
     const headers = (
       (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit
@@ -153,7 +153,7 @@ describe('header injection (lines 94, 119-124)', () => {
       json: () => Promise.resolve({ user: { id: 'u1' } }),
     });
     const client = await freshClient();
-    // @ts-expect-error
+    // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
     await client.makeAuthenticatedRequest('/v1/auth/verify');
     const headers = (
       (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit
@@ -168,7 +168,7 @@ describe('header injection (lines 94, 119-124)', () => {
       json: () => Promise.resolve({ user: { id: 'u1' } }),
     });
     const client = await freshClient();
-    // @ts-expect-error
+    // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
     await client.makeAuthenticatedRequest('/v1/auth/verify');
     const headers = (
       (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit
@@ -183,7 +183,7 @@ describe('header injection (lines 94, 119-124)', () => {
       json: () => Promise.resolve({ user: { id: 'u1' } }),
     });
     const client = await freshClient();
-    // @ts-expect-error
+    // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
     await client.makeAuthenticatedRequest('/v1/auth/verify', {
       headers: { 'X-Custom': 'custom-value' },
     });
@@ -213,8 +213,8 @@ describe('no-token path (lines 99, 112, 113)', () => {
 
   it('throws when no token and no refresh token (line 112, 113)', async () => {
     const client = await freshClient();
-    // @ts-expect-error
     await expect(
+      // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
       client.makeAuthenticatedRequest('/v1/auth/verify'),
     ).rejects.toThrow('No authentication token available');
   });
@@ -260,7 +260,7 @@ describe('401 retry flow (lines 128, 133, 147-150)', () => {
         json: () => Promise.resolve({ user: { id: 'u1' } }),
       });
 
-    // @ts-expect-error
+    // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
     const resp = await client.makeAuthenticatedRequest('/v1/auth/verify');
     expect(resp.status).toBe(200);
     expect(global.fetch).toHaveBeenCalledTimes(3);
@@ -282,8 +282,8 @@ describe('401 retry flow (lines 128, 133, 147-150)', () => {
       })
       .mockRejectedValueOnce(new Error('network error'));
 
-    // @ts-expect-error
     await expect(
+      // @ts-expect-error makeAuthenticatedRequest is private on CentralAuthClient
       client.makeAuthenticatedRequest('/v1/auth/verify'),
     ).rejects.toThrow('Authentication failed - please log in again');
   });

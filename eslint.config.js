@@ -28,7 +28,18 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": [
         "warn",
-        { allowConstantExport: true, allowExportNames: ["useSupabaseAuth"] },
+        // Context hooks are conventionally exported alongside their provider
+        // component; moving them to separate files would force exporting the
+        // contexts and churning every consumer import.
+        {
+          allowConstantExport: true,
+          allowExportNames: [
+            "useCentralAuth",
+            "useMemoryIntelligence",
+            "useSdkProviderContext",
+            "useSupabaseAuth",
+          ],
+        },
       ],
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",

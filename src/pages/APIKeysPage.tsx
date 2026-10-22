@@ -23,6 +23,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { APIKeyManager } from '@/lib/mcp-router/api-keys';
 import { UserServicesManager } from '@/lib/mcp-router/user-services';
 import type { APIKey, ScopeType, CreateAPIKeyRequest, ServiceEnvironment } from '@/types/mcp-router';
@@ -89,6 +90,34 @@ const formatRelativeTime = (date?: string) => {
   return d.toLocaleDateString();
 };
 
+// Fallback rendered by the page-local ErrorBoundary when a render-time crash
+// occurs. Preserves the "Unable to load page" UI the page showed when its
+// render was previously wrapped in try/catch (a try/catch cannot actually
+// catch component render errors, so a real error boundary is required).
+function KeysPageErrorFallback({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">MCP Router Keys</h1>
+          <p className="text-muted-foreground mt-1">Unable to load page</p>
+        </div>
+        <Button variant="outline" onClick={onRetry} data-testid="mcp-router-retry-button">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Unable to display keys</AlertTitle>
+        <AlertDescription>
+          An error occurred while rendering the key list. Please try refreshing or contact support.
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
+
 export function APIKeysPage() {
   const { toast } = useToast();
   const [apiKeys, setAPIKeys] = useState<APIKey[]>([]);
@@ -151,6 +180,15 @@ export function APIKeysPage() {
   const refreshPageData = useCallback(async () => {
     await Promise.all([loadAPIKeys(), loadConfiguredServices()]);
   }, [loadAPIKeys, loadConfiguredServices]);
+
+  // Render-retry counter: bumping it remounts the page-local ErrorBoundary so
+  // the Retry button can recover after a render-time crash — same recovery
+  // behavior the page had when its render was wrapped in try/catch.
+  const [renderRetryKey, setRenderRetryKey] = useState(0);
+  const handleRenderRetry = useCallback(() => {
+    setRenderRetryKey((k) => k + 1);
+    void refreshPageData();
+  }, [refreshPageData]);
 
   useEffect(() => {
     void refreshPageData();
@@ -241,11 +279,17 @@ export function APIKeysPage() {
     setAPIKeys(prev => prev.map(k => (k.id === updated.id ? updated : k)));
   };
 
-  // Wrap the entire render in try/catch to prevent ErrorBoundary from catching
-  // and showing "Something went wrong". Any render-time crash falls back to a
-  // graceful empty-state UI.
-  try {
-    return (
+  // Render-time crashes are handled by a page-local ErrorBoundary with a
+  // graceful "Unable to load page" fallback, instead of the app-level
+  // boundary. (A try/catch around the render — the previous approach — could
+  // not actually catch component render errors, and JSX inside try/catch is
+  // flagged by the react-hooks/error-boundaries rule.)
+  return (
+    <ErrorBoundary
+      key={renderRetryKey}
+      fallback={<KeysPageErrorFallback onRetry={handleRenderRetry} />}
+      onError={(error) => console.error('[APIKeysPage] Render error:', error)}
+    >
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -597,32 +641,8 @@ export function APIKeysPage() {
         />
       )}
     </div>
-    );
-  } catch (renderError: any) {
-    // Fallback: show a graceful error UI if ANY render-time crash occurs
-    console.error('[APIKeysPage] Render error:', renderError);
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">MCP Router Keys</h1>
-            <p className="text-muted-foreground mt-1">Unable to load page</p>
-          </div>
-          <Button variant="outline" onClick={() => void refreshPageData()} data-testid="mcp-router-retry-button">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
-        </div>
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Unable to display keys</AlertTitle>
-          <AlertDescription>
-            An error occurred while rendering the key list. Please try refreshing or contact support.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+    </ErrorBoundary>
+  );
 }
 
 function CreateAPIKeyModal({

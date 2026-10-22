@@ -4,7 +4,7 @@
 //
 // Consumes createAuthController from @/lib/auth/auth-controller for shared auth logic.
 
-import { useState, useEffect, createContext, useContext, useRef } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,7 +46,9 @@ export const SupabaseAuthProvider = ({
 }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const controllerRef = useRef<AuthApi | null>(null);
+  // State (not a ref) so the provider can expose the controller's methods in
+  // the context value without reading a ref during render.
+  const [controller, setController] = useState<AuthApi | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -80,7 +82,7 @@ export const SupabaseAuthProvider = ({
       throwOnAuthError: true,
     }, "SupabaseAuthProvider");
 
-    controllerRef.current = controller;
+    setController(controller);
 
     // Initial state read-back
     const s = controller.state;
@@ -93,7 +95,9 @@ export const SupabaseAuthProvider = ({
     return () => {
       controller.cleanup?.();
     };
-  }, []);
+    // navigate (react-router) and toast (singleton closure) are stable across
+    // renders, so including them does not re-run the init effect.
+  }, [navigate, toast]);
 
   const handleAuthCallback = async () => {
     setIsProcessingCallback(true);
@@ -143,9 +147,9 @@ export const SupabaseAuthProvider = ({
         session,
         isLoading,
         // Controller throws errors directly (throwOnAuthError: true)
-        signIn: controllerRef.current?.signIn,
-        signUp: controllerRef.current?.signUp,
-        signOut: controllerRef.current?.signOut,
+        signIn: controller?.signIn,
+        signUp: controller?.signUp,
+        signOut: controller?.signOut,
         isProcessingCallback,
         handleAuthCallback,
       }}
