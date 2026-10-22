@@ -52,12 +52,39 @@ interface WorkflowRun {
   error_message?: string;
 }
 
+// ─── Local storage key ───────────────────────────────────────────────
+const WORKFLOW_STORE_KEY = 'lanonasis.dashboard.orchestrator.workflows';
+
+const loadWorkflowsFromStorage = (): WorkflowRun[] => {
+  try {
+    const raw = localStorage.getItem(WORKFLOW_STORE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as WorkflowRun[];
+  } catch {
+    return [];
+  }
+};
+
+const saveWorkflowsToStorage = (list: WorkflowRun[]): void => {
+  try {
+    localStorage.setItem(WORKFLOW_STORE_KEY, JSON.stringify(list));
+  } catch {
+    /* storage full or disabled — silent ignore */
+  }
+};
+
 export const WorkflowOrchestrator: React.FC = () => {
   const [request, setRequest] = useState('');
-  const [workflows, setWorkflows] = useState<WorkflowRun[]>([]);
+  // Seed from localStorage so history survives even when the backend is down
+  const [workflows, setWorkflows] = useState<WorkflowRun[]>(loadWorkflowsFromStorage);
   const [isExecuting, setIsExecuting] = useState(false);
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
+
+  // Persist workflows to localStorage so they survive even when the backend is down
+  useEffect(() => {
+    saveWorkflowsToStorage(workflows);
+  }, [workflows]);
 
   // Fetch workflow history on mount
   useEffect(() => {

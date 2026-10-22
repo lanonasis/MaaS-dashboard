@@ -16,11 +16,8 @@
     "signup": "إنشاء حساب"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "welcome": "Welcome to LanOnasis",
-    "overview": "Overview",
-    "analytics": "Analytics",
-    "settings": "Settings"
+    "api_title": "لوحة تحكم API",
+    "overview": "نظرة عامة"
   },
   "context": {
     "create": "Create Context",
@@ -77,5 +74,23 @@
     "personal_tools_grounding": "Connect your personal productivity tools to give your concierge more continuity and grounding.",
     "error_title": "Concierge Error",
     "send_message_label": "Send a message to the Continuity Concierge"
+  },
+  "nav": {
+    "home": "الرئيسية",
+    "mcp_router": "موجه MCP",
+    "mcp_services": "خدمات API",
+    "api_keys": "مفاتيح موجه MCP",
+    "mcp_usage": "تحليلات الاستخدام",
+    "mcp_tracking": "تتبع الطلبات",
+    "mcp_extensions": "ملحقات MCP",
+    "ai_workflows": "الذكاء الاصطناعي وسير العمل",
+    "orchestrator": "المُرشد",
+    "ai_tools": "أدوات الذكاء الاصطناعي",
+    "scheduler": "المجدول",
+    "continuity": "الاستمرارية",
+    "explorer": "المتصفح",
+    "analytics": "التحليلات",
+    "remove_from_favorites": "إزالة {{label}} من المفضلة",
+    "add_to_favorites": "إضافة {{label}} إلى المفضلة"
   }
 }

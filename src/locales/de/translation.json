@@ -16,11 +16,8 @@
     "signup": "Registrieren"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "welcome": "Welcome to LanOnasis",
-    "overview": "Overview",
-    "analytics": "Analytics",
-    "settings": "Settings"
+    "api_title": "API-Dashboard",
+    "overview": "Übersicht"
   },
   "context": {
     "create": "Create Context",
@@ -77,5 +74,23 @@
     "personal_tools_grounding": "Connect your personal productivity tools to give your concierge more continuity and grounding.",
     "error_title": "Concierge Error",
     "send_message_label": "Send a message to the Continuity Concierge"
+  },
+  "nav": {
+    "home": "Startseite",
+    "mcp_router": "MCP-Router",
+    "mcp_services": "API-Dienste",
+    "api_keys": "MCP-Router-Schlüssel",
+    "mcp_usage": "Nutzungsanalyse",
+    "mcp_tracking": "Anfragenverfolgung",
+    "mcp_extensions": "MCP-Erweiterungen",
+    "ai_workflows": "KI & Workflows",
+    "orchestrator": "Orchestrator",
+    "ai_tools": "KI-Tools",
+    "scheduler": "Zeitplaner",
+    "continuity": "Kontinuität",
+    "explorer": "Explorer",
+    "analytics": "Analytik",
+    "remove_from_favorites": "{{label}} aus Favoriten entfernen",
+    "add_to_favorites": "{{label}} zu Favoriten hinzufügen"
   }
 }

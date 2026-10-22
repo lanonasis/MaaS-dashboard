@@ -16,11 +16,8 @@
     "signup": "회원가입"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "welcome": "Welcome to LanOnasis",
-    "overview": "Overview",
-    "analytics": "Analytics",
-    "settings": "Settings"
+    "api_title": "API 대시보드",
+    "overview": "개요"
   },
   "context": {
     "create": "Create Context",
@@ -77,5 +74,23 @@
     "personal_tools_grounding": "Connect your personal productivity tools to give your concierge more continuity and grounding.",
     "error_title": "Concierge Error",
     "send_message_label": "Send a message to the Continuity Concierge"
+  },
+  "nav": {
+    "home": "홈",
+    "mcp_router": "MCP 라우터",
+    "mcp_services": "API 서비스",
+    "api_keys": "MCP 라우터 키",
+    "mcp_usage": "사용 분석",
+    "mcp_tracking": "요청 추적",
+    "mcp_extensions": "MCP 확장",
+    "ai_workflows": "AI 및 워크플로우",
+    "orchestrator": "오케스트레이터",
+    "ai_tools": "AI 도구",
+    "scheduler": "스케줄러",
+    "continuity": "지속성",
+    "explorer": "탐색기",
+    "analytics": "분석",
+    "remove_from_favorites": "즐겨찾기에서 {{label}} 제거",
+    "add_to_favorites": "즐겨찾기에 {{label}} 추가"
   }
 }

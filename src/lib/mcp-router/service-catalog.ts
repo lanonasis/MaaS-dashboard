@@ -275,7 +275,22 @@ export class ServiceCatalogManager {
   }
 
   // Helper: Map database row to typed object
-  private static mapServiceFromDB(row: any): MCPServiceCatalog {
+      private static mapServiceFromDB(row: any): MCPServiceCatalog {
+    // THE-655: The GitHub service record in the DB has only a PAT credential
+    // field and no oauth_url, so the ServiceConfigureModal's OAuth section
+    // (rendered when service.oauth_url is truthy) never appears. Inject OAuth
+    // config for known OAuth-capable services as a code-level fallback so the
+    // "Authorize" button shows without requiring a DB migration. auth_type
+    // 'both' keeps the manual PAT path available alongside OAuth.
+    const oauthFallback: Record<string, { oauth_url: string; auth_type: 'api_key' | 'oauth' | 'both' }> = {
+      github: {
+        oauth_url: 'https://github.com/login/oauth/authorize',
+        auth_type: 'both',
+      },
+    };
+    const oauth = oauthFallback[row.service_key];
+    const hasOAuth = Boolean(row.oauth_url) || Boolean(oauth);
+
     return {
       id: row.id,
       service_key: row.service_key,
@@ -287,6 +302,8 @@ export class ServiceCatalogManager {
       mcp_command: row.mcp_command,
       mcp_args: row.mcp_args || [],
       mcp_env_mapping: row.mcp_env_mapping || {},
+      oauth_url: row.oauth_url || oauth?.oauth_url,
+      auth_type: row.auth_type || oauth?.auth_type || (hasOAuth ? 'both' : undefined),
       documentation_url: row.documentation_url,
       base_url: row.base_url,
       health_check_endpoint: row.health_check_endpoint,
@@ -298,7 +315,6 @@ export class ServiceCatalogManager {
     };
   }
 
-  // Helper: Map typed object to database row
   private static mapServiceToDB(
     service: Partial<MCPServiceCatalog>
   ): Record<string, any> {

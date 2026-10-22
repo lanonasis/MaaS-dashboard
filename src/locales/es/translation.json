@@ -16,11 +16,8 @@
     }
   },
   "dashboard": {
-    "title": "Panel de Control",
-    "welcome": "Bienvenido a LanOnasis",
-    "overview": "Resumen",
-    "analytics": "Analíticas",
-    "settings": "Configuración"
+    "api_title": "Panel de Control de API",
+    "overview": "Resumen"
   },
   "context": {
     "create": "Crear Contexto",
@@ -62,5 +59,23 @@
     "success": "Éxito",
     "error": "Error",
     "noData": "No hay datos disponibles"
+  },
+  "nav": {
+    "home": "Inicio",
+    "mcp_router": "Enrutador MCP",
+    "mcp_services": "Servicios API",
+    "api_keys": "Claves del Enrutador MCP",
+    "mcp_usage": "Analíticas de Uso",
+    "mcp_tracking": "Seguimiento de Solicitudes",
+    "mcp_extensions": "Extensiones MCP",
+    "ai_workflows": "IA y Flujos de Trabajo",
+    "orchestrator": "Orquestador",
+    "ai_tools": "Herramientas IA",
+    "scheduler": "Programador",
+    "continuity": "Continuidad",
+    "explorer": "Explorador",
+    "analytics": "Analíticas",
+    "remove_from_favorites": "Quitar {{label}} de favoritos",
+    "add_to_favorites": "Añadir {{label}} a favoritos"
   }
 }

@@ -16,11 +16,8 @@
     "signup": "Регистрация"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "welcome": "Welcome to LanOnasis",
-    "overview": "Overview",
-    "analytics": "Analytics",
-    "settings": "Settings"
+    "api_title": "Панель API",
+    "overview": "Обзор"
   },
   "context": {
     "create": "Create Context",
@@ -77,5 +74,23 @@
     "personal_tools_grounding": "Connect your personal productivity tools to give your concierge more continuity and grounding.",
     "error_title": "Concierge Error",
     "send_message_label": "Send a message to the Continuity Concierge"
+  },
+  "nav": {
+    "home": "Главная",
+    "mcp_router": "Маршрутизатор MCP",
+    "mcp_services": "API-сервисы",
+    "api_keys": "Ключи маршрутизатора MCP",
+    "mcp_usage": "Аналитика использования",
+    "mcp_tracking": "Отслеживание запросов",
+    "mcp_extensions": "Расширения MCP",
+    "ai_workflows": "ИИ и рабочие процессы",
+    "orchestrator": "Оркестратор",
+    "ai_tools": "Инструменты ИИ",
+    "scheduler": "Планировщик",
+    "continuity": "Непрерывность",
+    "explorer": "Проводник",
+    "analytics": "Аналитика",
+    "remove_from_favorites": "Удалить {{label}} из избранного",
+    "add_to_favorites": "Добавить {{label}} в избранное"
   }
 }
