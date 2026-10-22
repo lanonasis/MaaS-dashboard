@@ -236,15 +236,52 @@ describe('ServiceCatalogManager', () => {
     });
 
     it('returns null when service not found', async () => {
-      mockSupabaseQuery.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116', message: 'Not found' },
-      });
+          mockSupabaseQuery.mockResolvedValue({
+            data: null,
+            error: { code: 'PGRST116', message: 'Not found' },
+          });
 
-      const service = await ServiceCatalogManager.getServiceByKey('nonexistent');
+          const service = await ServiceCatalogManager.getServiceByKey('nonexistent');
 
-      expect(service).toBeNull();
-    });
+          expect(service).toBeNull();
+        });
+
+        it('injects OAuth config for GitHub when the DB row lacks oauth_url (THE-655)', async () => {
+          // Simulate the live DB row: GitHub has only a PAT credential field and
+          // no oauth_url / auth_type columns populated.
+          const dbRow = createMockService({
+            oauth_url: undefined,
+            auth_type: undefined,
+          });
+
+          mockSupabaseQuery.mockResolvedValue({
+            data: dbRow,
+            error: null,
+          });
+
+          const service = await ServiceCatalogManager.getServiceByKey('github');
+
+          expect(service).not.toBeNull();
+          expect(service?.oauth_url).toBe('https://github.com/login/oauth/authorize');
+          expect(service?.auth_type).toBe('both');
+        });
+
+        it('preserves a DB-provided oauth_url over the fallback', async () => {
+          const dbRow = createMockService({
+            oauth_url: 'https://custom.example.com/authorize',
+            auth_type: 'oauth',
+          });
+
+          mockSupabaseQuery.mockResolvedValue({
+            data: dbRow,
+            error: null,
+          });
+
+          const service = await ServiceCatalogManager.getServiceByKey('github');
+
+          expect(service?.oauth_url).toBe('https://custom.example.com/authorize');
+          expect(service?.auth_type).toBe('oauth');
+        });
 
     it('throws on other errors', async () => {
       mockSupabaseQuery.mockResolvedValue({
