@@ -1,0 +1,4 @@
+# Require security changes to be reviewed by a repository administrator.
+/.github/CODEOWNERS @thefixer3x
+/.github/workflows/gitleaks.yml @thefixer3x
+/.gitleaks.toml @thefixer3x
