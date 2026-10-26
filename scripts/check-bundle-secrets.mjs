@@ -14,6 +14,7 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { loadEnv } from 'vite';
 
 const SECRET_NAME = /(SERVICE_ROLE|SECRET|PRIVATE|PASSWORD|JWT|ENCRYPTION|DATABASE_URL)/i;
 const SERVER_SECRET_NAME = /(KEY|SECRET|TOKEN|PASSWORD|PRIVATE|DATABASE_URL)/i;
@@ -52,9 +53,20 @@ function findCredentials(text) {
   return [...new Set(hits)];
 }
 
-function checkEnv() {
+// What Vite will actually inline: `loadEnv` applies Vite's own resolution for
+// the active mode — .env, .env.local, .env.<mode>, .env.<mode>.local — and
+// merges in prefixed process.env entries. Reading process.env alone missed
+// every VITE_* defined in a file, and those files are gitignored, so a secret
+// named in a local .env.production passed this gate and still reached the
+// bundle. Server-side names are deliberately not loaded here: they carry no
+// VITE_ prefix, are not inlined, and checkDist reads them from process.env.
+function viteEnv(mode) {
+  return loadEnv(mode, process.cwd(), 'VITE_');
+}
+
+function checkEnv(mode) {
   const problems = [];
-  for (const [name, value] of Object.entries(process.env)) {
+  for (const [name, value] of Object.entries(viteEnv(mode))) {
     if (!name.startsWith('VITE_') || !value) continue;
     if (SECRET_NAME.test(name)) problems.push(`${name}: name marks it as a secret, but VITE_* is public`);
     const hits = findCredentials(value);
@@ -83,9 +95,12 @@ function isPublicValue(value, publicValues) {
   return false;
 }
 
-function checkDist(distDir) {
+function checkDist(distDir, mode) {
+  // Same resolution as the --env pass, so a value that is public by
+  // construction is still recognised when it is defined in a file rather than
+  // exported into the environment.
   const publicValues = new Set(
-    Object.entries(process.env).filter(([name, value]) => name.startsWith('VITE_') && value).map(([, value]) => value),
+    Object.entries(viteEnv(mode)).filter(([name, value]) => name.startsWith('VITE_') && value).map(([, value]) => value),
   );
   const serverSecrets = Object.entries(process.env)
     .filter(([name, value]) => !name.startsWith('VITE_') && SERVER_SECRET_NAME.test(name) && value && value.length >= 20)
@@ -102,19 +117,31 @@ function checkDist(distDir) {
   return problems;
 }
 
-const mode = process.argv[2];
+const args = process.argv.slice(2);
+const check = args[0];
+// `vite build` defaults to production; match it, and let --mode override for a
+// non-default build so the gate reads the same files that build will.
+const modeFlag = args.indexOf('--mode');
+const buildMode =
+  (modeFlag === -1 ? undefined : args[modeFlag + 1]) ||
+  process.env.MODE ||
+  process.env.NODE_ENV ||
+  'production';
+const positional =
+  modeFlag === -1 ? args.slice(1) : [...args.slice(1, modeFlag), ...args.slice(modeFlag + 2)];
+
 let problems;
-if (mode === '--env') problems = checkEnv();
-else if (mode === '--dist') problems = checkDist(process.argv[3] ?? 'dist');
+if (check === '--env') problems = checkEnv(buildMode);
+else if (check === '--dist') problems = checkDist(positional[0] ?? 'dist', buildMode);
 else {
-  console.error('usage: check-bundle-secrets.mjs --env | --dist [dir]');
+  console.error('usage: check-bundle-secrets.mjs --env | --dist [dir] [--mode <mode>]');
   process.exit(2);
 }
 
 if (problems.length) {
-  console.error(`\n✖ Secret check (${mode}) failed — the public bundle must not carry secrets:`);
+  console.error(`\n✖ Secret check (${check}) failed — the public bundle must not carry secrets:`);
   for (const p of problems) console.error(`  - ${p}`);
   console.error('\nMove the value to a server-side variable (no VITE_ prefix) or remove it.\n');
   process.exit(1);
 }
-console.log(`✓ Secret check (${mode}) passed`);
+console.log(`✓ Secret check (${check}) passed`);
