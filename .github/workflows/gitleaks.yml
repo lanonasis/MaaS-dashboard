@@ -50,17 +50,27 @@ jobs:
           PUSH_AFTER: ${{ github.sha }}
         run: |
           set -euo pipefail
+          if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
+            echo "::error::A complete checkout is required to scan all added history."
+            exit 1
+          fi
           if [ "$EVENT_NAME" = "pull_request" ]; then
             RANGE="${PR_BASE_SHA}..${PR_HEAD_SHA}"
           elif [ -n "${PUSH_BEFORE:-}" ] && ! echo "$PUSH_BEFORE" | grep -qE '^0+$' \
                && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
             RANGE="${PUSH_BEFORE}..${PUSH_AFTER}"
           else
-            RANGE="${PUSH_AFTER}~1..${PUSH_AFTER}"
+            # No usable base: include every commit reachable from the push tip,
+            # including the root and secrets removed before the final commit.
+            RANGE="${PUSH_AFTER}"
+          fi
+          if ! git rev-list --objects "${RANGE}" > /dev/null; then
+            echo "::error::Unable to resolve the complete scan history."
+            exit 1
           fi
           echo "Scanning commits in ${RANGE}"
           "$RUNNER_TEMP/gitleaks" git . \
-            --log-opts="${RANGE}" \
+            --log-opts="--full-history --root ${RANGE}" \
             --config .gitleaks.toml \
             --redact \
             --no-banner \

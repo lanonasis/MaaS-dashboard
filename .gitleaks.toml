@@ -17,11 +17,14 @@ description = "Lanonasis API key (lano_...)"
 regex = '''\blano_[A-Za-z0-9_-]{24,}'''
 keywords = ["lano_"]
 
-# Allowlist: ONLY known test fixtures whose values were checked to be fake
-# (placeholder strings such as test-*, pk_test_*, sk-test-*, 1234abcd...).
+# Allowlist: ONLY these exact fake values in the two test fixture files.
 # Do not add documentation, scripts, or .env files here; fix them instead.
 [[allowlists]]
 description = "Known fake test fixtures"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^(lano_test_secret123|lano_testkey123)$''']
 paths = [
   '''^src/__tests__/api-client\.test\.ts$''',
   '''^src/components/dashboard/__tests__/ApiKeyManager\.test\.tsx$''',
