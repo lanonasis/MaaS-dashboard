@@ -402,6 +402,46 @@ describe("ApiKeyManager", () => {
       });
     });
 
+    it("shows the last 5 characters when the gateway returns them, and nothing for older keys", async () => {
+      const mockKeys = [
+        {
+          id: "key-1",
+          name: "Hinted Key",
+          service: "all",
+          key_last5: "ab12c",
+          created_at: "2024-01-01T00:00:00Z",
+          expires_at: null,
+          is_active: true,
+        },
+        {
+          id: "key-2",
+          name: "Older Key",
+          service: "all",
+          key_last5: null,
+          created_at: "2024-01-02T00:00:00Z",
+          expires_at: null,
+          is_active: true,
+        },
+      ];
+
+      mockGetApiKeys.mockResolvedValue({ data: mockKeys });
+
+      const user = userEvent.setup();
+
+      render(<ApiKeyManager />);
+
+      await user.click(
+        screen.getByRole("button", { name: /memory api keys/i })
+      );
+      await user.click(screen.getByRole("tab", { name: /your keys/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("lano_…ab12c")).toBeInTheDocument();
+      });
+      // Only the key that carries a hint renders one.
+      expect(screen.getAllByTestId("api-key-hint")).toHaveLength(1);
+    });
+
     it("displays service type correctly for keys", async () => {
       const mockKeys = [
         {

@@ -48,6 +48,9 @@ interface ApiKey {
   id: string;
   // key is only shown immediately after creation; not stored in DB
   key?: string;
+  // Last 5 characters of the raw key, captured by the gateway at create/rotate.
+  // Display hint only — null for keys created before the column existed.
+  key_last5?: string | null;
   // Service scoping: 'all' or 'specific'
   service?: string;
   // Memory context: personal (user_id-isolated), team, enterprise
@@ -818,6 +821,14 @@ export const ApiKeyManager = () => {
                           <div className="flex items-center gap-1">
                             <Shield className="h-3 w-3" />
                             <span className="text-foreground/80">ID: {key.id.substring(0, 8)}...</span>
+                            {key.key_last5 && (
+                              <span
+                                className="text-foreground/80 font-mono"
+                                data-testid="api-key-hint"
+                              >
+                                lano_…{key.key_last5}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
