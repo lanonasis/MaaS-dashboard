@@ -74,6 +74,8 @@ interface ApiKey {
   name: string;
   key?: string;
   key_preview?: string;
+  // Last 5 characters of the raw key, set by the gateway at create/rotate.
+  key_last5?: string | null;
   permissions: string[];
   service?: string;
   key_context?: 'personal' | 'team' | 'enterprise' | null;
