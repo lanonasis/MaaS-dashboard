@@ -15,7 +15,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const SECRET_NAME = /(SERVICE_ROLE|SECRET|PRIVATE|PASSWORD|JWT|DATABASE_URL)/i;
+const SECRET_NAME = /(SERVICE_ROLE|SECRET|PRIVATE|PASSWORD|JWT|ENCRYPTION|DATABASE_URL)/i;
 const SERVER_SECRET_NAME = /(KEY|SECRET|TOKEN|PASSWORD|PRIVATE|DATABASE_URL)/i;
 const ALLOWED_PUBLIC_ROLES = new Set(['anon', 'authenticated']);
 

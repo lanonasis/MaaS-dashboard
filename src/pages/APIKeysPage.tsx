@@ -36,15 +36,9 @@ type ConfiguredServiceOption = {
 
 const MASTER_PASSWORD_STORAGE_KEY = 'dashboard.mcp_router.master_password';
 
+// Per-browser only. Never read this from a VITE_* variable: those are inlined
+// into the public bundle, so every visitor would share one password.
 const getMCPRouterMasterPassword = (): string => {
-  const envPassword =
-    import.meta.env.VITE_MCP_ROUTER_MASTER_PASSWORD ||
-    import.meta.env.VITE_API_KEY_ENCRYPTION_KEY;
-
-  if (typeof envPassword === 'string' && envPassword.trim().length > 0) {
-    return envPassword;
-  }
-
   const existing = window.localStorage.getItem(MASTER_PASSWORD_STORAGE_KEY);
   if (existing) {
     return existing;
